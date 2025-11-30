@@ -27,7 +27,7 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/market-intelligence" component={MarketExplorer} />
           <Route path="/investment-opportunities" component={OpportunityScreener} />
-          <Route path="/properties/:id" component={PropertyDetail} />
+          <Route path="/properties/:slug" component={PropertyDetail} />
           <Route path="/saved-properties" component={Watchlists} />
           <Route path="/admin-console" component={AdminConsole} />
         </>

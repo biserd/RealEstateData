@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Bed, Bath, Square, MapPin, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
+import { getPropertyUrl } from "@/lib/propertySlug";
 import type { Property } from "@shared/schema";
 
 interface PropertyMapProps {
@@ -258,7 +259,7 @@ export function PropertyMap({
                   </span>
                 )}
               </div>
-              <Link href={`/properties/${selectedProperty.id}`}>
+              <Link href={getPropertyUrl(selectedProperty)}>
                 <Button size="sm" className="w-full text-xs">
                   View Details
                   <ExternalLink className="ml-1 h-3 w-3" />

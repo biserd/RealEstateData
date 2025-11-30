@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getPropertyUrl } from "@/lib/propertySlug";
 import type { Property, ConfidenceLevel } from "@shared/schema";
 
 interface PropertyCardProps {
@@ -104,7 +105,7 @@ export function PropertyCard({
       </div>
 
       <CardContent className="p-4">
-        <Link href={`/properties/${property.id}`}>
+        <Link href={getPropertyUrl(property)}>
           <div className="space-y-3">
             <div>
               <p className="text-2xl font-bold" data-testid={`text-price-${property.id}`}>

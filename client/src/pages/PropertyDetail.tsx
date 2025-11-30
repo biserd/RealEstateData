@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { extractPropertyIdFromSlug } from "@/lib/propertySlug";
 import { 
   ArrowLeft, 
   Heart, 
@@ -47,13 +48,19 @@ interface CompWithProperty extends Comp {
 }
 
 export default function PropertyDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
+  
+  const id = useMemo(() => {
+    if (!slug) return undefined;
+    return extractPropertyIdFromSlug(slug);
+  }, [slug]);
 
   const { data: property, isLoading } = useQuery<PropertyWithDetails>({
     queryKey: ["/api/properties", id],
+    enabled: !!id,
   });
 
   const { data: comps } = useQuery<CompWithProperty[]>({
@@ -238,7 +245,7 @@ export default function PropertyDetail() {
 
       <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
         <div className="mb-6">
-          <Link href="/screener">
+          <Link href="/investment-opportunities">
             <Button variant="ghost" className="gap-2" data-testid="button-back">
               <ArrowLeft className="h-4 w-4" />
               Back to Screener
