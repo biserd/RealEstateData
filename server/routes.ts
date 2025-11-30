@@ -63,6 +63,24 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/properties/area", isAuthenticated, async (req, res) => {
+    try {
+      const { geoType, geoId, limit } = req.query;
+      if (!geoType || !geoId) {
+        return res.status(400).json({ message: "geoType and geoId are required" });
+      }
+      const properties = await storage.getPropertiesByArea(
+        geoType as string,
+        geoId as string,
+        parseInt(limit as string) || 50
+      );
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching area properties:", error);
+      res.status(500).json({ message: "Failed to fetch properties for area" });
+    }
+  });
+
   app.get("/api/properties/:id", isAuthenticated, async (req, res) => {
     try {
       const property = await storage.getProperty(req.params.id);

@@ -53,7 +53,7 @@ export function PropertyMap({
   onPropertySelect,
   selectedPropertyId,
 }: PropertyMapProps) {
-  const { isLoaded, loadError } = useMap();
+  const { isLoaded, loadError, hasApiKey, authError } = useMap();
   const mapRef = useRef<google.maps.Map | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -167,12 +167,29 @@ export function PropertyMap({
     return "text-red-600";
   };
 
-  if (loadError) {
+  if (!hasApiKey) {
+    return (
+      <Card className="flex items-center justify-center" style={{ height }}>
+        <CardContent className="text-center p-6">
+          <MapPin className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mb-2">Map not available</p>
+          <p className="text-xs text-muted-foreground">Google Maps API key not configured</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError || authError) {
     return (
       <Card className="flex items-center justify-center" style={{ height }}>
         <CardContent className="text-center p-6">
           <MapPin className="mx-auto mb-2 h-8 w-8 text-destructive" />
-          <p className="text-sm text-muted-foreground">Failed to load map</p>
+          <p className="text-sm text-muted-foreground mb-2">
+            {authError ? "Map authentication failed" : "Failed to load map"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Please check Google Maps API configuration in Google Cloud Console
+          </p>
         </CardContent>
       </Card>
     );

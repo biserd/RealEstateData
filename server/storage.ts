@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, inArray, sql, or, ilike } from "drizzle-orm";
+import { eq, and, desc, gte, lte, inArray, sql, or, ilike, isNotNull } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -48,6 +48,7 @@ export interface IStorage {
   // Property operations
   getProperty(id: string): Promise<Property | undefined>;
   getProperties(filters: ScreenerFilters, limit?: number, offset?: number): Promise<Property[]>;
+  getPropertiesByArea(geoType: string, geoId: string, limit?: number): Promise<Property[]>;
   getTopOpportunities(limit?: number): Promise<Property[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property | undefined>;
@@ -200,6 +201,34 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(properties.opportunityScore))
       .limit(limit)
       .offset(offset);
+  }
+
+  async getPropertiesByArea(geoType: string, geoId: string, limit = 50): Promise<Property[]> {
+    let condition;
+    
+    switch (geoType.toLowerCase()) {
+      case "zip":
+        condition = eq(properties.zipCode, geoId);
+        break;
+      case "city":
+        condition = eq(properties.city, geoId);
+        break;
+      case "state":
+        condition = eq(properties.state, geoId);
+        break;
+      case "neighborhood":
+        condition = eq(properties.neighborhood, geoId);
+        break;
+      default:
+        return [];
+    }
+
+    return await db
+      .select()
+      .from(properties)
+      .where(and(condition, isNotNull(properties.latitude), isNotNull(properties.longitude)))
+      .orderBy(desc(properties.opportunityScore))
+      .limit(limit);
   }
 
   async getTopOpportunities(limit = 10): Promise<Property[]> {

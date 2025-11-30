@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Filter, Grid, List, SortDesc, Download, TrendingUp, X } from "lucide-react";
+import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +20,7 @@ import {
 import { Header } from "@/components/Header";
 import { FilterPanel } from "@/components/FilterPanel";
 import { PropertyCard } from "@/components/PropertyCard";
+import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { useToast } from "@/hooks/use-toast";
@@ -31,9 +32,10 @@ export default function OpportunityScreener() {
   const { toast } = useToast();
   const [filters, setFilters] = useState<ScreenerFilters>(defaultFilters);
   const [sortBy, setSortBy] = useState("score");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | undefined>(undefined);
 
   const { data: properties, isLoading } = useQuery<Property[]>({
     queryKey: [
@@ -205,6 +207,15 @@ export default function OpportunityScreener() {
                   >
                     <List className="h-4 w-4" />
                   </Button>
+                  <Button
+                    variant={viewMode === "map" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setViewMode("map")}
+                    data-testid="button-map-view"
+                  >
+                    <Map className="h-4 w-4" />
+                  </Button>
                 </div>
 
                 <Button 
@@ -307,17 +318,48 @@ export default function OpportunityScreener() {
             {isLoading ? (
               <LoadingState type="skeleton-cards" count={6} />
             ) : properties && properties.length > 0 ? (
-              <div
-                className={
-                  viewMode === "grid"
-                    ? "grid gap-6 md:grid-cols-2 xl:grid-cols-3"
-                    : "space-y-4"
-                }
-              >
-                {properties.map((property) => (
-                  <PropertyCard key={property.id} property={property} />
-                ))}
-              </div>
+              viewMode === "map" ? (
+                <div className="flex h-[calc(100vh-16rem)] flex-col gap-4 lg:flex-row">
+                  <div className="flex-1 min-h-[400px]">
+                    <PropertyMap
+                      properties={properties}
+                      height="100%"
+                      showClustering
+                      onPropertySelect={(property) => setSelectedPropertyId(property.id)}
+                      selectedPropertyId={selectedPropertyId}
+                    />
+                  </div>
+                  <div className="w-full overflow-auto lg:w-80">
+                    <div className="space-y-3">
+                      {properties.slice(0, 10).map((property) => (
+                        <div
+                          key={property.id}
+                          className={`cursor-pointer transition-all ${
+                            selectedPropertyId === property.id
+                              ? "ring-2 ring-primary rounded-lg"
+                              : ""
+                          }`}
+                          onClick={() => setSelectedPropertyId(property.id)}
+                        >
+                          <PropertyCard property={property} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={
+                    viewMode === "grid"
+                      ? "grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+                      : "space-y-4"
+                  }
+                >
+                  {properties.map((property) => (
+                    <PropertyCard key={property.id} property={property} />
+                  ))}
+                </div>
+              )
             ) : (
               <EmptyState
                 icon={<TrendingUp className="h-8 w-8" />}

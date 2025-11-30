@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, MapPin, TrendingUp, TrendingDown, DollarSign, Home, Activity, Download, Filter } from "lucide-react";
+import { Search, MapPin, TrendingUp, TrendingDown, DollarSign, Home, Activity, Download, Filter, Map } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,11 +18,12 @@ import { MarketStatsCard } from "@/components/MarketStatsCard";
 import { SegmentSelector } from "@/components/SegmentSelector";
 import { PriceDistribution } from "@/components/PriceDistribution";
 import { CoverageBadge } from "@/components/CoverageBadge";
+import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { useToast } from "@/hooks/use-toast";
 import { propertyTypes, bedsBands, yearBuiltBands } from "@shared/schema";
-import type { MarketAggregate, CoverageLevel } from "@shared/schema";
+import type { MarketAggregate, CoverageLevel, Property } from "@shared/schema";
 
 export default function MarketExplorer() {
   const { toast } = useToast();
@@ -49,6 +50,25 @@ export default function MarketExplorer() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch market data");
+      return res.json();
+    },
+    enabled: !!selectedGeo,
+  });
+
+  const { data: areaProperties } = useQuery<Property[]>({
+    queryKey: ["/api/properties/area", selectedGeo?.type, selectedGeo?.id],
+    queryFn: async () => {
+      if (!selectedGeo) return [];
+      const params = new URLSearchParams({
+        geoType: selectedGeo.type,
+        geoId: selectedGeo.id,
+        limit: "50",
+      });
+      
+      const res = await fetch(`/api/properties/area?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!res.ok) return [];
       return res.json();
     },
     enabled: !!selectedGeo,
@@ -289,12 +309,39 @@ export default function MarketExplorer() {
                   </CardContent>
                 </Card>
 
-                <Tabs defaultValue="trends" className="space-y-4">
+                <Tabs defaultValue="map" className="space-y-4">
                   <TabsList>
+                    <TabsTrigger value="map" data-testid="tab-map">
+                      <Map className="mr-2 h-4 w-4" />
+                      Area Map
+                    </TabsTrigger>
                     <TabsTrigger value="trends" data-testid="tab-trends">Trends</TabsTrigger>
                     <TabsTrigger value="recent" data-testid="tab-recent">Recent Sales</TabsTrigger>
                     <TabsTrigger value="segments" data-testid="tab-segments">Segment Breakdown</TabsTrigger>
                   </TabsList>
+
+                  <TabsContent value="map">
+                    <Card>
+                      <CardContent className="p-4">
+                        {areaProperties && areaProperties.length > 0 ? (
+                          <PropertyMap
+                            properties={areaProperties}
+                            height="400px"
+                            showClustering
+                          />
+                        ) : (
+                          <div className="flex h-[400px] items-center justify-center">
+                            <div className="text-center">
+                              <Map className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                              <p className="text-muted-foreground">
+                                No properties with coordinates available in this area
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
 
                   <TabsContent value="trends">
                     <Card>

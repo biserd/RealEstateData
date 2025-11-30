@@ -30,6 +30,7 @@ import { PriceDistribution } from "@/components/PriceDistribution";
 import { CompsTable } from "@/components/CompsTable";
 import { AIChat } from "@/components/AIChat";
 import { CoverageBadge } from "@/components/CoverageBadge";
+import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -486,7 +487,24 @@ export default function PropertyDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="comps">
+          <TabsContent value="comps" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Property Location & Comps
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PropertyMap
+                  properties={comps?.map((c) => c.property) || []}
+                  subjectProperty={property}
+                  height="350px"
+                  showClustering={false}
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2">
                 <CardTitle>Comparable Sales</CardTitle>
