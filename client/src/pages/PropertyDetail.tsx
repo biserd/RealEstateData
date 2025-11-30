@@ -17,7 +17,8 @@ import {
   TrendingUp,
   AlertCircle,
   FileText,
-  Bot
+  Bot,
+  Calculator
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,8 @@ import { CoverageBadge } from "@/components/CoverageBadge";
 import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
+import { DealMemo } from "@/components/DealMemo";
+import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Property, OpportunityScoreBreakdown, Comp, MarketAggregate, AIResponse } from "@shared/schema";
@@ -156,7 +159,7 @@ export default function PropertyDetail() {
       propertyId: id,
       question: message,
     });
-    return response as AIResponse;
+    return await response.json() as AIResponse;
   };
 
   if (isLoading) {
@@ -355,10 +358,11 @@ export default function PropertyDetail() {
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button className="flex-1" data-testid="button-contact-agent">
                 Contact Agent
               </Button>
+              <DealMemo propertyId={id!} />
               <Button 
                 variant="outline" 
                 onClick={handleExportReport}
@@ -420,9 +424,13 @@ export default function PropertyDetail() {
         </div>
 
         <Tabs defaultValue="pricing" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-none">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-none">
             <TabsTrigger value="pricing" data-testid="tab-pricing">Pricing</TabsTrigger>
             <TabsTrigger value="comps" data-testid="tab-comps">Comps</TabsTrigger>
+            <TabsTrigger value="investment" data-testid="tab-investment">
+              <Calculator className="h-4 w-4 mr-1 hidden sm:inline" />
+              Investment
+            </TabsTrigger>
             <TabsTrigger value="signals" data-testid="tab-signals">Signals</TabsTrigger>
             <TabsTrigger value="ai" data-testid="tab-ai">AI Analysis</TabsTrigger>
           </TabsList>
@@ -530,6 +538,14 @@ export default function PropertyDetail() {
                 <CompsTable comps={comps || []} subjectProperty={property} />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="investment" className="space-y-6">
+            <ScenarioSimulator
+              propertyId={id!}
+              estimatedValue={property.estimatedValue || property.lastSalePrice}
+              estimatedRent={property.sqft ? Math.round(property.sqft * 1.8) : undefined}
+            />
           </TabsContent>
 
           <TabsContent value="signals">

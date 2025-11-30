@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { analyzeProperty, analyzeMarket } from "./openai";
+import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, type ScenarioInputs } from "./openai";
 import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema } from "@shared/schema";
 
 export async function registerRoutes(
@@ -338,6 +338,87 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error in AI chat:", error);
       res.status(500).json({ message: "Failed to process AI request" });
+    }
+  });
+
+  // AI Deal Memo generation
+  app.post("/api/ai/deal-memo/:propertyId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId } = req.params;
+      
+      // Get property data
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      // Get comps
+      const comps = await storage.getComps(propertyId);
+      
+      // Get market data for this property's ZIP
+      const marketData = await storage.getMarketAggregates("zip", property.zipCode, {});
+      
+      const memo = await generateDealMemo(
+        property,
+        marketData.length > 0 ? marketData[0] : null,
+        comps
+      );
+      
+      res.json(memo);
+    } catch (error) {
+      console.error("Error generating deal memo:", error);
+      res.status(500).json({ message: "Failed to generate deal memo" });
+    }
+  });
+
+  // Investment Scenario Calculator
+  app.post("/api/ai/scenario/:propertyId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId } = req.params;
+      const inputs: ScenarioInputs = req.body;
+      
+      // Validate inputs
+      if (!inputs.purchasePrice || inputs.purchasePrice <= 0) {
+        return res.status(400).json({ message: "Valid purchase price is required" });
+      }
+      
+      // Get property data for context
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      // Calculate financial metrics
+      const results = calculateScenario(inputs);
+      
+      // Get AI assessment
+      const aiAssessment = await analyzeScenario(property, inputs, results);
+      
+      res.json({
+        inputs,
+        results,
+        aiAssessment,
+      });
+    } catch (error) {
+      console.error("Error calculating scenario:", error);
+      res.status(500).json({ message: "Failed to calculate scenario" });
+    }
+  });
+
+  // Quick scenario calculation (no AI, just numbers)
+  app.post("/api/scenario/calculate", isAuthenticated, async (req: any, res) => {
+    try {
+      const inputs: ScenarioInputs = req.body;
+      
+      if (!inputs.purchasePrice || inputs.purchasePrice <= 0) {
+        return res.status(400).json({ message: "Valid purchase price is required" });
+      }
+      
+      const results = calculateScenario(inputs);
+      res.json(results);
+    } catch (error) {
+      console.error("Error calculating scenario:", error);
+      res.status(500).json({ message: "Failed to calculate scenario" });
     }
   });
 
