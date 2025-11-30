@@ -20,6 +20,14 @@ const BOROUGH_MAP: Record<string, string> = {
   SI: "Staten Island",
 };
 
+const BOROUGH_TO_COUNTY: Record<string, string> = {
+  Manhattan: "New York",
+  Bronx: "Bronx",
+  Brooklyn: "Kings",
+  Queens: "Queens",
+  "Staten Island": "Richmond",
+};
+
 const PROPERTY_TYPE_MAP: Record<string, string> = {
   "01": "SFH",
   "02": "SFH",
@@ -172,53 +180,106 @@ export async function downloadNYCPropertySales(limit: number = 5000): Promise<Pr
   return validSales as PropertySaleRecord[];
 }
 
+function normalizeAddress(address: string): string {
+  return address
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\b(street|st|avenue|ave|road|rd|drive|dr|lane|ln|place|pl|court|ct|boulevard|blvd)\b/g, "")
+    .trim();
+}
+
+const BOROUGH_CODE_TO_NUM: Record<string, string> = {
+  MN: "1",
+  BX: "2",
+  BK: "3",
+  QN: "4",
+  SI: "5",
+  "1": "1",
+  "2": "2",
+  "3": "3",
+  "4": "4",
+  "5": "5",
+};
+
+function createBBL(borough: string, block: string, lot: string): string {
+  const boroughNum = BOROUGH_CODE_TO_NUM[borough] || borough.padStart(1, "0");
+  const blockNum = block.padStart(5, "0");
+  const lotNum = lot.padStart(4, "0");
+  return `${boroughNum}${blockNum}${lotNum}`;
+}
+
 export async function importNYCProperties(
   plutoData: PlutoRecord[],
   salesData: PropertySaleRecord[]
 ): Promise<{ propertiesCount: number; salesCount: number }> {
   console.log("Importing NYC properties and sales...");
 
-  const salesByAddress: Record<string, PropertySaleRecord[]> = {};
+  const salesByBBL: Record<string, PropertySaleRecord[]> = {};
+  const salesByNormalizedAddress: Record<string, PropertySaleRecord[]> = {};
+  
   for (const sale of salesData) {
-    const key = `${sale.address?.toLowerCase().trim()}-${sale.zip_code}`;
-    if (!salesByAddress[key]) salesByAddress[key] = [];
-    salesByAddress[key].push(sale);
+    const bbl = createBBL(sale.borough, sale.block, sale.lot?.toString() || "");
+    if (!salesByBBL[bbl]) salesByBBL[bbl] = [];
+    salesByBBL[bbl].push(sale);
+    
+    const normalizedAddr = normalizeAddress(sale.address || "") + "-" + sale.zip_code;
+    if (!salesByNormalizedAddress[normalizedAddr]) salesByNormalizedAddress[normalizedAddr] = [];
+    salesByNormalizedAddress[normalizedAddr].push(sale);
   }
 
   let propertiesCount = 0;
   let salesCount = 0;
+  let bblMatchCount = 0;
+  let addrMatchCount = 0;
   const insertedPropertyIds: { id: string; zipCode: string; pricePerSqft: number }[] = [];
 
   for (const record of plutoData) {
     if (!record.address || !record.zipcode) continue;
 
     const borough = BOROUGH_MAP[record.borough] || "Unknown";
+    const county = BOROUGH_TO_COUNTY[borough] || "New York";
     const bldgClass = record.bldgclass?.substring(0, 2) || "";
     const propertyType = PROPERTY_TYPE_MAP[bldgClass] || "SFH";
 
     const sqft = parseInt(record.resarea) || parseInt(record.bldgarea) || 1500;
     const yearBuilt = parseInt(record.yearbuilt) || 1950;
     const units = parseInt(record.unitsres) || 1;
-    const beds = Math.min(units * 2, 10);
-    const baths = Math.max(1, Math.floor(beds * 0.6));
+    const totalUnits = parseInt(record.unitstotal) || units;
+    
+    const beds = units <= 1 ? 3 : (units <= 4 ? units + 1 : null);
+    const baths = units <= 1 ? 2 : (units <= 4 ? units : null);
     const lotSize = parseInt(record.lotarea) || null;
 
     const assessedValue = parseInt(record.assesstot) || 0;
-    const estimatedValue = assessedValue > 0 ? assessedValue * 5 : sqft * 600;
+    const estimatedValue = assessedValue > 0 
+      ? Math.min(assessedValue * 3, 50000000) 
+      : Math.min(sqft * 400, 10000000);
 
-    const addressKey = `${record.address?.toLowerCase().trim()}-${record.zipcode}`;
-    const matchingSales = salesByAddress[addressKey] || [];
-    const latestSale = matchingSales[0];
+    const bbl = createBBL(record.borough, record.block, record.lot);
+    let matchingSales = salesByBBL[bbl] || [];
+    
+    if (matchingSales.length > 0) {
+      bblMatchCount++;
+    } else {
+      const normalizedAddr = normalizeAddress(record.address) + "-" + record.zipcode;
+      matchingSales = salesByNormalizedAddress[normalizedAddr] || [];
+      if (matchingSales.length > 0) addrMatchCount++;
+    }
+    
+    const latestSale = matchingSales.sort((a, b) => 
+      new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime()
+    )[0];
 
-    const lastSalePrice = latestSale ? parseInt(latestSale.sale_price) || null : null;
+    const lastSalePrice = latestSale ? parseInt(latestSale.sale_price?.replace(/,/g, "") || "0") : null;
     const lastSaleDate = latestSale?.sale_date ? new Date(latestSale.sale_date) : null;
 
-    const pricePerSqft = lastSalePrice && sqft > 0 
+    const pricePerSqft = lastSalePrice && lastSalePrice > 0 && sqft > 0 
       ? Math.round(lastSalePrice / sqft) 
       : Math.round(estimatedValue / sqft);
 
     const { score, confidence } = calculateOpportunityScore(
-      lastSalePrice || estimatedValue,
+      lastSalePrice && lastSalePrice > 0 ? lastSalePrice : estimatedValue,
       estimatedValue,
       yearBuilt,
       sqft
@@ -230,8 +291,8 @@ export async function importNYCProperties(
         city: borough,
         state: "NY",
         zipCode: record.zipcode,
-        county: "New York",
-        neighborhood: borough,
+        county,
+        neighborhood: record.cd ? `CD ${record.cd}` : borough,
         latitude: parseFloat(record.latitude) || null,
         longitude: parseFloat(record.longitude) || null,
         propertyType,
@@ -240,7 +301,7 @@ export async function importNYCProperties(
         sqft,
         lotSize,
         yearBuilt,
-        lastSalePrice,
+        lastSalePrice: lastSalePrice && lastSalePrice > 0 ? lastSalePrice : null,
         lastSaleDate,
         estimatedValue: Math.round(estimatedValue),
         pricePerSqft,
@@ -256,7 +317,7 @@ export async function importNYCProperties(
       propertiesCount++;
 
       for (const sale of matchingSales) {
-        const salePrice = parseInt(sale.sale_price);
+        const salePrice = parseInt(sale.sale_price?.replace(/,/g, "") || "0");
         if (salePrice && salePrice > 10000) {
           await db.insert(sales).values({
             propertyId: inserted.id,
@@ -273,6 +334,7 @@ export async function importNYCProperties(
     }
   }
 
+  console.log(`Sales matching: ${bblMatchCount} BBL matches, ${addrMatchCount} address matches`);
   console.log(`Creating comparable relationships...`);
   await createComparables(insertedPropertyIds);
 
