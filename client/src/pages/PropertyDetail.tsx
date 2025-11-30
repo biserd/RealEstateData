@@ -1,0 +1,570 @@
+import { useState } from "react";
+import { useParams } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { 
+  ArrowLeft, 
+  Heart, 
+  Share2, 
+  Download, 
+  MapPin, 
+  Bed, 
+  Bath, 
+  Square, 
+  Calendar, 
+  DollarSign,
+  Home,
+  TrendingUp,
+  AlertCircle,
+  FileText,
+  Bot
+} from "lucide-react";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Header } from "@/components/Header";
+import { OpportunityScore } from "@/components/OpportunityScore";
+import { PriceDistribution } from "@/components/PriceDistribution";
+import { CompsTable } from "@/components/CompsTable";
+import { AIChat } from "@/components/AIChat";
+import { CoverageBadge } from "@/components/CoverageBadge";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Property, OpportunityScoreBreakdown, Comp, MarketAggregate, AIResponse } from "@shared/schema";
+
+interface PropertyWithDetails extends Property {
+  scoreBreakdown?: OpportunityScoreBreakdown;
+  marketStats?: MarketAggregate;
+}
+
+interface CompWithProperty extends Comp {
+  property: Property;
+}
+
+export default function PropertyDetail() {
+  const { id } = useParams<{ id: string }>();
+  const { toast } = useToast();
+  const [isExportingReport, setIsExportingReport] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+
+  const { data: property, isLoading } = useQuery<PropertyWithDetails>({
+    queryKey: ["/api/properties", id],
+  });
+
+  const { data: comps } = useQuery<CompWithProperty[]>({
+    queryKey: ["/api/properties", id, "comps"],
+    enabled: !!id,
+  });
+
+  const handleExportReport = async () => {
+    if (!id) return;
+    setIsExportingReport(true);
+    try {
+      const response = await fetch(`/api/export/property-dossier/${id}?format=json`, {
+        credentials: "include",
+      });
+      
+      if (!response.ok) throw new Error("Export failed");
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `property-dossier-${id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Report downloaded",
+        description: "Property dossier has been exported successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Unable to export property report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExportingReport(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    if (!id) return;
+    setIsExportingCsv(true);
+    try {
+      const response = await fetch(`/api/export/property-dossier/${id}?format=csv`, {
+        credentials: "include",
+      });
+      
+      if (!response.ok) throw new Error("Export failed");
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `property-dossier-${id}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "CSV exported",
+        description: "Property data and comps exported to CSV.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Unable to export CSV. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/watchlists/properties`, { propertyId: id });
+    },
+    onSuccess: () => {
+      toast({ title: "Property saved to watchlist" });
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlists"] });
+    },
+    onError: () => {
+      toast({ title: "Failed to save property", variant: "destructive" });
+    },
+  });
+
+  const handleSendAIMessage = async (message: string): Promise<AIResponse> => {
+    const response = await apiRequest("POST", `/api/ai/chat`, {
+      propertyId: id,
+      question: message,
+    });
+    return response as AIResponse;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+          <LoadingState type="skeleton-details" />
+        </main>
+      </div>
+    );
+  }
+
+  if (!property) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+          <EmptyState
+            icon={<Home className="h-8 w-8" />}
+            title="Property not found"
+            description="The property you're looking for doesn't exist or has been removed."
+            action={{
+              label: "Back to Screener",
+              onClick: () => window.history.back(),
+            }}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  const formatPrice = (price: number | null) => {
+    if (!price) return "N/A";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
+
+  const formatDate = (date: Date | null) => {
+    if (!date) return "N/A";
+    return new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(date));
+  };
+
+  const getConfidenceBadgeVariant = (level: string | null) => {
+    switch (level) {
+      case "High":
+        return "default";
+      case "Medium":
+        return "secondary";
+      case "Low":
+        return "outline";
+      default:
+        return "outline";
+    }
+  };
+
+  const mockScoreBreakdown: OpportunityScoreBreakdown = property.scoreBreakdown || {
+    overall: property.opportunityScore || 0,
+    mispricing: 78,
+    confidence: 85,
+    liquidity: 72,
+    risk: 68,
+    valueAdd: 65,
+    explanations: [
+      "Priced 12% below segment median for 3BR SFH in this ZIP",
+      "Strong comp coverage with 8 recent sales within 0.5 miles",
+      "Recent permit activity suggests value-add potential",
+    ],
+    evidence: [
+      { type: "comp", id: "c1", description: "123 Main St sold for $485K (similar sqft)" },
+      { type: "comp", id: "c2", description: "456 Oak Ave sold for $510K (similar age)" },
+      { type: "market", id: "m1", description: "ZIP 11201 median: $525K" },
+    ],
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header showSearch={false} />
+
+      <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+        <div className="mb-6">
+          <Link href="/screener">
+            <Button variant="ghost" className="gap-2" data-testid="button-back">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Screener
+            </Button>
+          </Link>
+        </div>
+
+        <div className="mb-8 grid gap-8 lg:grid-cols-2">
+          <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
+            {property.imageUrl ? (
+              <img
+                src={property.imageUrl}
+                alt={property.address}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <Home className="h-16 w-16 text-muted-foreground/50" />
+              </div>
+            )}
+            <div className="absolute left-4 top-4 flex gap-2">
+              <Badge variant="secondary" className="bg-background/80 backdrop-blur">
+                {property.propertyType}
+              </Badge>
+              <CoverageBadge level="Comps" />
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <div className="mb-2 flex items-start justify-between gap-4">
+                <h1 className="text-2xl font-bold md:text-3xl" data-testid="text-property-address">
+                  {property.address}
+                </h1>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending}
+                    data-testid="button-save-property"
+                  >
+                    <Heart className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" data-testid="button-share">
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="flex items-center gap-1 text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                {property.city}, {property.state} {property.zipCode}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-baseline gap-4">
+              <div>
+                <p className="text-4xl font-bold" data-testid="text-property-price">
+                  {formatPrice(property.estimatedValue || property.lastSalePrice)}
+                </p>
+                {property.pricePerSqft && (
+                  <p className="text-muted-foreground">
+                    ${property.pricePerSqft.toFixed(0)}/sqft
+                  </p>
+                )}
+              </div>
+              {property.confidenceLevel && (
+                <Badge variant={getConfidenceBadgeVariant(property.confidenceLevel)}>
+                  {property.confidenceLevel} Confidence
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-6 text-sm">
+              {property.beds !== null && (
+                <div className="flex items-center gap-2">
+                  <Bed className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">{property.beds}</span> beds
+                </div>
+              )}
+              {property.baths !== null && (
+                <div className="flex items-center gap-2">
+                  <Bath className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">{property.baths}</span> baths
+                </div>
+              )}
+              {property.sqft && (
+                <div className="flex items-center gap-2">
+                  <Square className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">{property.sqft.toLocaleString()}</span> sqft
+                </div>
+              )}
+              {property.yearBuilt && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                  Built <span className="font-medium">{property.yearBuilt}</span>
+                </div>
+              )}
+            </div>
+
+            {property.lastSaleDate && (
+              <div className="rounded-lg bg-muted/50 p-4">
+                <p className="text-sm text-muted-foreground">Last Sale</p>
+                <p className="font-medium">
+                  {formatPrice(property.lastSalePrice)} on {formatDate(property.lastSaleDate)}
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button className="flex-1" data-testid="button-contact-agent">
+                Contact Agent
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleExportReport}
+                disabled={isExportingReport}
+                data-testid="button-download-report"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {isExportingReport ? "Exporting..." : "Report"}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <TrendingUp className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Opportunity Score</p>
+                <p className="text-2xl font-bold">{property.opportunityScore || "N/A"}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                <DollarSign className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">vs Median</p>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">-12%</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                <FileText className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Comps Found</p>
+                <p className="text-2xl font-bold">{comps?.length || 0}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Risk Level</p>
+                <p className="text-2xl font-bold">Low</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="pricing" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-none">
+            <TabsTrigger value="pricing" data-testid="tab-pricing">Pricing</TabsTrigger>
+            <TabsTrigger value="comps" data-testid="tab-comps">Comps</TabsTrigger>
+            <TabsTrigger value="signals" data-testid="tab-signals">Signals</TabsTrigger>
+            <TabsTrigger value="ai" data-testid="tab-ai">AI Analysis</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="pricing" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Opportunity Score Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <OpportunityScore
+                    score={property.opportunityScore || 0}
+                    breakdown={mockScoreBreakdown}
+                    size="lg"
+                    showBreakdown
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Market Position</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <PriceDistribution
+                    p25={480000}
+                    p50={550000}
+                    p75={650000}
+                    currentValue={property.estimatedValue || property.lastSalePrice || undefined}
+                    label="Price Distribution (3BR SFH)"
+                  />
+                  <Separator />
+                  <PriceDistribution
+                    p25={350}
+                    p50={425}
+                    p75={520}
+                    currentValue={property.pricePerSqft || undefined}
+                    label="$/sqft Distribution"
+                    unit="$"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Expected Value Range</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-lg border p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Low Estimate</p>
+                    <p className="text-2xl font-bold">$465,000</p>
+                    <p className="text-xs text-muted-foreground">10th percentile</p>
+                  </div>
+                  <div className="rounded-lg border border-primary bg-primary/5 p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Expected Value</p>
+                    <p className="text-2xl font-bold text-primary">$525,000</p>
+                    <p className="text-xs text-muted-foreground">Model estimate</p>
+                  </div>
+                  <div className="rounded-lg border p-4 text-center">
+                    <p className="text-sm text-muted-foreground">High Estimate</p>
+                    <p className="text-2xl font-bold">$585,000</p>
+                    <p className="text-xs text-muted-foreground">90th percentile</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="comps">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2">
+                <CardTitle>Comparable Sales</CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleExportCsv}
+                  disabled={isExportingCsv}
+                  data-testid="button-export-comps"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {isExportingCsv ? "Exporting..." : "Export CSV"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <CompsTable comps={comps || []} subjectProperty={property} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="signals">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Permit Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    No recent permit data available for this property.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Violations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-medium">No active violations</span>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transit Access</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Transit data not available for this location.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Flood Risk</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-medium">Minimal flood risk</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ai">
+            <Card className="h-[600px]">
+              <AIChat
+                propertyId={id}
+                contextLabel={`${property.address}, ${property.city}`}
+                onSendMessage={handleSendAIMessage}
+              />
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+}

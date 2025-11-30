@@ -1,0 +1,241 @@
+import { Link } from "wouter";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+export default function Landing() {
+  const features = [
+    {
+      icon: <BarChart3 className="h-6 w-6" />,
+      title: "Market Intelligence",
+      description: "Instant pricing bands (p25/p50/p75) for any ZIP, city, or neighborhood across NY, NJ, and CT.",
+    },
+    {
+      icon: <Target className="h-6 w-6" />,
+      title: "Opportunity Scoring",
+      description: "Proprietary 0-100 scores with transparent breakdowns showing mispricing, confidence, and risk.",
+    },
+    {
+      icon: <Shield className="h-6 w-6" />,
+      title: "Grounded AI",
+      description: "AI insights backed by real data with citations. No hallucinations, just evidence-based analysis.",
+    },
+    {
+      icon: <Zap className="h-6 w-6" />,
+      title: "Real-Time Alerts",
+      description: "Get notified when properties hit your criteria or market conditions change.",
+    },
+  ];
+
+  const stats = [
+    { value: "3", label: "States Covered" },
+    { value: "1M+", label: "Properties Tracked" },
+    { value: "10K+", label: "ZIP Codes" },
+    { value: "<2s", label: "Insight Speed" },
+  ];
+
+  const coverageAreas = [
+    { state: "New York", areas: "NYC, Long Island, Hudson Valley, Upstate" },
+    { state: "New Jersey", areas: "Statewide coverage" },
+    { state: "Connecticut", areas: "Statewide coverage" },
+  ];
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-2 font-semibold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <span className="text-sm font-bold">TI</span>
+            </div>
+            <span className="text-lg tracking-tight" data-testid="text-logo">TriState Intel</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <a href="/api/login">
+              <Button data-testid="button-login">Log In</Button>
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
+          <div className="relative mx-auto max-w-7xl px-4 py-24 md:px-6 md:py-32">
+            <div className="mx-auto max-w-3xl text-center">
+              <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+                Find Real Estate Opportunities in the{" "}
+                <span className="text-primary">Tri-State Area</span>
+              </h1>
+              <p className="mb-8 text-lg text-muted-foreground md:text-xl">
+                AI-powered market intelligence for NY, NJ, and CT. Understand pricing, 
+                find undervalued properties, and make data-driven decisions.
+              </p>
+              
+              <div className="mx-auto mb-8 max-w-xl">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search by ZIP code, city, or address..."
+                    className="h-14 pl-12 pr-32 text-lg"
+                    data-testid="input-hero-search"
+                  />
+                  <a href="/api/login" className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <Button size="lg" data-testid="button-hero-search">
+                      Get Started
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+                {coverageAreas.map((area) => (
+                  <div key={area.state} className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <span>
+                      <strong>{area.state}:</strong> {area.areas}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-y bg-muted/30 py-12">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+              {stats.map((stat) => (
+                <div key={stat.label} className="text-center">
+                  <p className="text-3xl font-bold text-primary md:text-4xl">{stat.value}</p>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="py-20">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mb-12 text-center">
+              <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
+                Data-Driven Real Estate Intelligence
+              </h2>
+              <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+                Make confident decisions with transparent pricing data, opportunity scoring, 
+                and AI insights grounded in real market information.
+              </p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {features.map((feature) => (
+                <Card key={feature.title} className="hover-elevate">
+                  <CardContent className="p-6">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      {feature.icon}
+                    </div>
+                    <h3 className="mb-2 font-semibold">{feature.title}</h3>
+                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t bg-muted/30 py-20">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="grid items-center gap-12 lg:grid-cols-2">
+              <div>
+                <h2 className="mb-6 text-3xl font-bold tracking-tight md:text-4xl">
+                  Understand Market Pricing at a Glance
+                </h2>
+                <p className="mb-6 text-lg text-muted-foreground">
+                  See exactly where a property stands relative to the market. Our pricing bands 
+                  show you the 25th, 50th, and 75th percentile prices for any segment.
+                </p>
+                <ul className="space-y-4">
+                  {[
+                    "Filter by property type, beds, baths, year built, and size",
+                    "Compare pricing across neighborhoods and ZIPs",
+                    "Track 3, 6, and 12-month trends",
+                    "Export market reports for clients",
+                  ].map((item) => (
+                    <li key={item} className="flex items-center gap-3">
+                      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <TrendingUp className="h-3 w-3" />
+                      </div>
+                      <span className="text-muted-foreground">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-xl border bg-card p-6 shadow-lg">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Median Price</p>
+                    <p className="text-3xl font-bold">$685,000</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">$/sqft</p>
+                    <p className="text-3xl font-bold">$425</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">P25</span>
+                    <span className="font-medium">$520K</span>
+                  </div>
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-gradient-to-r from-emerald-200 via-amber-200 to-red-200 dark:from-emerald-900/50 dark:via-amber-900/50 dark:to-red-900/50" />
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">3BR SFH • 1990-2009</span>
+                    <span className="font-medium">P75: $875K</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-20">
+          <div className="mx-auto max-w-7xl px-4 text-center md:px-6">
+            <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
+              Ready to Find Your Next Opportunity?
+            </h2>
+            <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
+              Join investors, agents, and analysts using TriState Intel to make 
+              smarter real estate decisions.
+            </p>
+            <a href="/api/login">
+              <Button size="lg" className="h-12 px-8 text-lg" data-testid="button-cta">
+                Get Started Free
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </a>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t py-12">
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-primary-foreground">
+                <span className="text-xs font-bold">TI</span>
+              </div>
+              <span className="text-sm font-medium">TriState Intel</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Informational tool only. Not financial or appraisal advice.
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
