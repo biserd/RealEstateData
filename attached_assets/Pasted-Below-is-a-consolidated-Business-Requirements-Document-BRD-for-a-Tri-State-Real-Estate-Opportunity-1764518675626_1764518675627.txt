@@ -1,0 +1,375 @@
+Below is a consolidated Business Requirements Document (BRD) for a Tri-State Real Estate Opportunity SaaS focused on NY (incl. Long Island) + NJ + CT with a strong, auditable data foundation and “grounded AI” that blends traditional + alternative data sources.
+
+⸻
+
+BRD — Tri-State Real Estate Market Intelligence & Opportunity Engine (NY/NJ/CT)
+
+1) Purpose
+
+Build a subscription SaaS that helps buyers, investors, and agents identify opportunities and understand pricing by ZIP code, city, neighborhood, and property segment (type, beds/baths, year-built bands, size). The platform must provide robust market baselines (e.g., price per square foot distributions) and produce explainable opportunity scoring supported by verifiable data.
+
+2) Objectives & Success Criteria
+
+Business Objectives
+	•	Launch a sellable product focused on NY with immediate utility in NYC + Long Island, and credible coverage for NJ + CT from day 1.
+	•	Deliver “cheap vs expensive” clarity and a ranked list of opportunities with confidence and evidence.
+
+Success Criteria (MVP)
+	•	Users can select a ZIP/city/neighborhood and instantly see pricing bands (p25/p50/p75) for relevant segments.
+	•	Users can view a property and receive:
+	•	expected price range
+	•	comps
+	•	opportunity score
+	•	explanation + data citations
+	•	“Deep coverage” in NYC; “market intelligence coverage” across NY/NJ/CT; expansion via coverage matrix.
+
+KPI Targets (examples)
+	•	Conversion: 3–8% from free trial → paid
+	•	Retention: 60%+ month-2 retention (early)
+	•	Time-to-insight: < 2 seconds for market pages (cached aggregates)
+	•	Data reliability: key-field completeness > 85% in deep coverage areas (sqft, year, last sale)
+
+⸻
+
+3) In Scope (MVP)
+
+Geography
+	•	New York: NYC + Long Island (Nassau/Suffolk) + Hudson Valley + rest of NY
+	•	New Jersey: statewide “market intelligence” coverage
+	•	Connecticut: statewide “market intelligence” coverage
+
+Primary User Personas
+	•	Retail buyers/sellers (power users)
+	•	Small/medium investors (1–50 doors)
+	•	Agents / agent-investors
+	•	Analysts / researchers
+
+Core Use Cases
+	1.	Market Pricing Coach
+	•	“Is ZIP X expensive for 3/2 SFH built 1990–2010?”
+	2.	Opportunity Screener
+	•	“Show underpriced homes with low risk and strong liquidity.”
+	3.	Property Drill-Down
+	•	“Show comps and explain why this is a deal (or not).”
+	4.	Neighborhood/Block Insight (NYC deep)
+	•	Distress/capex signals (permits, violations, complaints) integrated into scoring.
+	5.	Watchlists + Alerts
+	•	notify when opportunity score crosses threshold, price cuts, new sales comps, etc.
+
+⸻
+
+4) Out of Scope (MVP)
+	•	Full MLS/IDX browsing portal replacement
+	•	Real-time underwriting (mortgage quotes, hard credit models)
+	•	Automated offer generation / transaction execution
+	•	Property management features
+
+⸻
+
+5) Product Principles
+	•	Data-first: computed metrics drive the UI; AI explains them.
+	•	Grounded AI: no unsupported claims; always show evidence and confidence.
+	•	Cost-controlled: minimize variable costs via precomputation + caching; meter expensive calls.
+	•	Tiered coverage: market intelligence everywhere; deep property insights where data is strongest.
+
+⸻
+
+6) Data Requirements
+
+6.1 Required Data Domains
+
+A) Property Facts (parcel/building attributes)
+	•	address, lat/lon, property type/class, beds, baths, living area sqft, lot size, year built, HOA/condo metadata (if available)
+
+B) Sales / Transactions
+	•	sale price, sale date, arms-length indicator (if known), deed/transfer metadata (if available)
+
+C) Listings / Active Market (optional MVP, recommended soon)
+	•	list price, list date, days on market, price cuts, status changes
+(If not available initially, MVP can still function using transactions + valuation proxies. Listings become a paid add-on or phase 2.)
+
+D) Market Aggregates (must be computed by you)
+	•	ZIP/city/neighborhood distributions for:
+	•	$/sqft and price
+	•	by property type (SFH/condo/townhome/multi-family)
+	•	by beds/baths bands
+	•	by year-built bands (e.g., pre-1940, 1940–69, 1970–89, 1990–2009, 2010+)
+	•	by size bands
+	•	volume metrics: transaction count, turnover, volatility proxy
+
+E) Alternative Data (priority: NYC; scalable to NJ/CT as sources permit)
+	•	construction/permit activity (capex and renovation signal)
+	•	building distress (violations)
+	•	quality-of-life complaints (e.g., civic request data)
+	•	transit accessibility and amenity density (open map data)
+	•	flood risk & climate hazard overlays
+	•	demographic/economic context (ACS-like)
+
+6.2 Coverage Matrix (Required)
+
+Maintain a coverage_matrix by geography (state/county/ZIP) that governs:
+	•	coverage_level: MarketOnly | PropertyFacts | SalesHistory | Listings | Comps | AltSignals
+	•	freshness_sla_days
+	•	field_completeness for key attributes
+	•	confidence_score
+	•	allowed_ai_claims (what the AI is permitted to say)
+
+This is non-negotiable for trust and for NY/NJ/CT mixed data maturity.
+
+6.3 “Minimum Payments” Strategy (Required)
+	•	Use public/low-cost sources + your own aggregates for 80–90% of views.
+	•	Paid sources (if used) must be behind meter points:
+	•	property deep dive
+	•	comps retrieval
+	•	export report generation
+	•	alert refresh
+	•	Hard quotas per plan + caching keyed by (property_id, last_updated).
+
+⸻
+
+7) Functional Requirements
+
+7.1 Market Explorer (ZIP/City/Neighborhood)
+
+Must have:
+	•	Search by ZIP, city, county, neighborhood
+	•	Market snapshot cards:
+	•	median $/sqft, p25/p75 bands
+	•	segment selector (property type, beds/baths, year bands)
+	•	trend indicators (3/6/12 month)
+	•	volume/liquidity metrics
+	•	“Expensive vs cheap” interpretation:
+	•	show where a chosen listing/price sits relative to the distribution
+	•	Exportable “Market Report” PDF/CSV
+
+7.2 Opportunity Screener (Ranked Feed)
+
+Must have:
+	•	Filters:
+	•	geo (ZIP/city), property type, beds/baths, year-built bands, price range
+	•	risk toggles (flood risk threshold)
+	•	liquidity threshold
+	•	Results list:
+	•	opportunity score (0–100)
+	•	mispricing % vs expected
+	•	confidence badge (Low/Med/High)
+	•	top 3 reasons (“below segment median”, “permit activity suggests value add”, etc.)
+	•	Save to watchlist; enable alerts
+
+7.3 Property Detail Page (Deep Dive)
+
+Must have:
+	•	Key facts + map
+	•	Pricing analysis:
+	•	$/sqft vs segment median (and percentile rank)
+	•	expected value range (with confidence)
+	•	Comps module:
+	•	top 3–10 comps with similarity score
+	•	adjustments explanation (sqft/age/beds)
+	•	Alternative signals module (NYC deep):
+	•	permits / violations / complaints / transit / amenity density
+	•	“Ask AI about this property” (grounded assistant)
+
+7.4 Alerts & Watchlists
+
+Must have:
+	•	Watchlist by geo and saved properties
+	•	Alert triggers:
+	•	score > threshold
+	•	price cut (if listings)
+	•	new comp sale near property
+	•	market shift (median band changes)
+	•	Delivery: email + in-app notifications
+
+7.5 Exports & Sharing
+
+Must have:
+	•	Export comps as CSV
+	•	Export market reports as PDF
+	•	Shareable links (with access control / token links)
+
+7.6 Admin / Ops
+
+Must have:
+	•	Data catalog UI (sources, refresh cadence, licensing notes)
+	•	Coverage matrix dashboard
+	•	ETL monitoring (freshness, failure alerts)
+	•	Data quality checks (missing sqft, outliers, duplicate sales)
+
+⸻
+
+8) Analytics & Scoring Requirements
+
+8.1 Market Segmentation Grid (Required)
+
+Define a standard segmentation taxonomy:
+	•	property_type: SFH, Condo, Townhome, Multi-family (2–4), 5+
+	•	beds_band: 0–1, 2, 3, 4, 5+
+	•	baths_band: 1, 2, 3+
+	•	year_built_band: pre-1940, 1940–69, 1970–89, 1990–2009, 2010+
+	•	size_band (sqft): <1000, 1000–1499, 1500–1999, 2000–2999, 3000+
+
+All market stats are computed per (geo_id, segment_id, time_window).
+
+8.2 Opportunity Score (v1 deterministic; required)
+
+Score 0–100 with explainable components:
+	1.	Mispricing (40%)
+	•	deviation from segment median + expected model
+	2.	Confidence (15%)
+	•	comp count, comp similarity, data completeness
+	3.	Liquidity (15%)
+	•	transaction volume/turnover, volatility proxy
+	4.	Risk (15%)
+	•	flood/climate overlays, volatility
+	5.	Value-Add Signals (15%)
+	•	permits intensity, violations/distress, complaint density, zoning/land-use flags (where available)
+
+Each score must produce:
+	•	numeric sub-scores
+	•	at least 3 explanation bullets
+	•	supporting evidence list (comps + dataset references)
+
+8.3 Expected Price Model (v1 required)
+	•	Start with a simple hedonic model using:
+	•	sqft, beds, baths, year built, type, location encoding, lot size (if applicable)
+	•	Must output:
+	•	expected value range (e.g., 10th–90th)
+	•	model confidence (based on training density in that segment and comp similarity)
+	•	Must degrade gracefully in thin-data areas (use segment medians and wide intervals)
+
+⸻
+
+9) AI Requirements (Grounded + Safe)
+
+9.1 Grounded Response Policy (Required)
+
+AI may only generate outputs based on:
+	•	computed aggregates in your DB
+	•	retrieved comps + property facts
+	•	feature store values
+	•	approved public datasets stored in your catalog
+
+AI must never:
+	•	invent comps or values
+	•	claim certainty when coverage/confidence is low
+	•	provide steering/discriminatory guidance
+
+9.2 AI Capabilities
+	•	“Ask the Market” chat for a geography
+	•	“Explain this score” for a property
+	•	“Compare these two ZIPs” (NY/NJ/CT)
+	•	“Find datasets to improve coverage” (internal agent)
+
+9.3 AI Output Format (Required)
+	•	Default to structured JSON internally:
+	•	answer_summary
+	•	key_numbers (with units)
+	•	evidence (comps IDs, datasets IDs)
+	•	confidence and limitations
+	•	Render into human-friendly UI with citations and badges.
+
+9.4 Fair Housing & Compliance Guardrails (Required)
+	•	Prohibit prompts/answers that rank areas based on protected classes or “avoid X people” logic.
+	•	If user asks for disallowed content, AI responds with safe alternative framing (“Here are objective market metrics: pricing, schools availability as public data, commute, amenities…”).
+
+⸻
+
+10) Non-Functional Requirements
+
+Performance
+	•	Market Explorer pages: <2s (served from aggregates cache)
+	•	Property deep dives: <5–8s (allowed to run comps retrieval + model)
+	•	Alerts batch run: schedule daily/hourly depending on plan
+
+Reliability
+	•	99.5% uptime MVP target
+	•	ETL retries and backfills
+	•	Immutable audit logs for data refresh
+
+Security
+	•	OAuth/email auth, MFA optional
+	•	Role-based access (user/admin)
+	•	Encrypt at rest, TLS in transit
+	•	Rate limits + abuse prevention
+
+Privacy / Legal
+	•	Respect dataset licenses/terms; store license metadata in Data Catalog
+	•	Provide disclaimers: informational tool, not appraisal/financial advice
+	•	Logging policy and data retention rules
+
+⸻
+
+11) Architecture Requirements (recommended reference implementation)
+
+Data Layer
+	•	Postgres + PostGIS (canonical store)
+	•	Object storage for raw dumps (S3-compatible)
+	•	Vector store (for dataset docs + explanations), optional
+
+ETL/Orchestration
+	•	Prefect or Airflow
+	•	Daily/weekly jobs for aggregates; streaming optional later
+
+Services
+	•	API: FastAPI/Node
+	•	Search: Elasticsearch/OpenSearch (geo + full-text)
+	•	Compute: background workers for scoring, comps, alerts
+
+Caching
+	•	Redis for hot ZIP/city stats + property deep-dive cache
+
+Observability
+	•	ETL dashboards, data quality checks, anomaly detection on prices/sqft outliers
+
+⸻
+
+12) UX Requirements (MVP screens)
+	1.	Landing + onboarding (select NY/NJ/CT interests)
+	2.	Market Explorer (ZIP/city/neighborhood)
+	3.	Opportunity Screener (ranked list + filters)
+	4.	Property Detail (facts + comps + score + AI)
+	5.	Watchlists & Alerts
+	6.	Reports/Exports
+	7.	Admin Console (data catalog + coverage matrix + ETL health)
+
+⸻
+
+13) Rollout Plan (Tri-State)
+
+Phase 1 (NYC deep + tri-state market intelligence)
+	•	NYC: property-level scoring + alt signals
+	•	NYS/NJ/CT: Market Explorer + risk/rent/trend overlays + limited property drilldown where facts exist
+
+Phase 2 (Long Island + selected NJ/CT counties deepening)
+	•	Expand deep coverage county-by-county based on:
+	•	sales data availability
+	•	sqft/year-built completeness
+	•	refresh cadence stability
+
+Phase 3 (Full tri-state deep where feasible)
+	•	Listings integration (if desired)
+	•	ML ranking improvements from user feedback/closed loops
+
+⸻
+
+14) Key Risks & Mitigations
+	•	Sales data gaps outside NYC → coverage matrix + paid data only for drilldowns/exports + county-by-county enablement
+	•	Inconsistent sqft/year-built → data validation, imputation rules, confidence downgrades
+	•	Licensing constraints → maintain Data Catalog; restrict redistribution; use derived aggregates where needed
+	•	AI hallucinations → grounded tool-only responses + citations + low-confidence safe mode
+
+⸻
+
+15) Deliverables for the Build Agent
+	1.	Database schema (property_fact, sale_txn, zip_market_stats, feature_store, comps, coverage_matrix, data_catalog)
+	2.	ETL jobs (NYC + NYS parcels + overlays + aggregates)
+	3.	Scoring service (Opportunity Score v1 + expected value model v1)
+	4.	API endpoints + auth + rate limits
+	5.	Frontend screens (7 MVP screens)
+	6.	Grounded AI service (RAG/tooling + structured outputs)
+	7.	Monitoring + admin console
+
+⸻
+
+If you want, I can also generate a developer-ready task breakdown (epics → stories) and the exact field lists for each table (including index strategy, geo keys, and a starter segmentation grid for NYC vs suburban counties).
