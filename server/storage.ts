@@ -38,6 +38,7 @@ import {
   type AiChat,
   type InsertAiChat,
   type ScreenerFilters,
+  type UpAndComingZip,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -101,6 +102,9 @@ export interface IStorage {
   // AI chat operations
   getAiChats(userId: string): Promise<AiChat[]>;
   createAiChat(chat: InsertAiChat): Promise<AiChat>;
+  
+  // Up and coming ZIP codes
+  getUpAndComingZips(state?: string, limit?: number): Promise<UpAndComingZip[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -488,6 +492,131 @@ export class DatabaseStorage implements IStorage {
   async createAiChat(chat: InsertAiChat): Promise<AiChat> {
     const [created] = await db.insert(aiChats).values(chat).returning();
     return created;
+  }
+
+  // Up and coming ZIP codes
+  async getUpAndComingZips(state?: string, limit = 25): Promise<UpAndComingZip[]> {
+    // Get ZIP-level market aggregates with trend data
+    const conditions = [
+      eq(marketAggregates.geoType, "zip"),
+      isNotNull(marketAggregates.trend12m),
+    ];
+    
+    if (state) {
+      conditions.push(eq(marketAggregates.state, state));
+    }
+
+    const zipAggregates = await db
+      .select()
+      .from(marketAggregates)
+      .where(and(...conditions));
+
+    // Get property counts and avg opportunity scores per ZIP
+    const propertyStats = await db
+      .select({
+        zipCode: properties.zipCode,
+        city: properties.city,
+        state: properties.state,
+        propertyCount: sql<number>`count(*)::int`,
+        avgOpportunityScore: sql<number>`round(avg(${properties.opportunityScore}))::int`,
+        avgLat: sql<number>`avg(${properties.latitude})`,
+        avgLng: sql<number>`avg(${properties.longitude})`,
+      })
+      .from(properties)
+      .where(state ? eq(properties.state, state) : sql`true`)
+      .groupBy(properties.zipCode, properties.city, properties.state);
+
+    // Combine data and calculate trend scores
+    const zipMap = new Map<string, {
+      aggregate: typeof zipAggregates[0];
+      stats: typeof propertyStats[0] | null;
+    }>();
+
+    // Index aggregates by ZIP
+    for (const agg of zipAggregates) {
+      zipMap.set(agg.geoId, { aggregate: agg, stats: null });
+    }
+
+    // Match property stats
+    for (const stat of propertyStats) {
+      const existing = zipMap.get(stat.zipCode);
+      if (existing) {
+        existing.stats = stat;
+      }
+    }
+
+    // Calculate trend scores and rank
+    const results: UpAndComingZip[] = [];
+
+    const entries = Array.from(zipMap.entries());
+    for (const [zipCode, data] of entries) {
+      const { aggregate, stats } = data;
+      
+      // Skip if no positive trend
+      if (!aggregate.trend12m || aggregate.trend12m <= 0) continue;
+
+      // Calculate momentum
+      const trend12m = aggregate.trend12m || 0;
+      const trend6m = aggregate.trend6m || 0;
+      const trend3m = aggregate.trend3m || 0;
+      
+      let momentum: "accelerating" | "steady" | "decelerating";
+      if (trend3m > trend6m && trend6m > 0) {
+        momentum = "accelerating";
+      } else if (trend3m < trend6m * 0.5 || trend3m < 0) {
+        momentum = "decelerating";
+      } else {
+        momentum = "steady";
+      }
+
+      // Calculate composite trend score (0-100)
+      // Components:
+      // - trend12m: up to 40 points (capped at 20% annual growth = 40 points)
+      // - acceleration bonus: up to 20 points (based on absolute improvement in momentum)
+      // - opportunity score: up to 25 points
+      // - transaction volume: up to 15 points
+      
+      const trend12mScore = Math.min(40, (trend12m / 20) * 40);
+      
+      // Use absolute delta for acceleration (avoid division by small numbers)
+      // 5% improvement in 6m vs 12m trend = full 20 points
+      const accelerationDelta = trend6m - trend12m;
+      const accelerationScore = accelerationDelta > 0 
+        ? Math.min(20, (accelerationDelta / 5) * 20)
+        : 0;
+      
+      const avgOppScore = stats?.avgOpportunityScore || 50;
+      const oppScoreComponent = (avgOppScore / 100) * 25;
+      
+      const txCount = aggregate.transactionCount || 0;
+      const volumeScore = Math.min(15, (txCount / 50) * 15);
+
+      const trendScore = Math.round(
+        trend12mScore + accelerationScore + oppScoreComponent + volumeScore
+      );
+
+      results.push({
+        zipCode,
+        city: stats?.city || aggregate.geoName,
+        state: aggregate.state,
+        trendScore: Math.min(100, Math.max(0, trendScore)),
+        trend12m: aggregate.trend12m,
+        trend6m: aggregate.trend6m,
+        trend3m: aggregate.trend3m,
+        medianPrice: aggregate.medianPrice,
+        transactionCount: aggregate.transactionCount,
+        avgOpportunityScore: stats?.avgOpportunityScore || null,
+        propertyCount: stats?.propertyCount || 0,
+        momentum,
+        latitude: stats?.avgLat || null,
+        longitude: stats?.avgLng || null,
+      });
+    }
+
+    // Sort by trend score descending
+    results.sort((a, b) => b.trendScore - a.trendScore);
+
+    return results.slice(0, limit);
   }
 }
 

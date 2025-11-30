@@ -415,3 +415,21 @@ export type ScreenerFilters = {
   opportunityScoreMin?: number;
   confidenceLevels?: ConfidenceLevel[];
 };
+
+// Up and Coming ZIP code type
+export type UpAndComingZip = {
+  zipCode: string;
+  city: string;
+  state: string;
+  trendScore: number; // 0-100 composite score
+  trend12m: number | null; // YoY appreciation %
+  trend6m: number | null; // 6-month trend %
+  trend3m: number | null; // 3-month trend %
+  medianPrice: number | null;
+  transactionCount: number | null;
+  avgOpportunityScore: number | null;
+  propertyCount: number;
+  momentum: "accelerating" | "steady" | "decelerating";
+  latitude: number | null;
+  longitude: number | null;
+};

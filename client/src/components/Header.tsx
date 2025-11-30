@@ -26,6 +26,7 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
   const navItems = [
     { href: "/market-intelligence", label: "Market Explorer" },
     { href: "/investment-opportunities", label: "Opportunity Screener" },
+    { href: "/up-and-coming", label: "Trending Areas" },
     { href: "/saved-properties", label: "Watchlists" },
   ];
 

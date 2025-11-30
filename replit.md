@@ -236,6 +236,7 @@ The application uses descriptive, keyword-rich URLs for better search engine opt
 |---------|----------|
 | Market Explorer | `/market-intelligence` |
 | Opportunity Screener | `/investment-opportunities` |
+| Up and Coming ZIPs | `/up-and-coming` |
 | Property Detail | `/properties/{address-slug}-{city}-{zip}-{uuid}` |
 | Watchlists | `/saved-properties` |
 | Admin Console | `/admin-console` |
@@ -248,6 +249,40 @@ Property URLs use SEO-friendly slugs that include address, city, ZIP code, and t
   - `generatePropertySlug(property)` - Creates the URL slug
   - `extractPropertyIdFromSlug(slug)` - Extracts the UUID from the slug (uses regex to match UUID format)
   - `getPropertyUrl(property)` - Returns the full property URL path
+
+## Up and Coming ZIP Codes Feature
+
+The Up and Coming ZIPs feature identifies trending neighborhoods with strong appreciation and investment potential.
+
+**API Endpoint:**
+- `GET /api/market/up-and-coming`
+- Query params: `state` (optional filter), `limit` (default 25)
+- Returns array of `UpAndComingZip` objects
+
+**Trend Score Algorithm (0-100):**
+The composite trendScore combines four factors:
+- **Price Appreciation (40 pts)**: Based on 12-month trend, capped at 20% growth = 40 points
+- **Acceleration Bonus (20 pts)**: If 6-month trend exceeds 12-month trend (momentum increasing)
+- **Opportunity Score (25 pts)**: Average property opportunity score in the ZIP
+- **Transaction Volume (15 pts)**: Based on transaction count relative to benchmark
+
+**Momentum Categories:**
+- `accelerating`: 3-month trend > 6-month trend (growth speeding up)
+- `decelerating`: 3-month trend < 50% of 6-month trend (growth slowing)
+- `steady`: Everything else
+
+**UI Features:**
+- Summary stat cards (total trending, avg score, accelerating count, total properties)
+- Interactive map with color-coded markers (requires Google Maps API)
+- Ranked ZIP code cards with trend details (3M/6M/12M growth rates)
+- State filter dropdown (NY/NJ/CT)
+- "View Properties" links to Opportunity Screener with ZIP filter
+
+**Files:**
+- `client/src/pages/UpAndComingZips.tsx` - Frontend page component
+- `server/storage.ts` - `getUpAndComingZips()` method
+- `server/routes.ts` - `/api/market/up-and-coming` endpoint
+- `shared/schema.ts` - `UpAndComingZip` type definition
 
 ## Recent Fixes
 

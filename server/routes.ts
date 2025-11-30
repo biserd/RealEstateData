@@ -143,6 +143,19 @@ export async function registerRoutes(
     }
   });
 
+  // Up and coming ZIP codes
+  app.get("/api/market/up-and-coming", isAuthenticated, async (req, res) => {
+    try {
+      const state = req.query.state as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 25;
+      const upAndComingZips = await storage.getUpAndComingZips(state, limit);
+      res.json(upAndComingZips);
+    } catch (error) {
+      console.error("Error fetching up and coming ZIPs:", error);
+      res.status(500).json({ message: "Failed to fetch up and coming areas" });
+    }
+  });
+
   // Search routes
   app.get("/api/search/geo", isAuthenticated, async (req, res) => {
     try {

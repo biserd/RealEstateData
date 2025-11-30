@@ -14,6 +14,7 @@ import OpportunityScreener from "@/pages/OpportunityScreener";
 import PropertyDetail from "@/pages/PropertyDetail";
 import Watchlists from "@/pages/Watchlists";
 import AdminConsole from "@/pages/AdminConsole";
+import UpAndComingZips from "@/pages/UpAndComingZips";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -27,6 +28,7 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/market-intelligence" component={MarketExplorer} />
           <Route path="/investment-opportunities" component={OpportunityScreener} />
+          <Route path="/up-and-coming" component={UpAndComingZips} />
           <Route path="/properties/:slug" component={PropertyDetail} />
           <Route path="/saved-properties" component={Watchlists} />
           <Route path="/admin-console" component={AdminConsole} />
