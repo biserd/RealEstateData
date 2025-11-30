@@ -190,25 +190,40 @@ All exports include:
 - Drizzle Kit for database migrations and schema push
 - Custom build script using esbuild with dependency bundling optimization
 
-## Seed Data
+## Real Data & ETL Pipeline
 
-The database is populated with sample data covering the tri-state area:
+The database is populated with **real data** from public sources:
 
-**Properties (312 total):**
-- NYC: Chelsea, West Village, Greenwich Village, Upper East Side, Upper West Side, Yorkville
-- Brooklyn: Brooklyn Heights, Park Slope, Williamsburg, Boerum Hill
-- Long Island: Great Neck, Manhasset, Glen Cove, Amityville, Huntington
-- New Jersey: Jersey City, Hoboken, Morristown, Short Hills, Oakland
-- Connecticut: Greenwich, New Canaan, Darien, Westport, Stamford
+**Data Sources:**
+1. **Zillow Research** - Zillow Home Value Index (ZHVI) data for NY/NJ/CT
+2. **NYC Open Data PLUTO** - Property Land Use Tax lot Output for NYC
+3. **NYC Open Data Sales** - Rolling property sales records
 
-**Additional Data:**
-- 772 sales/transaction records
-- 75 market aggregates (ZIP, city, neighborhood level)
-- Coverage matrix entries for all states
-- 5 data sources (NYC ACRIS, NJ OPRA, CT Land Records, CoreLogic, Zillow)
-- 1,391 comparable property relationships
+**Current Data Counts:**
+- 3,881 market aggregates (2,367 ZIP codes + 1,514 cities across NY/NJ/CT)
+- 2,962 properties (NYC PLUTO residential properties with real addresses)
+- 19 sales records (matched via BBL codes)
+- 14,436 comparable relationships
+- 3 data sources tracked
+- Coverage matrix: NY (full property data), NJ/CT (market aggregates only)
 
-**To reseed the database:**
+**ETL Scripts:**
+- `server/etl/zillow-data.ts` - Downloads and parses Zillow ZHVI CSV data
+- `server/etl/nyc-opendata.ts` - Fetches PLUTO and Sales data from NYC Open Data API
+- `server/etl/import-real-data.ts` - Orchestrates full import pipeline
+
+**Data Quality Notes:**
+- BBL (Borough-Block-Lot) matching used for accurate sales linking
+- Borough-to-county mapping: Manhattan→New York, Brooklyn→Kings, Queens→Queens, Bronx→Bronx, Staten Island→Richmond
+- Conservative property attribute estimation (null for multi-unit buildings)
+- Estimated values capped at $50M to prevent outliers
+
+**To reimport real data:**
+```bash
+npx tsx server/etl/import-real-data.ts
+```
+
+**To use sample/mock data instead:**
 ```bash
 npx tsx server/seed.ts
 ```
