@@ -151,17 +151,25 @@ export async function downloadNYCPlutoData(limit: number = 5000): Promise<PlutoR
 export async function downloadNYCPropertySales(limit: number = 5000): Promise<PropertySaleRecord[]> {
   console.log(`Downloading NYC Property Sales data (limit: ${limit})...`);
 
-  const query = `$where=sale_price > 100000 AND year_built > 1800&$limit=${limit}&$order=sale_date DESC`;
+  const query = `$limit=${limit}&$order=sale_date DESC`;
   const url = `${NYC_OPENDATA_URLS.propertySales}?${query}`;
 
   const response = await fetch(url);
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`API Error: ${errorText}`);
     throw new Error(`Failed to fetch property sales data: ${response.status}`);
   }
 
   const data = await response.json();
-  console.log(`Downloaded ${data.length} property sale records`);
-  return data as PropertySaleRecord[];
+  const validSales = data.filter((sale: PropertySaleRecord) => {
+    const price = parseInt(sale.sale_price?.replace(/,/g, "") || "0");
+    const year = parseInt(sale.year_built || "0");
+    return price > 100000 && year > 1800;
+  });
+  
+  console.log(`Downloaded ${data.length} property sale records, ${validSales.length} valid after filtering`);
+  return validSales as PropertySaleRecord[];
 }
 
 export async function importNYCProperties(
