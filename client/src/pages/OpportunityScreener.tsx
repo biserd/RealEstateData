@@ -36,7 +36,43 @@ export default function OpportunityScreener() {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: properties, isLoading } = useQuery<Property[]>({
-    queryKey: ["/api/properties/screener", filters, sortBy],
+    queryKey: [
+      "/api/properties/screener", 
+      filters.state || "", 
+      filters.propertyTypes?.join(",") || "",
+      filters.priceMin?.toString() || "",
+      filters.priceMax?.toString() || "",
+      filters.opportunityScoreMin?.toString() || "",
+      filters.bedsBands?.join(",") || "",
+      filters.bathsBands?.join(",") || "",
+      filters.yearBuiltBands?.join(",") || "",
+      sortBy
+    ],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.state) params.append("state", filters.state);
+      if (filters.propertyTypes?.length) {
+        params.append("propertyTypes", filters.propertyTypes.join(","));
+      }
+      if (filters.priceMin) params.append("priceMin", filters.priceMin.toString());
+      if (filters.priceMax) params.append("priceMax", filters.priceMax.toString());
+      if (filters.opportunityScoreMin) params.append("opportunityScoreMin", filters.opportunityScoreMin.toString());
+      if (filters.bedsBands?.length) {
+        params.append("bedsBands", filters.bedsBands.join(","));
+      }
+      if (filters.bathsBands?.length) {
+        params.append("bathsBands", filters.bathsBands.join(","));
+      }
+      if (filters.yearBuiltBands?.length) {
+        params.append("yearBuiltBands", filters.yearBuiltBands.join(","));
+      }
+      
+      const res = await fetch(`/api/properties/screener?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch properties");
+      return res.json();
+    },
   });
 
   const handleResetFilters = () => {

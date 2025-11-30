@@ -34,12 +34,35 @@ export default function MarketExplorer() {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: marketData, isLoading } = useQuery<MarketAggregate[]>({
-    queryKey: ["/api/market/aggregates", selectedGeo?.id, propertyType, bedsBand, yearBuiltBand],
+    queryKey: ["/api/market/aggregates", selectedGeo?.type, selectedGeo?.id, propertyType, bedsBand, yearBuiltBand],
+    queryFn: async () => {
+      if (!selectedGeo) return [];
+      const params = new URLSearchParams({
+        geoType: selectedGeo.type,
+        geoId: selectedGeo.id,
+      });
+      if (propertyType !== "all") params.append("propertyType", propertyType);
+      if (bedsBand !== "all") params.append("bedsBand", bedsBand);
+      if (yearBuiltBand !== "all") params.append("yearBuiltBand", yearBuiltBand);
+      
+      const res = await fetch(`/api/market/aggregates?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch market data");
+      return res.json();
+    },
     enabled: !!selectedGeo,
   });
 
   const { data: searchResults, isLoading: searching } = useQuery<Array<{ type: string; id: string; name: string; state: string }>>({
     queryKey: ["/api/search/geo", searchQuery],
+    queryFn: async () => {
+      const res = await fetch(`/api/search/geo?q=${encodeURIComponent(searchQuery)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Search failed");
+      return res.json();
+    },
     enabled: searchQuery.length >= 2,
   });
 

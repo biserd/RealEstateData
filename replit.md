@@ -189,3 +189,38 @@ All exports include:
 - Replit Vite plugins for runtime error overlay and dev banner
 - Drizzle Kit for database migrations and schema push
 - Custom build script using esbuild with dependency bundling optimization
+
+## Seed Data
+
+The database is populated with sample data covering the tri-state area:
+
+**Properties (312 total):**
+- NYC: Chelsea, West Village, Greenwich Village, Upper East Side, Upper West Side, Yorkville
+- Brooklyn: Brooklyn Heights, Park Slope, Williamsburg, Boerum Hill
+- Long Island: Great Neck, Manhasset, Glen Cove, Amityville, Huntington
+- New Jersey: Jersey City, Hoboken, Morristown, Short Hills, Oakland
+- Connecticut: Greenwich, New Canaan, Darien, Westport, Stamford
+
+**Additional Data:**
+- 772 sales/transaction records
+- 75 market aggregates (ZIP, city, neighborhood level)
+- Coverage matrix entries for all states
+- 5 data sources (NYC ACRIS, NJ OPRA, CT Land Records, CoreLogic, Zillow)
+- 1,391 comparable property relationships
+
+**To reseed the database:**
+```bash
+npx tsx server/seed.ts
+```
+
+## Recent Fixes
+
+**Query Parameter Fixes (Frontend):**
+- Market Explorer geo search now correctly uses query parameter format (`/api/search/geo?q=query`)
+- Market aggregates now correctly passes geoType and geoId as query parameters
+- Opportunity Screener now correctly calls `/api/properties/screener` endpoint with proper query parameters
+- Query keys use stable array format for proper React Query cache invalidation
+
+**User Authentication:**
+- Fixed upsertUser to handle unique email constraint violations gracefully
+- Existing users with same email are updated instead of causing errors
