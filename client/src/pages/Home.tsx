@@ -33,19 +33,19 @@ export default function Home() {
       icon: <BarChart3 className="h-5 w-5" />,
       label: "Market Explorer",
       description: "Analyze pricing by ZIP, city, or neighborhood",
-      href: "/explore",
+      href: "/market-intelligence",
     },
     {
       icon: <TrendingUp className="h-5 w-5" />,
       label: "Opportunity Screener",
       description: "Find underpriced properties with filters",
-      href: "/screener",
+      href: "/investment-opportunities",
     },
     {
       icon: <HomeIcon className="h-5 w-5" />,
       label: "My Watchlists",
       description: "Track saved properties and markets",
-      href: "/watchlists",
+      href: "/saved-properties",
     },
   ];
 
@@ -77,7 +77,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <Link href="/watchlists">
+              <Link href="/saved-properties">
                 <Button variant="outline" data-testid="button-view-alerts">
                   View Alerts
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -108,7 +108,7 @@ export default function Home() {
         <section className="mb-8">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold">Market Overview</h2>
-            <Link href="/explore">
+            <Link href="/market-intelligence">
               <Button variant="ghost" size="sm" data-testid="link-explore-markets">
                 Explore Markets
                 <ArrowRight className="ml-1 h-4 w-4" />
@@ -168,7 +168,7 @@ export default function Home() {
                 Highest scoring properties in your coverage areas
               </p>
             </div>
-            <Link href="/screener">
+            <Link href="/investment-opportunities">
               <Button variant="ghost" size="sm" data-testid="link-view-all-opportunities">
                 View All
                 <ArrowRight className="ml-1 h-4 w-4" />
@@ -192,7 +192,7 @@ export default function Home() {
                 <p className="mb-4 text-sm text-muted-foreground">
                   Use the screener to find properties that match your criteria
                 </p>
-                <Link href="/screener">
+                <Link href="/investment-opportunities">
                   <Button data-testid="button-go-to-screener">
                     Open Screener
                   </Button>

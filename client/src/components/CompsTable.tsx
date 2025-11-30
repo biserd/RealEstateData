@@ -75,7 +75,7 @@ export function CompsTable({ comps, subjectProperty }: CompsTableProps) {
               <TableCell>
                 <div className="space-y-1">
                   <Link 
-                    href={`/property/${comp.property.id}`}
+                    href={`/properties/${comp.property.id}`}
                     className="flex items-center gap-1 font-medium hover:underline"
                   >
                     {comp.property.address}

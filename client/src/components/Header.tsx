@@ -24,9 +24,9 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
   const [location] = useLocation();
 
   const navItems = [
-    { href: "/explore", label: "Market Explorer" },
-    { href: "/screener", label: "Opportunity Screener" },
-    { href: "/watchlists", label: "Watchlists" },
+    { href: "/market-intelligence", label: "Market Explorer" },
+    { href: "/investment-opportunities", label: "Opportunity Screener" },
+    { href: "/saved-properties", label: "Watchlists" },
   ];
 
   const getInitials = () => {
@@ -140,7 +140,7 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
               {user?.role === "admin" && (
                 <>
                   <DropdownMenuSeparator />
-                  <Link href="/admin">
+                  <Link href="/admin-console">
                     <DropdownMenuItem data-testid="menu-admin">
                       <Settings className="mr-2 h-4 w-4" />
                       Admin Console

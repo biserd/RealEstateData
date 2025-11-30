@@ -228,7 +228,23 @@ npx tsx server/etl/import-real-data.ts
 npx tsx server/seed.ts
 ```
 
+## SEO-Friendly URLs
+
+The application uses descriptive, keyword-rich URLs for better search engine optimization:
+
+| Feature | URL Path |
+|---------|----------|
+| Market Explorer | `/market-intelligence` |
+| Opportunity Screener | `/investment-opportunities` |
+| Property Detail | `/properties/:id` |
+| Watchlists | `/saved-properties` |
+| Admin Console | `/admin-console` |
+
 ## Recent Fixes
+
+**SEO-Friendly URLs:**
+- Updated all routes to use descriptive, keyword-rich paths
+- Updated all internal navigation links to use new URL structure
 
 **Query Parameter Fixes (Frontend):**
 - Market Explorer geo search now correctly uses query parameter format (`/api/search/geo?q=query`)

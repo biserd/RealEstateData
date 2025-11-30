@@ -104,7 +104,7 @@ export function PropertyCard({
       </div>
 
       <CardContent className="p-4">
-        <Link href={`/property/${property.id}`}>
+        <Link href={`/properties/${property.id}`}>
           <div className="space-y-3">
             <div>
               <p className="text-2xl font-bold" data-testid={`text-price-${property.id}`}>

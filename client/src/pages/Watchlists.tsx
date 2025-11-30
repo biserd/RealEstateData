@@ -259,8 +259,8 @@ export default function Watchlists() {
                             <p className="text-sm text-muted-foreground">
                               No properties saved yet
                             </p>
-                            <Link href="/screener">
-                              <Button variant="link" size="sm">
+                            <Link href="/investment-opportunities">
+                              <Button variant="ghost" size="sm">
                                 Browse properties
                               </Button>
                             </Link>

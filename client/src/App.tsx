@@ -24,11 +24,11 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Home} />
-          <Route path="/explore" component={MarketExplorer} />
-          <Route path="/screener" component={OpportunityScreener} />
-          <Route path="/property/:id" component={PropertyDetail} />
-          <Route path="/watchlists" component={Watchlists} />
-          <Route path="/admin" component={AdminConsole} />
+          <Route path="/market-intelligence" component={MarketExplorer} />
+          <Route path="/investment-opportunities" component={OpportunityScreener} />
+          <Route path="/properties/:id" component={PropertyDetail} />
+          <Route path="/saved-properties" component={Watchlists} />
+          <Route path="/admin-console" component={AdminConsole} />
         </>
       )}
       <Route component={NotFound} />
