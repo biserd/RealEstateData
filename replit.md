@@ -236,9 +236,18 @@ The application uses descriptive, keyword-rich URLs for better search engine opt
 |---------|----------|
 | Market Explorer | `/market-intelligence` |
 | Opportunity Screener | `/investment-opportunities` |
-| Property Detail | `/properties/:id` |
+| Property Detail | `/properties/{address-slug}-{city}-{zip}-{uuid}` |
 | Watchlists | `/saved-properties` |
 | Admin Console | `/admin-console` |
+
+**Property URL Slug Format:**
+Property URLs use SEO-friendly slugs that include address, city, ZIP code, and the unique property UUID.
+- Example: `/properties/551-lafayette-avenue-brooklyn-11205-3beedc1d-caac-4c76-8b66-32e79b1784cb`
+- The UUID at the end ensures uniqueness while the address/city/ZIP provide readable, keyword-rich URLs
+- Slug utilities in `client/src/lib/propertySlug.ts`:
+  - `generatePropertySlug(property)` - Creates the URL slug
+  - `extractPropertyIdFromSlug(slug)` - Extracts the UUID from the slug (uses regex to match UUID format)
+  - `getPropertyUrl(property)` - Returns the full property URL path
 
 ## Recent Fixes
 
