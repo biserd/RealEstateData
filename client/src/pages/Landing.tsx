@@ -1,11 +1,35 @@
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search } from "lucide-react";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Brain, Database, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useQuery } from "@tanstack/react-query";
+
+interface PlatformStats {
+  properties: number;
+  sales: number;
+  marketAggregates: number;
+  comps: number;
+  aiChats: number;
+  dataSources: number;
+}
 
 export default function Landing() {
+  const { data: platformStats, isLoading: statsLoading } = useQuery<PlatformStats>({
+    queryKey: ["/api/stats/platform"],
+  });
+
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + "M";
+    }
+    if (num >= 1000) {
+      return (num / 1000).toFixed(num >= 10000 ? 0 : 1) + "K";
+    }
+    return num.toLocaleString();
+  };
+
   const features = [
     {
       icon: <BarChart3 className="h-6 w-6" />,
@@ -29,12 +53,38 @@ export default function Landing() {
     },
   ];
 
-  const stats = [
-    { value: "3", label: "States Covered" },
-    { value: "1M+", label: "Properties Tracked" },
-    { value: "10K+", label: "ZIP Codes" },
-    { value: "<2s", label: "Insight Speed" },
-  ];
+  const realStats = platformStats ? [
+    { 
+      value: formatNumber(platformStats.properties), 
+      label: "Properties",
+      icon: <Building2 className="h-5 w-5" />,
+    },
+    { 
+      value: formatNumber(platformStats.sales), 
+      label: "Sales Records",
+      icon: <Receipt className="h-5 w-5" />,
+    },
+    { 
+      value: formatNumber(platformStats.comps), 
+      label: "Comp Analyses",
+      icon: <GitCompare className="h-5 w-5" />,
+    },
+    { 
+      value: formatNumber(platformStats.marketAggregates), 
+      label: "Market Data Points",
+      icon: <BarChart3 className="h-5 w-5" />,
+    },
+    { 
+      value: formatNumber(platformStats.aiChats), 
+      label: "AI Analyses",
+      icon: <Brain className="h-5 w-5" />,
+    },
+    { 
+      value: platformStats.dataSources.toString(), 
+      label: "Data Sources",
+      icon: <Database className="h-5 w-5" />,
+    },
+  ] : [];
 
   const coverageAreas = [
     { state: "New York", areas: "NYC, Long Island, Hudson Valley, Upstate" },
@@ -109,14 +159,28 @@ export default function Landing() {
 
         <section className="border-y bg-muted/30 py-12">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
-            <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-              {stats.map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <p className="text-3xl font-bold text-primary md:text-4xl">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                </div>
-              ))}
+            <div className="mb-4 text-center">
+              <h2 className="text-lg font-semibold text-muted-foreground">Our Database</h2>
             </div>
+            {statsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">
+                {realStats.map((stat) => (
+                  <div key={stat.label} className="text-center">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      {stat.icon}
+                    </div>
+                    <p className="text-2xl font-bold text-primary md:text-3xl" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                      {stat.value}
+                    </p>
+                    <p className="text-xs text-muted-foreground md:text-sm">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 

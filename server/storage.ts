@@ -106,6 +106,16 @@ export interface IStorage {
   
   // Up and coming ZIP codes
   getUpAndComingZips(state?: string, limit?: number): Promise<UpAndComingZip[]>;
+  
+  // Platform statistics
+  getPlatformStats(): Promise<{
+    properties: number;
+    sales: number;
+    marketAggregates: number;
+    comps: number;
+    aiChats: number;
+    dataSources: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -696,6 +706,48 @@ export class DatabaseStorage implements IStorage {
     results.sort((a, b) => b.trendScore - a.trendScore);
 
     return results.slice(0, limit);
+  }
+
+  async getPlatformStats(): Promise<{
+    properties: number;
+    sales: number;
+    marketAggregates: number;
+    comps: number;
+    aiChats: number;
+    dataSources: number;
+  }> {
+    const [propertiesCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(properties);
+    
+    const [salesCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(sales);
+    
+    const [marketAggregatesCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(marketAggregates);
+    
+    const [compsCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(comps);
+    
+    const [aiChatsCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(aiChats);
+    
+    const [dataSourcesCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(dataSources);
+
+    return {
+      properties: propertiesCount?.count || 0,
+      sales: salesCount?.count || 0,
+      marketAggregates: marketAggregatesCount?.count || 0,
+      comps: compsCount?.count || 0,
+      aiChats: aiChatsCount?.count || 0,
+      dataSources: dataSourcesCount?.count || 0,
+    };
   }
 }
 

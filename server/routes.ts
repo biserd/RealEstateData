@@ -190,6 +190,17 @@ export async function registerRoutes(
     }
   });
 
+  // Platform stats - public endpoint for homepage
+  app.get("/api/stats/platform", async (req, res) => {
+    try {
+      const stats = await storage.getPlatformStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching platform stats:", error);
+      res.status(500).json({ message: "Failed to fetch platform stats" });
+    }
+  });
+
   // Watchlist routes
   app.get("/api/watchlists", isAuthenticated, async (req: any, res) => {
     try {
