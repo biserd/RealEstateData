@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, Home as HomeIcon, Bell, ArrowRight, MapPin, Building2, Receipt, GitCompare, Brain, Database, Loader2 } from "lucide-react";
+import { BarChart3, TrendingUp, Home as HomeIcon, Bell, ArrowRight, MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,15 +10,6 @@ import { PropertyCard } from "@/components/PropertyCard";
 import { LoadingState } from "@/components/LoadingState";
 import { useAuth } from "@/hooks/useAuth";
 import type { Property, MarketAggregate, Notification } from "@shared/schema";
-
-interface PlatformStats {
-  properties: number;
-  sales: number;
-  marketAggregates: number;
-  comps: number;
-  aiChats: number;
-  dataSources: number;
-}
 
 export default function Home() {
   const { user } = useAuth();
@@ -35,49 +26,7 @@ export default function Home() {
     queryKey: ["/api/notifications"],
   });
 
-  const { data: platformStats, isLoading: statsLoading } = useQuery<PlatformStats>({
-    queryKey: ["/api/stats/platform"],
-  });
-
   const unreadCount = notifications?.filter((n) => !n.isRead).length || 0;
-
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + "M";
-    }
-    if (num >= 1000) {
-      return (num / 1000).toFixed(num >= 10000 ? 0 : 1) + "K";
-    }
-    return num.toLocaleString();
-  };
-
-  const realStats = platformStats ? [
-    { 
-      value: formatNumber(platformStats.properties), 
-      label: "Properties",
-      icon: <Building2 className="h-4 w-4" />,
-    },
-    { 
-      value: formatNumber(platformStats.sales), 
-      label: "Sales",
-      icon: <Receipt className="h-4 w-4" />,
-    },
-    { 
-      value: formatNumber(platformStats.comps), 
-      label: "Comps",
-      icon: <GitCompare className="h-4 w-4" />,
-    },
-    { 
-      value: formatNumber(platformStats.marketAggregates), 
-      label: "Markets",
-      icon: <BarChart3 className="h-4 w-4" />,
-    },
-    { 
-      value: platformStats.dataSources.toString(), 
-      label: "Sources",
-      icon: <Database className="h-4 w-4" />,
-    },
-  ] : [];
 
   const quickActions = [
     {
@@ -103,7 +52,7 @@ export default function Home() {
   return (
     <AppLayout>
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-        <div className="mb-6">
+        <div className="mb-8">
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl" data-testid="text-welcome">
             Welcome back, {user?.firstName || "there"}
           </h1>
@@ -111,33 +60,6 @@ export default function Home() {
             Here's what's happening in the Tri-State real estate market
           </p>
         </div>
-
-        <Card className="mb-8 bg-muted/30">
-          <CardContent className="p-4">
-            <div className="mb-2 text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Our Database</p>
-            </div>
-            {statsLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : (
-              <div className="grid grid-cols-5 gap-2">
-                {realStats.map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      {stat.icon}
-                    </div>
-                    <p className="text-lg font-bold text-primary md:text-xl" data-testid={`stat-home-${stat.label.toLowerCase()}`}>
-                      {stat.value}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground md:text-xs">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {unreadCount > 0 && (
           <Card className="mb-8 border-primary/20 bg-primary/5">
