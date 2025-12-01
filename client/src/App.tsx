@@ -15,6 +15,10 @@ import PropertyDetail from "@/pages/PropertyDetail";
 import Watchlists from "@/pages/Watchlists";
 import AdminConsole from "@/pages/AdminConsole";
 import UpAndComingZips from "@/pages/UpAndComingZips";
+import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
+import About from "@/pages/About";
+import Contact from "@/pages/Contact";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -32,6 +36,10 @@ function Router() {
       <Route path="/admin-console">
         {isAuthenticated ? <AdminConsole /> : <Landing />}
       </Route>
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/about" component={About} />
+      <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
     </Switch>
   );

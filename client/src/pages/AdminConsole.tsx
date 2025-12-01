@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Header } from "@/components/Header";
+import { AppLayout } from "@/components/layouts";
 import { LoadingState } from "@/components/LoadingState";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -98,9 +98,8 @@ export default function AdminConsole() {
 
   if (user?.role !== "admin") {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+      <AppLayout>
+        <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
           <Card>
             <CardContent className="py-16 text-center">
               <AlertCircle className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
@@ -110,16 +109,14 @@ export default function AdminConsole() {
               </p>
             </CardContent>
           </Card>
-        </main>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="mb-8">
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Admin Console</h1>
           <p className="text-muted-foreground">
@@ -631,7 +628,7 @@ export default function AdminConsole() {
             </div>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

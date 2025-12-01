@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Header } from "@/components/Header";
+import { AppLayout } from "@/components/layouts";
 import { PropertyCard } from "@/components/PropertyCard";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
@@ -104,10 +104,8 @@ export default function Watchlists() {
   const unreadCount = notifications?.filter((n) => !n.isRead).length || 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Watchlists & Alerts</h1>
@@ -382,7 +380,7 @@ export default function Watchlists() {
             )}
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

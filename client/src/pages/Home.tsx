@@ -4,7 +4,7 @@ import { BarChart3, TrendingUp, Home as HomeIcon, Bell, ArrowRight, MapPin } fro
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Header } from "@/components/Header";
+import { AppLayout } from "@/components/layouts";
 import { MarketStatsCard } from "@/components/MarketStatsCard";
 import { PropertyCard } from "@/components/PropertyCard";
 import { LoadingState } from "@/components/LoadingState";
@@ -50,10 +50,8 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="mb-8">
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl" data-testid="text-welcome">
             Welcome back, {user?.firstName || "there"}
@@ -201,7 +199,7 @@ export default function Home() {
             </Card>
           )}
         </section>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

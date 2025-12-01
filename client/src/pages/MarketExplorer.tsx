@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Header } from "@/components/Header";
+import { AppLayout } from "@/components/layouts";
 import { MarketStatsCard } from "@/components/MarketStatsCard";
 import { SegmentSelector } from "@/components/SegmentSelector";
 import { PriceDistribution } from "@/components/PriceDistribution";
@@ -180,10 +180,8 @@ export default function MarketExplorer() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="mb-8">
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Market Explorer</h1>
           <p className="text-muted-foreground">
@@ -685,7 +683,7 @@ export default function MarketExplorer() {
             </CardContent>
           </Card>
         )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

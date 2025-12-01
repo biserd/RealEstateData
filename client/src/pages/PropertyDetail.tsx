@@ -26,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Header } from "@/components/Header";
+import { AppLayout } from "@/components/layouts";
 import { OpportunityScore } from "@/components/OpportunityScore";
 import { PriceDistribution } from "@/components/PriceDistribution";
 import { CompsTable } from "@/components/CompsTable";
@@ -164,20 +164,18 @@ export default function PropertyDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+      <AppLayout>
+        <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
           <LoadingState type="skeleton-details" />
-        </main>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
   if (!property) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+      <AppLayout>
+        <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
           <EmptyState
             icon={<Home className="h-8 w-8" />}
             title="Property not found"
@@ -187,8 +185,8 @@ export default function PropertyDetail() {
               onClick: () => window.history.back(),
             }}
           />
-        </main>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
@@ -243,10 +241,8 @@ export default function PropertyDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header showSearch={false} />
-
-      <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+    <AppLayout showSearch={false}>
+      <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
         <div className="mb-6">
           <Link href="/investment-opportunities">
             <Button variant="ghost" className="gap-2" data-testid="button-back">
@@ -605,7 +601,7 @@ export default function PropertyDetail() {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

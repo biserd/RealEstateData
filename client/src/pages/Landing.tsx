@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 
 interface PlatformStats {
@@ -285,21 +286,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="border-t py-12">
-        <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-primary-foreground">
-                <span className="text-xs font-bold">TI</span>
-              </div>
-              <span className="text-sm font-medium">TriState Intel</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Informational tool only. Not financial or appraisal advice.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

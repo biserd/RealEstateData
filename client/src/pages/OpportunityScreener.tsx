@@ -17,7 +17,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Header } from "@/components/Header";
+import { AppLayout } from "@/components/layouts";
 import { FilterPanel } from "@/components/FilterPanel";
 import { PropertyCard } from "@/components/PropertyCard";
 import { PropertyMap } from "@/components/PropertyMap";
@@ -127,9 +127,7 @@ export default function OpportunityScreener() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
+    <AppLayout showSearch={false}>
       <div className="flex h-[calc(100vh-4rem)]">
         <aside className="hidden w-80 flex-shrink-0 border-r lg:block">
           <FilterPanel
@@ -374,6 +372,6 @@ export default function OpportunityScreener() {
           </div>
         </main>
       </div>
-    </div>
+    </AppLayout>
   );
 }
