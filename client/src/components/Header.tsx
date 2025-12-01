@@ -34,6 +34,7 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
+    { href: "/", label: "Home", icon: Home },
     { href: "/market-intelligence", label: "Market Explorer", icon: Search },
     { href: "/investment-opportunities", label: "Opportunity Screener", icon: Building2 },
     { href: "/up-and-coming", label: "Trending Areas", icon: TrendingUp },
