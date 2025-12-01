@@ -106,11 +106,11 @@ export function PropertyMap({
         position: { lat: property.latitude!, lng: property.longitude! },
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: isSubject ? 12 : 8,
+          scale: isSubject ? 14 : 10,
           fillColor: isSubject ? "#2563eb" : isSelected ? "#16a34a" : "#dc2626",
-          fillOpacity: 1,
+          fillOpacity: 0.9,
           strokeColor: "#ffffff",
-          strokeWeight: 2,
+          strokeWeight: 3,
         },
         title: property.address,
         zIndex: isSubject ? 1000 : isSelected ? 500 : 1,
@@ -136,12 +136,28 @@ export function PropertyMap({
       markers.forEach((marker) => marker.setMap(mapRef.current));
     }
 
-    if (validProperties.length > 1) {
+    if (validProperties.length > 0) {
       const bounds = new google.maps.LatLngBounds();
       validProperties.forEach((p) => {
         bounds.extend({ lat: p.latitude!, lng: p.longitude! });
       });
+      
+      // Fit bounds first
       mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+      
+      // Then set appropriate zoom after bounds are applied
+      setTimeout(() => {
+        if (!mapRef.current) return;
+        const currentZoom = mapRef.current.getZoom();
+        // For small property counts, ensure zoom is at least 14 for visibility
+        if (validProperties.length <= 10) {
+          if (currentZoom !== undefined && currentZoom < 14) {
+            mapRef.current.setZoom(14);
+          } else if (currentZoom !== undefined && currentZoom > 17) {
+            mapRef.current.setZoom(17);
+          }
+        }
+      }, 100);
     }
 
     return () => {
