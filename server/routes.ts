@@ -24,8 +24,8 @@ export async function registerRoutes(
     }
   });
 
-  // Property routes
-  app.get("/api/properties/top-opportunities", isAuthenticated, async (req, res) => {
+  // Property routes - public read access
+  app.get("/api/properties/top-opportunities", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const properties = await storage.getTopOpportunities(limit);
@@ -36,7 +36,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/properties/screener", isAuthenticated, async (req, res) => {
+  app.get("/api/properties/screener", async (req, res) => {
     try {
       const filters = {
         state: req.query.state as string | undefined,
@@ -63,7 +63,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/properties/area", isAuthenticated, async (req, res) => {
+  app.get("/api/properties/area", async (req, res) => {
     try {
       const { geoType, geoId, limit } = req.query;
       if (!geoType || !geoId) {
@@ -81,7 +81,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/properties/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/properties/:id", async (req, res) => {
     try {
       const property = await storage.getProperty(req.params.id);
       if (!property) {
@@ -94,7 +94,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/properties/:id/comps", isAuthenticated, async (req, res) => {
+  app.get("/api/properties/:id/comps", async (req, res) => {
     try {
       const comps = await storage.getComps(req.params.id);
       res.json(comps);
@@ -104,7 +104,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/properties/:id/sales", isAuthenticated, async (req, res) => {
+  app.get("/api/properties/:id/sales", async (req, res) => {
     try {
       const sales = await storage.getSalesForProperty(req.params.id);
       res.json(sales);
@@ -114,8 +114,8 @@ export async function registerRoutes(
     }
   });
 
-  // Market routes
-  app.get("/api/market/overview", isAuthenticated, async (req, res) => {
+  // Market routes - public read access
+  app.get("/api/market/overview", async (req, res) => {
     try {
       const overview = await storage.getMarketOverview();
       res.json(overview);
@@ -125,7 +125,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/market/aggregates", isAuthenticated, async (req, res) => {
+  app.get("/api/market/aggregates", async (req, res) => {
     try {
       const { geoType, geoId, propertyType, bedsBand, yearBuiltBand } = req.query;
       if (!geoType || !geoId) {
@@ -143,8 +143,8 @@ export async function registerRoutes(
     }
   });
 
-  // Up and coming ZIP codes
-  app.get("/api/market/up-and-coming", isAuthenticated, async (req, res) => {
+  // Up and coming ZIP codes - public read access
+  app.get("/api/market/up-and-coming", async (req, res) => {
     try {
       const state = req.query.state as string | undefined;
       const limit = parseInt(req.query.limit as string) || 25;
@@ -156,8 +156,8 @@ export async function registerRoutes(
     }
   });
 
-  // Search routes
-  app.get("/api/search/geo", isAuthenticated, async (req, res) => {
+  // Search routes - public read access
+  app.get("/api/search/geo", async (req, res) => {
     try {
       const query = req.query.q as string;
       if (!query || query.length < 2) {

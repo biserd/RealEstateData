@@ -21,19 +21,17 @@ function Router() {
 
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Home} />
-          <Route path="/market-intelligence" component={MarketExplorer} />
-          <Route path="/investment-opportunities" component={OpportunityScreener} />
-          <Route path="/up-and-coming" component={UpAndComingZips} />
-          <Route path="/properties/:slug" component={PropertyDetail} />
-          <Route path="/saved-properties" component={Watchlists} />
-          <Route path="/admin-console" component={AdminConsole} />
-        </>
-      )}
+      <Route path="/" component={isLoading || !isAuthenticated ? Landing : Home} />
+      <Route path="/market-intelligence" component={MarketExplorer} />
+      <Route path="/investment-opportunities" component={OpportunityScreener} />
+      <Route path="/up-and-coming" component={UpAndComingZips} />
+      <Route path="/properties/:slug" component={PropertyDetail} />
+      <Route path="/saved-properties">
+        {isAuthenticated ? <Watchlists /> : <Landing />}
+      </Route>
+      <Route path="/admin-console">
+        {isAuthenticated ? <AdminConsole /> : <Landing />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
