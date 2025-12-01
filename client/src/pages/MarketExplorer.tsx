@@ -524,9 +524,137 @@ export default function MarketExplorer() {
                       <TabsContent value="segments">
                         <Card>
                           <CardContent className="p-6">
-                            <p className="text-center text-muted-foreground">
-                              Segment breakdown will be displayed here
-                            </p>
+                            {areaProperties && areaProperties.length > 0 ? (
+                              <div className="grid gap-6 md:grid-cols-3">
+                                {/* Property Type Breakdown */}
+                                <div className="space-y-3">
+                                  <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                                    Property Type
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {Object.entries(
+                                      areaProperties.reduce((acc, p) => {
+                                        const type = p.propertyType || "Other";
+                                        acc[type] = (acc[type] || 0) + 1;
+                                        return acc;
+                                      }, {} as Record<string, number>)
+                                    )
+                                      .sort((a, b) => b[1] - a[1])
+                                      .slice(0, 5)
+                                      .map(([type, count]) => (
+                                        <div key={type} className="flex items-center justify-between">
+                                          <span className="text-sm">{type}</span>
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-2 w-24 rounded-full bg-muted overflow-hidden">
+                                              <div
+                                                className="h-full bg-primary rounded-full"
+                                                style={{
+                                                  width: `${(count / areaProperties.length) * 100}%`,
+                                                }}
+                                              />
+                                            </div>
+                                            <span className="text-sm text-muted-foreground w-8 text-right">
+                                              {count}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+
+                                {/* Bedrooms Breakdown */}
+                                <div className="space-y-3">
+                                  <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                                    Bedrooms
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {Object.entries(
+                                      areaProperties.reduce((acc, p) => {
+                                        const beds = p.beds ? `${p.beds} Bed` : "Unknown";
+                                        acc[beds] = (acc[beds] || 0) + 1;
+                                        return acc;
+                                      }, {} as Record<string, number>)
+                                    )
+                                      .sort((a, b) => {
+                                        const aNum = parseInt(a[0]) || 999;
+                                        const bNum = parseInt(b[0]) || 999;
+                                        return aNum - bNum;
+                                      })
+                                      .slice(0, 6)
+                                      .map(([beds, count]) => (
+                                        <div key={beds} className="flex items-center justify-between">
+                                          <span className="text-sm">{beds}</span>
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-2 w-24 rounded-full bg-muted overflow-hidden">
+                                              <div
+                                                className="h-full bg-emerald-500 rounded-full"
+                                                style={{
+                                                  width: `${(count / areaProperties.length) * 100}%`,
+                                                }}
+                                              />
+                                            </div>
+                                            <span className="text-sm text-muted-foreground w-8 text-right">
+                                              {count}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+
+                                {/* Year Built Breakdown */}
+                                <div className="space-y-3">
+                                  <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                                    Year Built
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {Object.entries(
+                                      areaProperties.reduce((acc, p) => {
+                                        let era = "Unknown";
+                                        if (p.yearBuilt) {
+                                          if (p.yearBuilt < 1950) era = "Pre-1950";
+                                          else if (p.yearBuilt < 1980) era = "1950-1979";
+                                          else if (p.yearBuilt < 2000) era = "1980-1999";
+                                          else if (p.yearBuilt < 2010) era = "2000-2009";
+                                          else era = "2010+";
+                                        }
+                                        acc[era] = (acc[era] || 0) + 1;
+                                        return acc;
+                                      }, {} as Record<string, number>)
+                                    )
+                                      .sort((a, b) => {
+                                        const order = ["Pre-1950", "1950-1979", "1980-1999", "2000-2009", "2010+", "Unknown"];
+                                        return order.indexOf(a[0]) - order.indexOf(b[0]);
+                                      })
+                                      .map(([era, count]) => (
+                                        <div key={era} className="flex items-center justify-between">
+                                          <span className="text-sm">{era}</span>
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-2 w-24 rounded-full bg-muted overflow-hidden">
+                                              <div
+                                                className="h-full bg-amber-500 rounded-full"
+                                                style={{
+                                                  width: `${(count / areaProperties.length) * 100}%`,
+                                                }}
+                                              />
+                                            </div>
+                                            <span className="text-sm text-muted-foreground w-8 text-right">
+                                              {count}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="py-8 text-center">
+                                <Home className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+                                <p className="text-muted-foreground">
+                                  No property data available for segment analysis
+                                </p>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       </TabsContent>
