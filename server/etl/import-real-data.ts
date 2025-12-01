@@ -15,6 +15,7 @@ import {
 import { downloadZillowData, importZillowMarketAggregates, createZillowDataSource } from "./zillow-data";
 import { 
   downloadNYCPlutoData, 
+  downloadNYCPlutoDataPaginated,
   downloadNYCPropertySales, 
   importNYCProperties,
   createNYCDataSources,
@@ -94,12 +95,12 @@ async function importRealData(): Promise<void> {
   const marketCount = await importZillowMarketAggregates(zillowData);
   console.log("");
 
-  console.log("Step 3: Downloading NYC Open Data (PLUTO)...");
-  const plutoData = await downloadNYCPlutoData(3000);
+  console.log("Step 3: Downloading NYC Open Data (PLUTO) - FULL DATASET...");
+  const plutoData = await downloadNYCPlutoDataPaginated(100000, 10000);
   console.log("");
 
   console.log("Step 4: Downloading NYC Property Sales...");
-  const salesData = await downloadNYCPropertySales(5000);
+  const salesData = await downloadNYCPropertySales(50000);
   console.log("");
 
   console.log("Step 5: Importing NYC properties and sales...");

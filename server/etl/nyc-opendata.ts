@@ -102,6 +102,8 @@ interface PlutoRecord {
 
 interface PropertySaleRecord {
   borough: string;
+  block: string;
+  lot: string;
   neighborhood: string;
   building_class_category: string;
   building_class_at_present: string;
@@ -154,6 +156,48 @@ export async function downloadNYCPlutoData(limit: number = 5000): Promise<PlutoR
   const data = await response.json();
   console.log(`Downloaded ${data.length} PLUTO records`);
   return data as PlutoRecord[];
+}
+
+export async function downloadNYCPlutoDataPaginated(totalLimit: number = 100000, batchSize: number = 10000): Promise<PlutoRecord[]> {
+  console.log(`Downloading NYC PLUTO data with pagination (total limit: ${totalLimit}, batch size: ${batchSize})...`);
+  
+  const allRecords: PlutoRecord[] = [];
+  let offset = 0;
+  
+  while (offset < totalLimit) {
+    const currentBatchSize = Math.min(batchSize, totalLimit - offset);
+    const residentialQuery = `$where=landuse in ('01','02','03','04') AND unitsres > 0&$limit=${currentBatchSize}&$offset=${offset}&$order=bbl`;
+    const url = `${NYC_OPENDATA_URLS.pluto}?${residentialQuery}`;
+    
+    console.log(`  Fetching batch: offset=${offset}, limit=${currentBatchSize}...`);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PLUTO data: ${response.status}`);
+    }
+    
+    const data = await response.json() as PlutoRecord[];
+    
+    if (data.length === 0) {
+      console.log(`  No more records at offset ${offset}. Done.`);
+      break;
+    }
+    
+    allRecords.push(...data);
+    console.log(`  Fetched ${data.length} records. Total: ${allRecords.length}`);
+    
+    if (data.length < currentBatchSize) {
+      console.log(`  Received fewer records than requested. End of dataset.`);
+      break;
+    }
+    
+    offset += batchSize;
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  
+  console.log(`Downloaded total of ${allRecords.length} PLUTO records`);
+  return allRecords;
 }
 
 export async function downloadNYCPropertySales(limit: number = 5000): Promise<PropertySaleRecord[]> {
