@@ -312,6 +312,51 @@ export class DatabaseStorage implements IStorage {
 
   // Geo search
   async searchGeo(query: string): Promise<Array<{ type: string; id: string; name: string; state: string }>> {
+    // Neighborhood name to CD code mapping for common NYC neighborhoods
+    const neighborhoodMappings: Record<string, { code: string; name: string; city: string }> = {
+      "upper east side": { code: "CD 108", name: "Upper East Side", city: "Manhattan" },
+      "upper west side": { code: "CD 107", name: "Upper West Side", city: "Manhattan" },
+      "midtown": { code: "CD 105", name: "Midtown", city: "Manhattan" },
+      "chelsea": { code: "CD 104", name: "Chelsea", city: "Manhattan" },
+      "greenwich village": { code: "CD 102", name: "Greenwich Village", city: "Manhattan" },
+      "soho": { code: "CD 102", name: "SoHo", city: "Manhattan" },
+      "tribeca": { code: "CD 101", name: "Tribeca", city: "Manhattan" },
+      "lower east side": { code: "CD 103", name: "Lower East Side", city: "Manhattan" },
+      "east village": { code: "CD 103", name: "East Village", city: "Manhattan" },
+      "harlem": { code: "CD 110", name: "Harlem", city: "Manhattan" },
+      "east harlem": { code: "CD 111", name: "East Harlem", city: "Manhattan" },
+      "washington heights": { code: "CD 112", name: "Washington Heights", city: "Manhattan" },
+      "williamsburg": { code: "CD 301", name: "Williamsburg", city: "Brooklyn" },
+      "brooklyn heights": { code: "CD 302", name: "Brooklyn Heights", city: "Brooklyn" },
+      "park slope": { code: "CD 306", name: "Park Slope", city: "Brooklyn" },
+      "bed stuy": { code: "CD 303", name: "Bedford-Stuyvesant", city: "Brooklyn" },
+      "bedford stuyvesant": { code: "CD 303", name: "Bedford-Stuyvesant", city: "Brooklyn" },
+      "bushwick": { code: "CD 304", name: "Bushwick", city: "Brooklyn" },
+      "crown heights": { code: "CD 308", name: "Crown Heights", city: "Brooklyn" },
+      "astoria": { code: "CD 401", name: "Astoria", city: "Queens" },
+      "long island city": { code: "CD 402", name: "Long Island City", city: "Queens" },
+      "flushing": { code: "CD 407", name: "Flushing", city: "Queens" },
+      "jamaica": { code: "CD 412", name: "Jamaica", city: "Queens" },
+      "south bronx": { code: "CD 201", name: "South Bronx", city: "Bronx" },
+      "fordham": { code: "CD 205", name: "Fordham", city: "Bronx" },
+      "riverdale": { code: "CD 208", name: "Riverdale", city: "Bronx" },
+    };
+
+    const queryLower = query.toLowerCase();
+    const neighborhoodMatches: Array<{ type: string; id: string; name: string; state: string }> = [];
+    
+    // Check for neighborhood name matches
+    for (const [key, value] of Object.entries(neighborhoodMappings)) {
+      if (key.includes(queryLower) || queryLower.includes(key.split(" ")[0])) {
+        neighborhoodMatches.push({
+          type: "neighborhood",
+          id: value.code,
+          name: `${value.name}, ${value.city}`,
+          state: "NY",
+        });
+      }
+    }
+
     const zipMatches = await db
       .select({
         id: properties.zipCode,
@@ -335,6 +380,7 @@ export class DatabaseStorage implements IStorage {
       .limit(5);
 
     return [
+      ...neighborhoodMatches.slice(0, 5),
       ...zipMatches.map((z) => ({ type: "zip", id: z.id, name: z.name, state: z.state })),
       ...cityMatches.map((c) => ({ type: "city", id: c.id, name: c.name, state: c.state })),
     ];

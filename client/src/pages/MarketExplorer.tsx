@@ -254,60 +254,89 @@ export default function MarketExplorer() {
 
             {isLoading ? (
               <LoadingState type="skeleton-details" />
-            ) : currentMarket ? (
+            ) : (
               <>
-                <div className="mb-8 grid gap-4 md:grid-cols-4">
-                  <MarketStatsCard
-                    label="Median Price"
-                    value={`$${((currentMarket.medianPrice || 0) / 1000).toFixed(0)}K`}
-                    trend={currentMarket.trend3m || 0}
-                    trendLabel="3mo"
-                    icon={<DollarSign className="h-5 w-5" />}
-                  />
-                  <MarketStatsCard
-                    label="Median $/sqft"
-                    value={`$${currentMarket.medianPricePerSqft?.toFixed(0) || "N/A"}`}
-                    trend={currentMarket.trend3m || 0}
-                    trendLabel="3mo"
-                    icon={<Home className="h-5 w-5" />}
-                  />
-                  <MarketStatsCard
-                    label="Transaction Volume"
-                    value={currentMarket.transactionCount || 0}
-                    trendLabel="last 12mo"
-                    icon={<Activity className="h-5 w-5" />}
-                  />
-                  <MarketStatsCard
-                    label="Turnover Rate"
-                    value={`${((currentMarket.turnoverRate || 0) * 100).toFixed(1)}%`}
-                    icon={<TrendingUp className="h-5 w-5" />}
-                  />
-                </div>
-
-                <Card className="mb-8">
-                  <CardHeader>
-                    <CardTitle>Price Distribution</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <PriceDistribution
-                      p25={currentMarket.p25Price || 400000}
-                      p50={currentMarket.medianPrice || 550000}
-                      p75={currentMarket.p75Price || 725000}
-                    />
-                    <div className="mt-6">
-                      <p className="mb-2 text-sm font-medium text-muted-foreground">
-                        Price per Sqft Distribution
-                      </p>
-                      <PriceDistribution
-                        p25={currentMarket.p25PricePerSqft || 300}
-                        p50={currentMarket.medianPricePerSqft || 425}
-                        p75={currentMarket.p75PricePerSqft || 575}
-                        unit="$"
-                        label="$/sqft Distribution"
+                {currentMarket && (
+                  <>
+                    <div className="mb-8 grid gap-4 md:grid-cols-4">
+                      <MarketStatsCard
+                        label="Median Price"
+                        value={`$${((currentMarket.medianPrice || 0) / 1000).toFixed(0)}K`}
+                        trend={currentMarket.trend3m || 0}
+                        trendLabel="3mo"
+                        icon={<DollarSign className="h-5 w-5" />}
+                      />
+                      <MarketStatsCard
+                        label="Median $/sqft"
+                        value={`$${currentMarket.medianPricePerSqft?.toFixed(0) || "N/A"}`}
+                        trend={currentMarket.trend3m || 0}
+                        trendLabel="3mo"
+                        icon={<Home className="h-5 w-5" />}
+                      />
+                      <MarketStatsCard
+                        label="Transaction Volume"
+                        value={currentMarket.transactionCount || 0}
+                        trendLabel="last 12mo"
+                        icon={<Activity className="h-5 w-5" />}
+                      />
+                      <MarketStatsCard
+                        label="Turnover Rate"
+                        value={`${((currentMarket.turnoverRate || 0) * 100).toFixed(1)}%`}
+                        icon={<TrendingUp className="h-5 w-5" />}
                       />
                     </div>
-                  </CardContent>
-                </Card>
+
+                    <Card className="mb-8">
+                      <CardHeader>
+                        <CardTitle>Price Distribution</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <PriceDistribution
+                          p25={currentMarket.p25Price || 400000}
+                          p50={currentMarket.medianPrice || 550000}
+                          p75={currentMarket.p75Price || 725000}
+                        />
+                        <div className="mt-6">
+                          <p className="mb-2 text-sm font-medium text-muted-foreground">
+                            Price per Sqft Distribution
+                          </p>
+                          <PriceDistribution
+                            p25={currentMarket.p25PricePerSqft || 300}
+                            p50={currentMarket.medianPricePerSqft || 425}
+                            p75={currentMarket.p75PricePerSqft || 575}
+                            unit="$"
+                            label="$/sqft Distribution"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
+
+                {!currentMarket && areaProperties && areaProperties.length > 0 && (
+                  <div className="mb-8 grid gap-4 md:grid-cols-4">
+                    <MarketStatsCard
+                      label="Properties Found"
+                      value={areaProperties.length}
+                      icon={<Home className="h-5 w-5" />}
+                    />
+                    <MarketStatsCard
+                      label="Avg. Opportunity Score"
+                      value={Math.round(areaProperties.reduce((sum, p) => sum + (p.opportunityScore || 0), 0) / areaProperties.length)}
+                      icon={<Activity className="h-5 w-5" />}
+                    />
+                    <MarketStatsCard
+                      label="Avg. Price"
+                      value={`$${(areaProperties.reduce((sum, p) => sum + (p.estimatedValue || 0), 0) / areaProperties.length / 1000).toFixed(0)}K`}
+                      icon={<DollarSign className="h-5 w-5" />}
+                    />
+                    <MarketStatsCard
+                      label="Coverage"
+                      value="Property Data"
+                      icon={<MapPin className="h-5 w-5" />}
+                    />
+                  </div>
+                )}
 
                 <Tabs defaultValue="map" className="space-y-4">
                   <TabsList>
@@ -315,9 +344,13 @@ export default function MarketExplorer() {
                       <Map className="mr-2 h-4 w-4" />
                       Area Map
                     </TabsTrigger>
-                    <TabsTrigger value="trends" data-testid="tab-trends">Trends</TabsTrigger>
-                    <TabsTrigger value="recent" data-testid="tab-recent">Recent Sales</TabsTrigger>
-                    <TabsTrigger value="segments" data-testid="tab-segments">Segment Breakdown</TabsTrigger>
+                    {currentMarket && (
+                      <>
+                        <TabsTrigger value="trends" data-testid="tab-trends">Trends</TabsTrigger>
+                        <TabsTrigger value="recent" data-testid="tab-recent">Recent Sales</TabsTrigger>
+                        <TabsTrigger value="segments" data-testid="tab-segments">Segment Breakdown</TabsTrigger>
+                      </>
+                    )}
                   </TabsList>
 
                   <TabsContent value="map">
@@ -343,81 +376,87 @@ export default function MarketExplorer() {
                     </Card>
                   </TabsContent>
 
-                  <TabsContent value="trends">
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="grid gap-6 md:grid-cols-3">
-                          <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">3-Month Trend</p>
-                            <div className="flex items-center gap-2">
-                              {(currentMarket.trend3m || 0) >= 0 ? (
-                                <TrendingUp className="h-5 w-5 text-emerald-500" />
-                              ) : (
-                                <TrendingDown className="h-5 w-5 text-red-500" />
-                              )}
-                              <span className="text-2xl font-bold">
-                                {currentMarket.trend3m?.toFixed(1) || 0}%
-                              </span>
+                  {currentMarket && (
+                    <>
+                      <TabsContent value="trends">
+                        <Card>
+                          <CardContent className="p-6">
+                            <div className="grid gap-6 md:grid-cols-3">
+                              <div className="space-y-2">
+                                <p className="text-sm text-muted-foreground">3-Month Trend</p>
+                                <div className="flex items-center gap-2">
+                                  {(currentMarket.trend3m || 0) >= 0 ? (
+                                    <TrendingUp className="h-5 w-5 text-emerald-500" />
+                                  ) : (
+                                    <TrendingDown className="h-5 w-5 text-red-500" />
+                                  )}
+                                  <span className="text-2xl font-bold">
+                                    {currentMarket.trend3m?.toFixed(1) || 0}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-sm text-muted-foreground">6-Month Trend</p>
+                                <div className="flex items-center gap-2">
+                                  {(currentMarket.trend6m || 0) >= 0 ? (
+                                    <TrendingUp className="h-5 w-5 text-emerald-500" />
+                                  ) : (
+                                    <TrendingDown className="h-5 w-5 text-red-500" />
+                                  )}
+                                  <span className="text-2xl font-bold">
+                                    {currentMarket.trend6m?.toFixed(1) || 0}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-sm text-muted-foreground">12-Month Trend</p>
+                                <div className="flex items-center gap-2">
+                                  {(currentMarket.trend12m || 0) >= 0 ? (
+                                    <TrendingUp className="h-5 w-5 text-emerald-500" />
+                                  ) : (
+                                    <TrendingDown className="h-5 w-5 text-red-500" />
+                                  )}
+                                  <span className="text-2xl font-bold">
+                                    {currentMarket.trend12m?.toFixed(1) || 0}%
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">6-Month Trend</p>
-                            <div className="flex items-center gap-2">
-                              {(currentMarket.trend6m || 0) >= 0 ? (
-                                <TrendingUp className="h-5 w-5 text-emerald-500" />
-                              ) : (
-                                <TrendingDown className="h-5 w-5 text-red-500" />
-                              )}
-                              <span className="text-2xl font-bold">
-                                {currentMarket.trend6m?.toFixed(1) || 0}%
-                              </span>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">12-Month Trend</p>
-                            <div className="flex items-center gap-2">
-                              {(currentMarket.trend12m || 0) >= 0 ? (
-                                <TrendingUp className="h-5 w-5 text-emerald-500" />
-                              ) : (
-                                <TrendingDown className="h-5 w-5 text-red-500" />
-                              )}
-                              <span className="text-2xl font-bold">
-                                {currentMarket.trend12m?.toFixed(1) || 0}%
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
 
-                  <TabsContent value="recent">
-                    <Card>
-                      <CardContent className="p-6">
-                        <p className="text-center text-muted-foreground">
-                          Recent sales data will be displayed here
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
+                      <TabsContent value="recent">
+                        <Card>
+                          <CardContent className="p-6">
+                            <p className="text-center text-muted-foreground">
+                              Recent sales data will be displayed here
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
 
-                  <TabsContent value="segments">
-                    <Card>
-                      <CardContent className="p-6">
-                        <p className="text-center text-muted-foreground">
-                          Segment breakdown will be displayed here
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
+                      <TabsContent value="segments">
+                        <Card>
+                          <CardContent className="p-6">
+                            <p className="text-center text-muted-foreground">
+                              Segment breakdown will be displayed here
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    </>
+                  )}
                 </Tabs>
+
+                {!currentMarket && (!areaProperties || areaProperties.length === 0) && (
+                  <EmptyState
+                    icon={<MapPin className="h-8 w-8" />}
+                    title="No data available"
+                    description="We don't have any data for this area yet. Try a different location."
+                  />
+                )}
               </>
-            ) : (
-              <EmptyState
-                icon={<MapPin className="h-8 w-8" />}
-                title="No market data available"
-                description="We don't have enough data for this area yet. Try a different location."
-              />
             )}
           </>
         ) : (
