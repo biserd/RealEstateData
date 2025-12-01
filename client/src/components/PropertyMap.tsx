@@ -1,6 +1,5 @@
-import { useCallback, useRef, useMemo, useEffect, useState } from "react";
+import { useCallback, useRef, useMemo, useState } from "react";
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
-import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { useMap } from "./MapProvider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +47,7 @@ export function PropertyMap({
   properties,
   subjectProperty,
   center,
-  zoom = 12,
+  zoom = 14,
   height = "400px",
   showClustering = true,
   onPropertySelect,
@@ -56,8 +55,6 @@ export function PropertyMap({
 }: PropertyMapProps) {
   const { isLoaded, loadError, hasApiKey, authError } = useMap();
   const mapRef = useRef<google.maps.Map | null>(null);
-  const clustererRef = useRef<MarkerClusterer | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
   const validProperties = useMemo(
@@ -79,94 +76,49 @@ export function PropertyMap({
 
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
-  }, []);
-
-  const onMapUnmount = useCallback(() => {
-    if (clustererRef.current) {
-      clustererRef.current.clearMarkers();
-    }
-    markersRef.current = [];
-    mapRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    if (!mapRef.current || !isLoaded) return;
-
-    if (clustererRef.current) {
-      clustererRef.current.clearMarkers();
-    }
-    markersRef.current.forEach((marker) => marker.setMap(null));
-    markersRef.current = [];
-
-    const markers = validProperties.map((property) => {
-      const isSubject = subjectProperty?.id === property.id;
-      const isSelected = selectedPropertyId === property.id;
-
-      const marker = new google.maps.Marker({
-        position: { lat: property.latitude!, lng: property.longitude! },
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: isSubject ? 14 : 10,
-          fillColor: isSubject ? "#2563eb" : isSelected ? "#16a34a" : "#dc2626",
-          fillOpacity: 0.9,
-          strokeColor: "#ffffff",
-          strokeWeight: 3,
-        },
-        title: property.address,
-        zIndex: isSubject ? 1000 : isSelected ? 500 : 1,
-      });
-
-      marker.addListener("click", () => {
-        setSelectedProperty(property);
-        onPropertySelect?.(property);
-      });
-
-      return marker;
-    });
-
-    markersRef.current = markers;
-
-    if (showClustering && markers.length > 10) {
-      clustererRef.current = new MarkerClusterer({
-        map: mapRef.current,
-        markers,
-        algorithmOptions: { maxZoom: 15 },
-      });
-    } else {
-      markers.forEach((marker) => marker.setMap(mapRef.current));
-    }
-
+    
     if (validProperties.length > 0) {
       const bounds = new google.maps.LatLngBounds();
       validProperties.forEach((p) => {
         bounds.extend({ lat: p.latitude!, lng: p.longitude! });
       });
+      map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
       
-      // Fit bounds first
-      mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
-      
-      // Then set appropriate zoom after bounds are applied
       setTimeout(() => {
-        if (!mapRef.current) return;
-        const currentZoom = mapRef.current.getZoom();
-        // For small property counts, ensure zoom is at least 14 for visibility
+        const currentZoom = map.getZoom();
         if (validProperties.length <= 10) {
           if (currentZoom !== undefined && currentZoom < 14) {
-            mapRef.current.setZoom(14);
+            map.setZoom(14);
           } else if (currentZoom !== undefined && currentZoom > 17) {
-            mapRef.current.setZoom(17);
+            map.setZoom(17);
           }
         }
       }, 100);
     }
+  }, [validProperties]);
 
-    return () => {
-      if (clustererRef.current) {
-        clustererRef.current.clearMarkers();
-      }
-      markersRef.current.forEach((marker) => marker.setMap(null));
+  const onMapUnmount = useCallback(() => {
+    mapRef.current = null;
+  }, []);
+
+  const handleMarkerClick = useCallback((property: Property) => {
+    setSelectedProperty(property);
+    onPropertySelect?.(property);
+  }, [onPropertySelect]);
+
+  const getMarkerIcon = useCallback((property: Property) => {
+    const isSubject = subjectProperty?.id === property.id;
+    const isSelected = selectedPropertyId === property.id;
+    
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: isSubject ? 14 : 10,
+      fillColor: isSubject ? "#2563eb" : isSelected ? "#16a34a" : "#dc2626",
+      fillOpacity: 0.9,
+      strokeColor: "#ffffff",
+      strokeWeight: 3,
     };
-  }, [validProperties, subjectProperty, selectedPropertyId, isLoaded, showClustering, onPropertySelect]);
+  }, [subjectProperty?.id, selectedPropertyId]);
 
   const formatPrice = (price: number | null) => {
     if (!price) return "N/A";
@@ -233,6 +185,20 @@ export function PropertyMap({
         onLoad={onMapLoad}
         onUnmount={onMapUnmount}
       >
+        {validProperties.map((property) => (
+          <Marker
+            key={property.id}
+            position={{ lat: property.latitude!, lng: property.longitude! }}
+            icon={getMarkerIcon(property)}
+            title={property.address}
+            zIndex={
+              subjectProperty?.id === property.id ? 1000 :
+              selectedPropertyId === property.id ? 500 : 1
+            }
+            onClick={() => handleMarkerClick(property)}
+          />
+        ))}
+
         {selectedProperty && (
           <InfoWindow
             position={{
