@@ -713,15 +713,20 @@ export async function runFullImport(options: {
   const startTime = Date.now();
   
   console.log("Step 1: Clearing existing staging data...");
+  
   await db.delete(plutoRaw);
   await db.delete(valuationsRaw);
   await db.delete(acrisRaw);
   await db.delete(hpdRaw);
+  
   await db.delete(propertyValuations);
   await db.delete(propertyTransactions);
   await db.delete(propertyCompliance);
+  
   await db.delete(comps);
+  await db.delete(sales);
   await db.delete(properties);
+  
   console.log("✅ Staging tables cleared\n");
   
   console.log("Step 2: Importing raw data from NYC Open Data...");
@@ -760,12 +765,14 @@ export async function runFullImport(options: {
   console.log("=".repeat(60));
 }
 
-if (require.main === module) {
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+
+if (isMainModule) {
   runFullImport({
-    plutoLimit: 500000,
-    valuationsLimit: 500000,
-    acrisLimit: 200000,
-    hpdLimit: 200000,
+    plutoLimit: 200000,
+    valuationsLimit: 200000,
+    acrisLimit: 100000,
+    hpdLimit: 100000,
   })
     .then(() => {
       console.log("Full import completed successfully!");
