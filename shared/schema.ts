@@ -39,8 +39,12 @@ export const users = pgTable("users", {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// Data Source Types for tagging
+export const dataSourceTypes = ["PLUTO", "Valuations", "ACRIS", "HPD", "Zillow", "Manual"] as const;
+export type DataSourceType = typeof dataSourceTypes[number];
+
 // Property Types Enum
-export const propertyTypes = ["SFH", "Condo", "Townhome", "Multi-family 2-4", "Multi-family 5+"] as const;
+export const propertyTypes = ["SFH", "Condo", "Townhome", "Multi-family 2-4", "Multi-family 5+", "Co-op", "Commercial", "Mixed-Use", "Vacant Land"] as const;
 export type PropertyType = typeof propertyTypes[number];
 
 // Property segmentation bands
@@ -61,11 +65,12 @@ export type ConfidenceLevel = typeof confidenceLevels[number];
 export const states = ["NY", "NJ", "CT"] as const;
 export type State = typeof states[number];
 
-// Properties table
+// Properties table - core property data linked via BBL
 export const properties = pgTable(
   "properties",
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    bbl: varchar("bbl"), // Borough-Block-Lot: master key for NYC properties
     address: text("address").notNull(),
     city: varchar("city").notNull(),
     state: varchar("state").notNull(),
@@ -87,10 +92,12 @@ export const properties = pgTable(
     opportunityScore: integer("opportunity_score"),
     confidenceLevel: varchar("confidence_level"),
     imageUrl: text("image_url"),
+    dataSources: text("data_sources").array(), // Track which datasets contributed
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
   (table) => [
+    index("idx_properties_bbl").on(table.bbl),
     index("idx_properties_zip").on(table.zipCode),
     index("idx_properties_city").on(table.city),
     index("idx_properties_state").on(table.state),
@@ -352,6 +359,364 @@ export const insertAiChatSchema = createInsertSchema(aiChats).omit({
 });
 export type InsertAiChat = z.infer<typeof insertAiChatSchema>;
 export type AiChat = typeof aiChats.$inferSelect;
+
+// ============================================
+// STAGING TABLES - Raw data from each source
+// ============================================
+
+// PLUTO Raw Data - Full NYC tax lot data
+export const plutoRaw = pgTable(
+  "pluto_raw",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    bbl: varchar("bbl").notNull(),
+    borough: varchar("borough"),
+    block: varchar("block"),
+    lot: varchar("lot"),
+    address: text("address"),
+    zipCode: varchar("zip_code"),
+    bldgClass: varchar("bldg_class"),
+    landUse: varchar("land_use"),
+    ownerName: text("owner_name"),
+    numFloors: real("num_floors"),
+    unitsRes: integer("units_res"),
+    unitsTotal: integer("units_total"),
+    lotArea: integer("lot_area"),
+    bldgArea: integer("bldg_area"),
+    resArea: integer("res_area"),
+    officeArea: integer("office_area"),
+    retailArea: integer("retail_area"),
+    yearBuilt: integer("year_built"),
+    yearAltered1: integer("year_altered_1"),
+    yearAltered2: integer("year_altered_2"),
+    condoNo: varchar("condo_no"),
+    xCoord: real("x_coord"),
+    yCoord: real("y_coord"),
+    latitude: real("latitude"),
+    longitude: real("longitude"),
+    communityDistrict: varchar("community_district"),
+    zoneDist1: varchar("zone_dist_1"),
+    zoneDist2: varchar("zone_dist_2"),
+    overlay1: varchar("overlay_1"),
+    overlay2: varchar("overlay_2"),
+    spdist1: varchar("spdist_1"),
+    spdist2: varchar("spdist_2"),
+    assessLand: integer("assess_land"),
+    assessTot: integer("assess_tot"),
+    exemptLand: integer("exempt_land"),
+    exemptTot: integer("exempt_tot"),
+    rawData: jsonb("raw_data"), // Store full record for reference
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_pluto_bbl").on(table.bbl),
+    index("idx_pluto_zip").on(table.zipCode),
+  ]
+);
+
+export type PlutoRaw = typeof plutoRaw.$inferSelect;
+
+// Property Valuation Raw Data - Tax assessment data
+export const valuationsRaw = pgTable(
+  "valuations_raw",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    bbl: varchar("bbl").notNull(),
+    borough: varchar("borough"),
+    block: varchar("block"),
+    lot: varchar("lot"),
+    taxClass: varchar("tax_class"),
+    buildingClass: varchar("building_class"),
+    ownerName: text("owner_name"),
+    address: text("address"),
+    aptNo: varchar("apt_no"),
+    zipCode: varchar("zip_code"),
+    assessYear: integer("assess_year"),
+    landValue: integer("land_value"),
+    totalValue: integer("total_value"),
+    transitionalLand: integer("transitional_land"),
+    transitionalTotal: integer("transitional_total"),
+    newLandValue: integer("new_land_value"),
+    newTotalValue: integer("new_total_value"),
+    exemptionCodeOne: varchar("exemption_code_one"),
+    exemptionCodeTwo: varchar("exemption_code_two"),
+    exemptionCodeThree: varchar("exemption_code_three"),
+    exemptionCodeFour: varchar("exemption_code_four"),
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_valuations_bbl").on(table.bbl),
+    index("idx_valuations_year").on(table.assessYear),
+  ]
+);
+
+export type ValuationsRaw = typeof valuationsRaw.$inferSelect;
+
+// ACRIS Raw Data - Deed and mortgage transactions
+export const acrisRaw = pgTable(
+  "acris_raw",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    documentId: varchar("document_id").notNull(),
+    recordType: varchar("record_type"), // MASTER, LEGAL, PARTY
+    bbl: varchar("bbl"),
+    borough: varchar("borough"),
+    block: varchar("block"),
+    lot: varchar("lot"),
+    docType: varchar("doc_type"), // DEED, MTGE, ASST, etc.
+    docDate: timestamp("doc_date"),
+    recordedDateTime: timestamp("recorded_date_time"),
+    docAmount: real("doc_amount"),
+    percentTransferred: real("percent_transferred"),
+    goodThroughDate: timestamp("good_through_date"),
+    partyType: varchar("party_type"), // buyer, seller, lender
+    partyName: text("party_name"),
+    partyAddress: text("party_address"),
+    streetNumber: varchar("street_number"),
+    streetName: text("street_name"),
+    unit: varchar("unit"),
+    city: varchar("city"),
+    state: varchar("state"),
+    country: varchar("country"),
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_acris_bbl").on(table.bbl),
+    index("idx_acris_doc").on(table.documentId),
+    index("idx_acris_date").on(table.recordedDateTime),
+  ]
+);
+
+export type AcrisRaw = typeof acrisRaw.$inferSelect;
+
+// HPD Raw Data - Building registrations, violations, complaints
+export const hpdRaw = pgTable(
+  "hpd_raw",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    bbl: varchar("bbl"),
+    buildingId: varchar("building_id"),
+    registrationId: varchar("registration_id"),
+    boroId: varchar("boro_id"),
+    borough: varchar("borough"),
+    block: varchar("block"),
+    lot: varchar("lot"),
+    houseNumber: varchar("house_number"),
+    streetName: text("street_name"),
+    zipCode: varchar("zip_code"),
+    registrationStatus: varchar("registration_status"),
+    buildingOwnerName: text("building_owner_name"),
+    buildingOwnerPhone: varchar("building_owner_phone"),
+    buildingOwnerEmail: text("building_owner_email"),
+    agentName: text("agent_name"),
+    agentPhone: varchar("agent_phone"),
+    agentAddress: text("agent_address"),
+    numFloors: integer("num_floors"),
+    numApartments: integer("num_apartments"),
+    numLegalUnits: integer("num_legal_units"),
+    totalViolations: integer("total_violations"),
+    openViolations: integer("open_violations"),
+    totalComplaints: integer("total_complaints"),
+    openComplaints: integer("open_complaints"),
+    lastInspectionDate: timestamp("last_inspection_date"),
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_hpd_bbl").on(table.bbl),
+    index("idx_hpd_building").on(table.buildingId),
+  ]
+);
+
+export type HpdRaw = typeof hpdRaw.$inferSelect;
+
+// ============================================
+// NORMALIZED TABLES - Processed and linked data
+// ============================================
+
+// Property Valuations - Historical tax assessments
+export const propertyValuations = pgTable(
+  "property_valuations",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    propertyId: varchar("property_id").references(() => properties.id),
+    bbl: varchar("bbl").notNull(),
+    assessYear: integer("assess_year").notNull(),
+    taxClass: varchar("tax_class"),
+    landValue: integer("land_value"),
+    totalValue: integer("total_value"),
+    exemptionAmount: integer("exemption_amount"),
+    taxableValue: integer("taxable_value"),
+    annualTax: integer("annual_tax"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_prop_val_property").on(table.propertyId),
+    index("idx_prop_val_bbl").on(table.bbl),
+    index("idx_prop_val_year").on(table.assessYear),
+  ]
+);
+
+export type PropertyValuation = typeof propertyValuations.$inferSelect;
+
+// Property Transactions - All deed/mortgage activity
+export const propertyTransactions = pgTable(
+  "property_transactions",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    propertyId: varchar("property_id").references(() => properties.id),
+    bbl: varchar("bbl").notNull(),
+    documentId: varchar("document_id"),
+    transactionType: varchar("transaction_type").notNull(), // sale, mortgage, refinance, transfer
+    transactionDate: timestamp("transaction_date").notNull(),
+    amount: real("amount"),
+    buyerName: text("buyer_name"),
+    sellerName: text("seller_name"),
+    lenderName: text("lender_name"),
+    isArmsLength: boolean("is_arms_length").default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_prop_tx_property").on(table.propertyId),
+    index("idx_prop_tx_bbl").on(table.bbl),
+    index("idx_prop_tx_date").on(table.transactionDate),
+  ]
+);
+
+export type PropertyTransaction = typeof propertyTransactions.$inferSelect;
+
+// Property Compliance - HPD violations and complaints
+export const propertyCompliance = pgTable(
+  "property_compliance",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    propertyId: varchar("property_id").references(() => properties.id),
+    bbl: varchar("bbl").notNull(),
+    registrationStatus: varchar("registration_status"),
+    totalViolations: integer("total_violations").default(0),
+    openViolations: integer("open_violations").default(0),
+    hazardousViolations: integer("hazardous_violations").default(0),
+    totalComplaints: integer("total_complaints").default(0),
+    openComplaints: integer("open_complaints").default(0),
+    lastInspectionDate: timestamp("last_inspection_date"),
+    complianceScore: integer("compliance_score"), // 0-100, higher is better
+    riskLevel: varchar("risk_level"), // low, medium, high
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_compliance_property").on(table.propertyId),
+    index("idx_compliance_bbl").on(table.bbl),
+  ]
+);
+
+export type PropertyCompliance = typeof propertyCompliance.$inferSelect;
+
+// ============================================
+// AI LAYER - Enriched property profiles
+// ============================================
+
+// Property Profiles - Consolidated AI-ready data
+export const propertyProfiles = pgTable(
+  "property_profiles",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    propertyId: varchar("property_id").references(() => properties.id).notNull(),
+    bbl: varchar("bbl"),
+    
+    // Consolidated metrics
+    currentValue: integer("current_value"),
+    valueConfidence: real("value_confidence"),
+    priceHistory: jsonb("price_history"), // Array of {date, price, source}
+    
+    // Financial metrics
+    capRate: real("cap_rate"),
+    cashOnCash: real("cash_on_cash"),
+    appreciationRate: real("appreciation_rate"),
+    taxBurden: real("tax_burden"), // Annual tax as % of value
+    
+    // Risk metrics
+    complianceScore: integer("compliance_score"),
+    marketVolatility: real("market_volatility"),
+    liquidityScore: integer("liquidity_score"),
+    
+    // Opportunity metrics
+    opportunityScore: integer("opportunity_score"),
+    mispricingIndicator: real("mispricing_indicator"),
+    valueAddPotential: real("value_add_potential"),
+    
+    // Data completeness
+    dataCompleteness: real("data_completeness"), // 0-1, how complete is the profile
+    sourcesUsed: text("sources_used").array(),
+    lastEnrichedAt: timestamp("last_enriched_at"),
+    
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_profile_property").on(table.propertyId),
+    index("idx_profile_bbl").on(table.bbl),
+    index("idx_profile_opportunity").on(table.opportunityScore),
+  ]
+);
+
+export type PropertyProfile = typeof propertyProfiles.$inferSelect;
+
+// AI Insights - Stored AI analysis results
+export const aiInsights = pgTable(
+  "ai_insights",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    propertyId: varchar("property_id").references(() => properties.id),
+    bbl: varchar("bbl"),
+    insightType: varchar("insight_type").notNull(), // opportunity_analysis, deal_memo, market_comparison, risk_assessment
+    
+    // AI-generated content
+    summary: text("summary"),
+    keyFindings: jsonb("key_findings"), // Array of {finding, confidence, evidence}
+    recommendations: jsonb("recommendations"), // Array of {action, impact, priority}
+    citations: jsonb("citations"), // Array of {source, dataPoint, value}
+    
+    // Metadata
+    modelUsed: varchar("model_used"),
+    promptTokens: integer("prompt_tokens"),
+    completionTokens: integer("completion_tokens"),
+    confidence: real("confidence"),
+    
+    createdAt: timestamp("created_at").defaultNow(),
+    expiresAt: timestamp("expires_at"), // Cache expiration
+  },
+  (table) => [
+    index("idx_insights_property").on(table.propertyId),
+    index("idx_insights_bbl").on(table.bbl),
+    index("idx_insights_type").on(table.insightType),
+  ]
+);
+
+export type AiInsight = typeof aiInsights.$inferSelect;
+
+// Data Source Links - Track which sources contributed to each property
+export const propertyDataLinks = pgTable(
+  "property_data_links",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    propertyId: varchar("property_id").references(() => properties.id).notNull(),
+    bbl: varchar("bbl"),
+    sourceType: varchar("source_type").notNull(), // PLUTO, Valuations, ACRIS, HPD
+    sourceRecordId: varchar("source_record_id").notNull(),
+    matchType: varchar("match_type").notNull(), // bbl, address, fuzzy
+    matchConfidence: real("match_confidence"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_data_links_property").on(table.propertyId),
+    index("idx_data_links_bbl").on(table.bbl),
+    index("idx_data_links_source").on(table.sourceType),
+  ]
+);
+
+export type PropertyDataLink = typeof propertyDataLinks.$inferSelect;
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
