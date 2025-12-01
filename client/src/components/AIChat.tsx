@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { Send, Bot, User, Loader2, AlertCircle, FileText, ExternalLink } from "lucide-react";
+import { Send, Bot, User, Loader2, AlertCircle, FileText, ExternalLink, Shield, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { AIResponse, ConfidenceLevel } from "@shared/schema";
 
@@ -125,14 +130,36 @@ export function AIChat({ propertyId, geoId, contextLabel, onSendMessage }: AICha
       <ScrollArea className="flex-1 p-4">
         {messages.length === 0 ? (
           <div className="space-y-4">
-            <div className="rounded-lg bg-muted/50 p-4">
-              <p className="text-sm text-muted-foreground">
-                Ask me about market conditions, property analysis, pricing, or any other real estate questions. 
-                All my responses are grounded in actual market data.
-              </p>
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-emerald-100 dark:bg-emerald-900 p-1.5 shrink-0">
+                  <Shield className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium">Data-Grounded Analysis</p>
+                  <p className="text-sm text-muted-foreground">
+                    All responses are based on real property data, comparable sales, and market statistics. 
+                    Look for evidence citations to see exactly what data backs each insight.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      Property records
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                      Sales history
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                      Market trends
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Suggested questions:</p>
+              <p className="text-xs font-medium text-muted-foreground">Try asking:</p>
               <div className="flex flex-wrap gap-2">
                 {suggestedQuestions.map((question) => (
                   <Button
@@ -210,9 +237,25 @@ export function AIChat({ propertyId, geoId, contextLabel, onSendMessage }: AICha
                       )}
 
                       <div className="flex items-center gap-2">
-                        <Badge variant={getConfidenceBadgeVariant(message.response.confidence)}>
-                          {message.response.confidence} Confidence
-                        </Badge>
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <Badge 
+                              variant={getConfidenceBadgeVariant(message.response.confidence)}
+                              className="cursor-help"
+                            >
+                              {message.response.confidence} Confidence
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[220px]">
+                            <p className="text-xs">
+                              {message.response.confidence === "High"
+                                ? "Analysis backed by strong evidence and multiple data sources."
+                                : message.response.confidence === "Medium"
+                                ? "Based on available data with some assumptions."
+                                : "Limited data available—take this as directional guidance only."}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
 
                       {message.response.evidence.length > 0 && (

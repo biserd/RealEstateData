@@ -280,7 +280,7 @@ export default function MarketExplorer() {
               <>
                 {currentMarket && (
                   <>
-                    <div className="mb-8 grid gap-4 md:grid-cols-4">
+                    <div className="mb-8 grid grid-cols-2 gap-3 md:gap-4 md:grid-cols-4">
                       <MarketStatsCard
                         label="Median Price"
                         value={`$${((currentMarket.medianPrice || 0) / 1000).toFixed(0)}K`}

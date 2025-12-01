@@ -35,32 +35,32 @@ export function MarketStatsCard({
 
   return (
     <Card className={cn("hover-elevate", className)}>
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <CardContent className="p-4 md:p-6">
+        <div className="flex items-start justify-between gap-2 md:gap-4">
+          <div className="space-y-0.5 md:space-y-1 min-w-0">
+            <p className="text-xs md:text-sm font-medium uppercase tracking-wide text-muted-foreground truncate">
               {label}
             </p>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold tabular-nums" data-testid={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+              <span className="text-xl md:text-3xl font-bold tabular-nums" data-testid={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}>
                 {typeof value === "number" ? value.toLocaleString() : value}
               </span>
-              {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
+              {unit && <span className="text-xs md:text-sm text-muted-foreground">{unit}</span>}
             </div>
             {trend !== undefined && (
-              <div className={cn("flex items-center gap-1 text-sm", getTrendColor())}>
+              <div className={cn("flex items-center gap-1 text-xs md:text-sm", getTrendColor())}>
                 {getTrendIcon()}
                 <span className="font-medium">
                   {Math.abs(trend).toFixed(1)}%
                 </span>
                 {trendLabel && (
-                  <span className="text-muted-foreground">{trendLabel}</span>
+                  <span className="text-muted-foreground hidden sm:inline">{trendLabel}</span>
                 )}
               </div>
             )}
           </div>
           {icon && (
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
               {icon}
             </div>
           )}

@@ -1,4 +1,4 @@
-import { Info } from "lucide-react";
+import { Info, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -6,6 +6,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { OpportunityScoreBreakdown } from "@shared/schema";
+
+const BREAKDOWN_EXPLANATIONS: Record<string, string> = {
+  Mispricing: "How much the property is priced below market value based on comparables.",
+  Confidence: "Reliability of our estimate based on data quality and comp matches.",
+  Liquidity: "How quickly similar properties sell in this market.",
+  Risk: "Market stability and potential downside factors.",
+  "Value-Add": "Improvement potential to increase property value.",
+};
 
 interface OpportunityScoreProps {
   score: number;
@@ -87,13 +95,25 @@ export function OpportunityScore({
 
       {showBreakdown && breakdown && (
         <div className="w-full space-y-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground border-b pb-2 mb-2">
+            <HelpCircle className="h-3 w-3" />
+            <span>Score breakdown by category. Hover for details.</span>
+          </div>
           {breakdownItems.map((item) => (
             <div key={item.label} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {item.label}
-                  <span className="ml-1 text-xs opacity-60">({item.weight})</span>
-                </span>
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground cursor-help flex items-center gap-1">
+                      {item.label}
+                      <span className="text-xs opacity-60">({item.weight})</span>
+                      <Info className="h-3 w-3 opacity-50" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-[200px]">
+                    <p className="text-xs">{BREAKDOWN_EXPLANATIONS[item.label]}</p>
+                  </TooltipContent>
+                </Tooltip>
                 <span className={cn("font-medium tabular-nums", getScoreColor(item.value))}>
                   {item.value}
                 </span>

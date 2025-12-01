@@ -3,6 +3,11 @@ import { Bed, Bath, Square, Calendar, MapPin, Heart, TrendingUp, TrendingDown } 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { getPropertyUrl } from "@/lib/propertySlug";
 import type { Property, ConfidenceLevel } from "@shared/schema";
@@ -74,17 +79,34 @@ export function PropertyCard({
         </div>
         
         {showOpportunityScore && property.opportunityScore && (
-          <div
-            className={cn(
-              "absolute right-3 top-3 flex h-12 w-12 flex-col items-center justify-center rounded-lg shadow-lg",
-              getScoreBg(property.opportunityScore)
-            )}
-          >
-            <span className={cn("text-lg font-bold", getScoreColor(property.opportunityScore))}>
-              {property.opportunityScore}
-            </span>
-            <span className="text-[10px] uppercase text-muted-foreground">Score</span>
-          </div>
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <div
+                className={cn(
+                  "absolute right-3 top-3 flex h-12 w-12 flex-col items-center justify-center rounded-lg shadow-lg cursor-help",
+                  getScoreBg(property.opportunityScore)
+                )}
+                data-testid={`tooltip-score-${property.id}`}
+              >
+                <span className={cn("text-lg font-bold", getScoreColor(property.opportunityScore))}>
+                  {property.opportunityScore}
+                </span>
+                <span className="text-[10px] uppercase text-muted-foreground">Score</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-[240px]">
+              <div className="space-y-1">
+                <p className="font-medium">Opportunity Score</p>
+                <p className="text-xs text-muted-foreground">
+                  {property.opportunityScore >= 75
+                    ? "Strong investment potential—property appears underpriced vs. market."
+                    : property.opportunityScore >= 50
+                    ? "Moderate opportunity—fairly priced with some upside potential."
+                    : "Fair market value—priced in line with comparable properties."}
+                </p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         )}
 
         <Button
@@ -157,9 +179,29 @@ export function PropertyCard({
                 </Badge>
               )}
               {property.confidenceLevel && (
-                <Badge variant={getConfidenceBadgeVariant(property.confidenceLevel)} className="text-xs">
-                  {property.confidenceLevel} Confidence
-                </Badge>
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant={getConfidenceBadgeVariant(property.confidenceLevel)} 
+                      className="text-xs cursor-help"
+                      data-testid={`tooltip-confidence-${property.id}`}
+                    >
+                      {property.confidenceLevel} Confidence
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px]">
+                    <div className="space-y-1">
+                      <p className="font-medium">Data Confidence</p>
+                      <p className="text-xs text-muted-foreground">
+                        {property.confidenceLevel === "High"
+                          ? "Based on 5+ quality comparable sales in the area."
+                          : property.confidenceLevel === "Medium"
+                          ? "Based on 3-4 comparable sales with good matching."
+                          : "Limited comparable data—estimate may be less precise."}
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>

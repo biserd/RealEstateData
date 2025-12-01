@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, Menu, Search, User, LogOut, Settings, ChevronDown } from "lucide-react";
+import { Bell, Menu, Search, User, LogOut, Settings, ChevronDown, X, TrendingUp, Building2, Heart, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,10 +10,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -22,12 +31,13 @@ interface HeaderProps {
 export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
   const { user } = useAuth();
   const [location] = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { href: "/market-intelligence", label: "Market Explorer" },
-    { href: "/investment-opportunities", label: "Opportunity Screener" },
-    { href: "/up-and-coming", label: "Trending Areas" },
-    { href: "/saved-properties", label: "Watchlists" },
+    { href: "/market-intelligence", label: "Market Explorer", icon: Search },
+    { href: "/investment-opportunities", label: "Opportunity Screener", icon: Building2 },
+    { href: "/up-and-coming", label: "Trending Areas", icon: TrendingUp },
+    { href: "/saved-properties", label: "Watchlists", icon: Heart },
   ];
 
   const getInitials = () => {
@@ -43,17 +53,55 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center gap-4 px-4 md:px-6">
-        {onMenuClick && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={onMenuClick}
-            data-testid="button-menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        )}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              data-testid="button-menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 p-0">
+            <SheetHeader className="border-b p-4">
+              <SheetTitle className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                  <span className="text-sm font-bold">TI</span>
+                </div>
+                <span>TriState Intel</span>
+              </SheetTitle>
+            </SheetHeader>
+            <nav className="flex flex-col p-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <Button
+                      variant={location === item.href ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full justify-start gap-3 h-12 text-base",
+                        location === item.href && "bg-muted"
+                      )}
+                      onClick={() => setMobileMenuOpen(false)}
+                      data-testid={`mobile-nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {item.label}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="absolute bottom-0 left-0 right-0 border-t p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Theme</span>
+                <ThemeToggle />
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">

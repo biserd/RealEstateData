@@ -13,7 +13,9 @@ import {
   ChevronUp,
   ChevronDown,
   Minus,
-  Sparkles
+  Sparkles,
+  Info,
+  HelpCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Header } from "@/components/Header";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
@@ -187,7 +194,16 @@ export default function UpAndComingZips() {
             />
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-lg border bg-muted/30 p-3 flex items-start gap-2">
+                <HelpCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">How it works:</span> We analyze price trends, 
+                  transaction volume, and market momentum to identify ZIP codes with strong appreciation potential. 
+                  Higher trend scores indicate better investment opportunities.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3">
@@ -211,7 +227,20 @@ export default function UpAndComingZips() {
                         <Activity className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">Avg Trend Score</p>
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1 cursor-help">
+                              Avg Trend Score
+                              <Info className="h-3 w-3" />
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[220px]">
+                            <p className="text-xs">
+                              Composite score (0-100) based on price appreciation, market momentum, 
+                              and transaction volume. Higher = stronger growth trend.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                         <p className="text-2xl font-semibold" data-testid="text-avg-score">
                           {Math.round(upAndComingZips.reduce((sum, z) => sum + z.trendScore, 0) / upAndComingZips.length)}
                         </p>
@@ -227,7 +256,19 @@ export default function UpAndComingZips() {
                         <ChevronUp className="h-5 w-5 text-amber-600" />
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">Accelerating</p>
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1 cursor-help">
+                              Accelerating
+                              <Info className="h-3 w-3" />
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[220px]">
+                            <p className="text-xs">
+                              Areas where recent 3-month growth exceeds 6-month growth—momentum is increasing.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                         <p className="text-2xl font-semibold" data-testid="text-accelerating">
                           {upAndComingZips.filter(z => z.momentum === "accelerating").length}
                         </p>
@@ -281,17 +322,33 @@ export default function UpAndComingZips() {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <div className={cn(
-                              "w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg",
-                              getScoreBg(zip.trendScore)
-                            )}>
-                              {zip.trendScore}
-                            </div>
-                            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-background border flex items-center justify-center text-xs font-medium">
-                              {index + 1}
-                            </div>
-                          </div>
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <div className="relative cursor-help">
+                                <div className={cn(
+                                  "w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg",
+                                  getScoreBg(zip.trendScore)
+                                )}>
+                                  {zip.trendScore}
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-background border flex items-center justify-center text-xs font-medium">
+                                  {index + 1}
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[200px]">
+                              <div className="space-y-1">
+                                <p className="font-medium text-xs">Trend Score: {zip.trendScore}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {zip.trendScore >= 75 
+                                    ? "Hot market—strong appreciation potential"
+                                    : zip.trendScore >= 50 
+                                    ? "Warming up—positive growth signals"
+                                    : "Emerging—early signs of growth"}
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
                           <div>
                             <div className="flex items-center gap-2">
                               <h3 className="font-semibold text-lg" data-testid={`text-zip-${zip.zipCode}`}>
@@ -307,16 +364,29 @@ export default function UpAndComingZips() {
                           </div>
                         </div>
                         
-                        <Badge 
-                          className={cn(
-                            "flex items-center gap-1 shrink-0",
-                            getMomentumColor(zip.momentum)
-                          )}
-                          variant="secondary"
-                        >
-                          {getMomentumIcon(zip.momentum)}
-                          <span className="capitalize">{zip.momentum}</span>
-                        </Badge>
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <Badge 
+                              className={cn(
+                                "flex items-center gap-1 shrink-0 cursor-help",
+                                getMomentumColor(zip.momentum)
+                              )}
+                              variant="secondary"
+                            >
+                              {getMomentumIcon(zip.momentum)}
+                              <span className="capitalize">{zip.momentum}</span>
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[200px]">
+                            <p className="text-xs">
+                              {zip.momentum === "accelerating"
+                                ? "Growth is speeding up—recent appreciation exceeds historical rate."
+                                : zip.momentum === "decelerating"
+                                ? "Growth is slowing—still positive but losing momentum."
+                                : "Stable growth—consistent appreciation over time."}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       
                       <div className="mt-4 grid grid-cols-3 gap-3 text-center">
