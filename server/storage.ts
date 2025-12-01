@@ -56,6 +56,7 @@ export interface IStorage {
   
   // Sales operations
   getSalesForProperty(propertyId: string): Promise<Sale[]>;
+  getRecentSalesForArea(geoType: string, geoId: string, limit?: number): Promise<(Sale & { property: Property })[]>;
   createSale(sale: InsertSale): Promise<Sale>;
   
   // Market aggregate operations
@@ -265,6 +266,38 @@ export class DatabaseStorage implements IStorage {
       .from(sales)
       .where(eq(sales.propertyId, propertyId))
       .orderBy(desc(sales.saleDate));
+  }
+
+  async getRecentSalesForArea(geoType: string, geoId: string, limit = 20): Promise<(Sale & { property: Property })[]> {
+    let whereCondition;
+    
+    if (geoType === "zip") {
+      whereCondition = eq(properties.zipCode, geoId);
+    } else if (geoType === "city") {
+      whereCondition = eq(properties.city, geoId);
+    } else if (geoType === "neighborhood") {
+      whereCondition = eq(properties.neighborhood, geoId);
+    } else if (geoType === "state") {
+      whereCondition = eq(properties.state, geoId);
+    } else {
+      return [];
+    }
+    
+    const results = await db
+      .select({
+        sale: sales,
+        property: properties,
+      })
+      .from(sales)
+      .innerJoin(properties, eq(sales.propertyId, properties.id))
+      .where(whereCondition)
+      .orderBy(desc(sales.saleDate))
+      .limit(limit);
+    
+    return results.map((r) => ({
+      ...r.sale,
+      property: r.property,
+    }));
   }
 
   async createSale(sale: InsertSale): Promise<Sale> {

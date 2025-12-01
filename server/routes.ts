@@ -143,6 +143,25 @@ export async function registerRoutes(
     }
   });
 
+  // Recent sales for an area - public read access
+  app.get("/api/market/recent-sales", async (req, res) => {
+    try {
+      const { geoType, geoId, limit } = req.query;
+      if (!geoType || !geoId) {
+        return res.status(400).json({ message: "geoType and geoId are required" });
+      }
+      const recentSales = await storage.getRecentSalesForArea(
+        geoType as string,
+        geoId as string,
+        parseInt(limit as string) || 20
+      );
+      res.json(recentSales);
+    } catch (error) {
+      console.error("Error fetching recent sales:", error);
+      res.status(500).json({ message: "Failed to fetch recent sales" });
+    }
+  });
+
   // Up and coming ZIP codes - public read access
   app.get("/api/market/up-and-coming", async (req, res) => {
     try {

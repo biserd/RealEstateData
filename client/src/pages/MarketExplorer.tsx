@@ -23,7 +23,10 @@ import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { useToast } from "@/hooks/use-toast";
 import { propertyTypes, bedsBands, yearBuiltBands } from "@shared/schema";
-import type { MarketAggregate, CoverageLevel, Property } from "@shared/schema";
+import type { MarketAggregate, CoverageLevel, Property, Sale } from "@shared/schema";
+import { format } from "date-fns";
+import { generatePropertySlug } from "@/lib/propertySlug";
+import { Link } from "wouter";
 
 export default function MarketExplorer() {
   const { toast } = useToast();
@@ -84,6 +87,25 @@ export default function MarketExplorer() {
       return res.json();
     },
     enabled: searchQuery.length >= 2,
+  });
+
+  const { data: recentSales, isLoading: loadingSales } = useQuery<(Sale & { property: Property })[]>({
+    queryKey: ["/api/market/recent-sales", selectedGeo?.type, selectedGeo?.id],
+    queryFn: async () => {
+      if (!selectedGeo) return [];
+      const params = new URLSearchParams({
+        geoType: selectedGeo.type,
+        geoId: selectedGeo.id,
+        limit: "20",
+      });
+      
+      const res = await fetch(`/api/market/recent-sales?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedGeo,
   });
 
   const handleSearch = (query: string) => {
@@ -429,9 +451,72 @@ export default function MarketExplorer() {
                       <TabsContent value="recent">
                         <Card>
                           <CardContent className="p-6">
-                            <p className="text-center text-muted-foreground">
-                              Recent sales data will be displayed here
-                            </p>
+                            {loadingSales ? (
+                              <div className="flex items-center justify-center py-8">
+                                <Activity className="h-6 w-6 animate-spin text-muted-foreground" />
+                              </div>
+                            ) : recentSales && recentSales.length > 0 ? (
+                              <div className="space-y-4">
+                                <div className="grid gap-4">
+                                  {recentSales.map((sale) => (
+                                    <div
+                                      key={sale.id}
+                                      className="flex items-center justify-between rounded-lg border p-4 hover-elevate"
+                                    >
+                                      <div className="flex-1">
+                                        <Link href={`/properties/${generatePropertySlug(sale.property)}`}>
+                                          <p className="font-medium hover:text-primary" data-testid={`text-sale-address-${sale.id}`}>
+                                            {sale.property.address}
+                                          </p>
+                                        </Link>
+                                        <p className="text-sm text-muted-foreground">
+                                          {sale.property.city}, {sale.property.state} {sale.property.zipCode}
+                                        </p>
+                                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                                          {sale.property.propertyType && (
+                                            <Badge variant="outline" className="text-xs">
+                                              {sale.property.propertyType}
+                                            </Badge>
+                                          )}
+                                          {sale.property.beds && (
+                                            <span>{sale.property.beds} bed</span>
+                                          )}
+                                          {sale.property.baths && (
+                                            <span>{sale.property.baths} bath</span>
+                                          )}
+                                          {sale.property.sqft && (
+                                            <span>{sale.property.sqft.toLocaleString()} sqft</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-lg font-bold text-primary" data-testid={`text-sale-price-${sale.id}`}>
+                                          ${sale.salePrice.toLocaleString()}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                          {format(new Date(sale.saleDate), "MMM d, yyyy")}
+                                        </p>
+                                        {sale.property.sqft && (
+                                          <p className="text-xs text-muted-foreground">
+                                            ${Math.round(sale.salePrice / sale.property.sqft).toLocaleString()}/sqft
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="py-8 text-center">
+                                <DollarSign className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+                                <p className="text-muted-foreground">
+                                  No recent sales found for this area
+                                </p>
+                                <p className="text-sm text-muted-foreground/70">
+                                  Sales data is available for properties with recorded transactions
+                                </p>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       </TabsContent>
