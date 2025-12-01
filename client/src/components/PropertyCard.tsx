@@ -181,13 +181,17 @@ export function PropertyCard({
               {property.confidenceLevel && (
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
-                    <Badge 
-                      variant={getConfidenceBadgeVariant(property.confidenceLevel)} 
-                      className="text-xs cursor-help"
+                    <span 
+                      className="cursor-help inline-block" 
                       data-testid={`tooltip-confidence-${property.id}`}
                     >
-                      {property.confidenceLevel} Confidence
-                    </Badge>
+                      <Badge 
+                        variant={getConfidenceBadgeVariant(property.confidenceLevel)} 
+                        className="text-xs"
+                      >
+                        {property.confidenceLevel} Confidence
+                      </Badge>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-[220px]">
                     <div className="space-y-1">

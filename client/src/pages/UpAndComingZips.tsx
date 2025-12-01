@@ -366,16 +366,18 @@ export default function UpAndComingZips() {
                         
                         <Tooltip delayDuration={200}>
                           <TooltipTrigger asChild>
-                            <Badge 
-                              className={cn(
-                                "flex items-center gap-1 shrink-0 cursor-help",
-                                getMomentumColor(zip.momentum)
-                              )}
-                              variant="secondary"
-                            >
-                              {getMomentumIcon(zip.momentum)}
-                              <span className="capitalize">{zip.momentum}</span>
-                            </Badge>
+                            <span className="cursor-help">
+                              <Badge 
+                                className={cn(
+                                  "flex items-center gap-1 shrink-0",
+                                  getMomentumColor(zip.momentum)
+                                )}
+                                variant="secondary"
+                              >
+                                {getMomentumIcon(zip.momentum)}
+                                <span className="capitalize">{zip.momentum}</span>
+                              </Badge>
+                            </span>
                           </TooltipTrigger>
                           <TooltipContent className="max-w-[200px]">
                             <p className="text-xs">
