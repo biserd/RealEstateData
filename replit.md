@@ -2,19 +2,7 @@
 
 ## Overview
 
-This is a subscription SaaS platform that helps buyers, investors, and agents identify real estate opportunities across New York, New Jersey, and Connecticut. The platform provides market intelligence, opportunity scoring, and AI-powered property analysis with a focus on transparent, data-backed insights.
-
-**Core Value Propositions:**
-- Market pricing intelligence by ZIP code, city, and neighborhood with percentile distributions (p25/p50/p75)
-- Proprietary opportunity scoring (0-100) that identifies underpriced properties with confidence metrics
-- AI analysis grounded in real data with citations (no hallucinations)
-- Coverage across three states with deep data in NYC and Long Island
-
-**Target Users:**
-- Retail buyers/sellers (power users)
-- Small/medium investors (1-50 properties)
-- Real estate agents and agent-investors
-- Market analysts and researchers
+This subscription SaaS platform empowers buyers, investors, and agents to identify real estate opportunities across New York, New Jersey, and Connecticut. It provides market intelligence, proprietary opportunity scoring, and AI-powered property analysis with a focus on transparent, data-backed insights. The platform aims to be a comprehensive tool for informed real estate decisions, offering deep data insights for various user types from retail buyers to market analysts.
 
 ## User Preferences
 
@@ -22,280 +10,59 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Frontend
 
-**Framework Stack:**
-- React 18+ with TypeScript
-- Vite for build tooling and development server
-- Wouter for client-side routing (lightweight alternative to React Router)
-- TanStack Query (React Query) for server state management and caching
+The frontend uses React 18+ with TypeScript, Vite for tooling, Wouter for routing, and TanStack Query for server state management. The UI is built with Shadcn/ui components, Radix UI primitives, and Tailwind CSS, following a Linear-inspired design philosophy with light/dark mode support.
 
-**UI Component System:**
-- Shadcn/ui component library with Radix UI primitives
-- Tailwind CSS for styling with custom design tokens
-- Theme system supporting light/dark modes with persistent preferences
-- Design philosophy inspired by Linear (data-first, modern, professional)
+### Backend
 
-**Key Design Decisions:**
-- **Component Library Choice**: Shadcn/ui provides unstyled, accessible components that can be customized to match the Linear-inspired aesthetic while maintaining accessibility
-- **State Management**: React Query handles all server state, eliminating need for Redux/Zustand. Local UI state uses React hooks
-- **Routing Strategy**: Wouter chosen for minimal bundle size while providing all necessary routing features
-- **CSS Approach**: Tailwind utility-first approach with CSS variables for theming enables rapid development while maintaining design consistency
+The backend is built with Express.js and TypeScript, utilizing Node's `http` module. Authentication integrates Replit Auth (OpenID Connect) via Passport.js with PostgreSQL-backed session storage. The API is RESTful, returning JSON, and includes robust export functionalities for market reports, property dossiers, and opportunity lists. A monorepo structure is used for client and server code, with shared schemas and an `esbuild` configuration for optimized bundling.
 
-### Backend Architecture
+### Database
 
-**Server Framework:**
-- Express.js with TypeScript
-- HTTP server using Node's built-in `http` module
-- Session-based authentication using express-session
-
-**Authentication System:**
-- Replit Auth integration (OpenID Connect)
-- Passport.js with custom OpenID strategy
-- PostgreSQL-backed session storage using connect-pg-simple
-- Session cookies with 7-day TTL
-
-**API Design:**
-- RESTful endpoints organized by resource type
-- Protected routes require authentication middleware
-- Response format: JSON with consistent error handling
-- Query parameters for filtering and pagination
-
-**Export Functionality:**
-The platform provides comprehensive data export capabilities:
-- **Market Reports** - CSV/JSON export of market statistics by geography (`/api/export/market-report`)
-- **Property Dossiers** - Full property details with comps in CSV or JSON format (`/api/export/property-dossier/:id`)
-- **Opportunity Lists** - Filtered property lists for analysis (`/api/export/opportunities`)
-- **Admin Data** - Coverage matrix and data source status (admin-only, `/api/export/admin-data`)
-
-All exports include:
-- Proper Content-Disposition headers for file downloads
-- Loading states and success/error toast notifications
-- Format selection (CSV for spreadsheet use, JSON for data integration)
-
-**Key Design Decisions:**
-- **Monorepo Structure**: Client and server code in single repository with shared schema definitions in `/shared` directory
-- **Session Storage**: Database-backed sessions chosen over JWT for better security and ability to revoke sessions
-- **Build Process**: Custom esbuild configuration bundles server dependencies (allowlist approach) to optimize cold start times
-- **Development vs Production**: Vite dev server in development with middleware mode; static file serving in production
-
-### Database Architecture
-
-**ORM and Database:**
-- Drizzle ORM for type-safe database operations
-- PostgreSQL via Neon serverless driver with WebSocket support
-- Schema-first approach with TypeScript types generated from Drizzle schemas
-
-**Core Data Models:**
-
-1. **Users** - Authentication and profile information
-2. **Properties** - Core property data with geographic segmentation
-   - Includes: address, property type, beds/baths, sqft, year built
-   - Segmentation: state, ZIP, city, neighborhood
-   - Scoring: opportunity score, confidence level, mispricing indicators
-   
-3. **Sales** - Historical transaction data linked to properties
-4. **Market Aggregates** - Pre-computed statistics by geographic segment
-   - Pricing percentiles (p25, p50, p75) by property segment
-   - Sample counts and statistical confidence measures
-   
-5. **Coverage Matrix** - Tracks data quality/availability by geography
-   - Levels: MarketOnly, PropertyFacts, SalesHistory, Listings, Comps
-   
-6. **Watchlists** - User-created property collections with alerts
-7. **Comps** - Comparable properties with similarity scores and adjustments
-8. **Data Sources** - ETL tracking and data lineage
-9. **AI Chats** - Conversation history for AI analysis features
-
-**Key Design Decisions:**
-- **Segmentation Strategy**: Properties indexed by multiple geographic levels (state/ZIP/city/neighborhood) for flexible querying
-- **Pre-aggregation**: Market statistics computed and cached to achieve <2s query times
-- **Coverage Tracking**: Explicit coverage levels allow UI to set appropriate user expectations
-- **Composite Types**: Enums for property types, bed/bath/year/size bands enable consistent segmentation
+The platform uses Drizzle ORM with PostgreSQL (Neon serverless driver) and a schema-first approach. Key data models include Users, Properties (with geographic segmentation and opportunity scoring), Sales, Market Aggregates, Coverage Matrix, Watchlists, Comps, Data Sources, and AI Chats. Properties are indexed by multiple geographic levels, and market statistics are pre-computed for performance.
 
 ### AI Integration
 
-**Provider:**
-- OpenAI API via Replit AI Integrations service
-- GPT-5 model (latest as of August 2025)
-- JSON response format for structured outputs
+AI features are powered by OpenAI API (GPT-5) via Replit AI Integrations. It provides Property Analysis, Market Intelligence, and Grounded Responses. AI outputs are structured JSON, incorporate context from property and market data, include confidence scoring, and require data citations to prevent hallucinations.
 
-**AI Features:**
-1. **Property Analysis** - Context-aware analysis with market comparisons
-2. **Market Intelligence** - Geographic area insights and trends
-3. **Grounded Responses** - All insights backed by data citations
+### Features
 
-**Key Design Decisions:**
-- **Structured Output**: JSON response format ensures parseable, consistent AI responses
-- **Context Injection**: System prompts include property details, market data, and comps for grounded analysis
-- **Confidence Scoring**: AI provides confidence levels (High/Medium/Low) with explanations
-- **Citation Requirements**: Responses must reference specific data points to prevent hallucinations
+-   **Market Explorer:** Provides market statistics by geography.
+-   **Opportunity Screener:** Identifies underpriced properties.
+-   **Up and Coming ZIPs:** Identifies trending neighborhoods based on a `trendScore` algorithm considering price appreciation, acceleration, opportunity score, and transaction volume.
+-   **Property Detail Pages:** Offers in-depth property information with SEO-friendly URLs.
+-   **Watchlists:** Allows users to save and monitor properties.
+-   **Admin Console:** For managing platform data and settings.
+-   **SEO-Friendly URLs:** Descriptive, keyword-rich URLs for better search engine visibility across all features.
 
 ## External Dependencies
 
 ### Third-Party Services
 
-**Authentication:**
-- Replit Auth (OpenID Connect provider)
-- Used for user authentication without managing credentials
-
-**AI Services:**
-- Replit AI Integrations (OpenAI-compatible API)
-- Provides GPT-5 access without separate API key management
-
-**Database:**
-- Neon Serverless PostgreSQL
-- Serverless PostgreSQL with WebSocket support for connection pooling
-- Accessed via `@neondatabase/serverless` driver
+-   **Authentication:** Replit Auth (OpenID Connect)
+-   **AI Services:** Replit AI Integrations (OpenAI-compatible API for GPT-5)
+-   **Database:** Neon Serverless PostgreSQL
 
 ### Key NPM Packages
 
-**UI Components:**
-- `@radix-ui/*` - Headless UI component primitives (19 packages)
-- `cmdk` - Command palette component
-- `lucide-react` - Icon library
-- `class-variance-authority` - Component variant styling
-- `tailwind-merge` / `clsx` - Conditional className utilities
-
-**Forms & Validation:**
-- `react-hook-form` - Form state management
-- `@hookform/resolvers` - Form validation resolvers
-- `zod` - Schema validation
-- `drizzle-zod` - Drizzle schema to Zod conversion
-
-**Data Fetching:**
-- `@tanstack/react-query` - Server state management and caching
-
-**Backend Core:**
-- `express` - Web framework
-- `drizzle-orm` - Type-safe ORM
-- `passport` / `passport-local` - Authentication middleware
-- `express-session` - Session management
-- `connect-pg-simple` - PostgreSQL session store
-
-**Build Tools:**
-- `vite` - Frontend build tool and dev server
-- `esbuild` - Server bundler
-- `typescript` - Type system
-- `tsx` - TypeScript execution for dev/scripts
-
-**Utilities:**
-- `date-fns` - Date manipulation
-- `nanoid` - ID generation
-- `ws` - WebSocket support for Neon
+-   **UI Components:** `@radix-ui/*`, `cmdk`, `lucide-react`, `class-variance-authority`, `tailwind-merge`, `clsx`
+-   **Forms & Validation:** `react-hook-form`, `@hookform/resolvers`, `zod`, `drizzle-zod`
+-   **Data Fetching:** `@tanstack/react-query`
+-   **Backend Core:** `express`, `drizzle-orm`, `passport`, `passport-local`, `express-session`, `connect-pg-simple`
+-   **Build Tools:** `vite`, `esbuild`, `typescript`, `tsx`
+-   **Utilities:** `date-fns`, `nanoid`, `ws`
 
 ### Development Tools
 
-- Replit Vite plugins for runtime error overlay and dev banner
-- Drizzle Kit for database migrations and schema push
-- Custom build script using esbuild with dependency bundling optimization
+-   Replit Vite plugins
+-   Drizzle Kit for database migrations
+-   Custom `esbuild` scripts
 
-## Real Data & ETL Pipeline
+### Real Data & ETL Pipeline
 
-The database is populated with **real data** from public sources:
-
-**Data Sources:**
-1. **Zillow Research** - Zillow Home Value Index (ZHVI) data for NY/NJ/CT
-2. **NYC Open Data PLUTO** - Property Land Use Tax lot Output for NYC
-3. **NYC Open Data Sales** - Rolling property sales records
-
-**Current Data Counts:**
-- 3,881 market aggregates (2,367 ZIP codes + 1,514 cities across NY/NJ/CT)
-- 2,962 properties (NYC PLUTO residential properties with real addresses)
-- 19 sales records (matched via BBL codes)
-- 14,436 comparable relationships
-- 3 data sources tracked
-- Coverage matrix: NY (full property data), NJ/CT (market aggregates only)
-
-**ETL Scripts:**
-- `server/etl/zillow-data.ts` - Downloads and parses Zillow ZHVI CSV data
-- `server/etl/nyc-opendata.ts` - Fetches PLUTO and Sales data from NYC Open Data API
-- `server/etl/import-real-data.ts` - Orchestrates full import pipeline
-
-**Data Quality Notes:**
-- BBL (Borough-Block-Lot) matching used for accurate sales linking
-- Borough-to-county mapping: Manhattan→New York, Brooklyn→Kings, Queens→Queens, Bronx→Bronx, Staten Island→Richmond
-- Conservative property attribute estimation (null for multi-unit buildings)
-- Estimated values capped at $50M to prevent outliers
-
-**To reimport real data:**
-```bash
-npx tsx server/etl/import-real-data.ts
-```
-
-**To use sample/mock data instead:**
-```bash
-npx tsx server/seed.ts
-```
-
-## SEO-Friendly URLs
-
-The application uses descriptive, keyword-rich URLs for better search engine optimization:
-
-| Feature | URL Path |
-|---------|----------|
-| Market Explorer | `/market-intelligence` |
-| Opportunity Screener | `/investment-opportunities` |
-| Up and Coming ZIPs | `/up-and-coming` |
-| Property Detail | `/properties/{address-slug}-{city}-{zip}-{uuid}` |
-| Watchlists | `/saved-properties` |
-| Admin Console | `/admin-console` |
-
-**Property URL Slug Format:**
-Property URLs use SEO-friendly slugs that include address, city, ZIP code, and the unique property UUID.
-- Example: `/properties/551-lafayette-avenue-brooklyn-11205-3beedc1d-caac-4c76-8b66-32e79b1784cb`
-- The UUID at the end ensures uniqueness while the address/city/ZIP provide readable, keyword-rich URLs
-- Slug utilities in `client/src/lib/propertySlug.ts`:
-  - `generatePropertySlug(property)` - Creates the URL slug
-  - `extractPropertyIdFromSlug(slug)` - Extracts the UUID from the slug (uses regex to match UUID format)
-  - `getPropertyUrl(property)` - Returns the full property URL path
-
-## Up and Coming ZIP Codes Feature
-
-The Up and Coming ZIPs feature identifies trending neighborhoods with strong appreciation and investment potential.
-
-**API Endpoint:**
-- `GET /api/market/up-and-coming`
-- Query params: `state` (optional filter), `limit` (default 25)
-- Returns array of `UpAndComingZip` objects
-
-**Trend Score Algorithm (0-100):**
-The composite trendScore combines four factors:
-- **Price Appreciation (40 pts)**: Based on 12-month trend, capped at 20% growth = 40 points
-- **Acceleration Bonus (20 pts)**: If 6-month trend exceeds 12-month trend (momentum increasing)
-- **Opportunity Score (25 pts)**: Average property opportunity score in the ZIP
-- **Transaction Volume (15 pts)**: Based on transaction count relative to benchmark
-
-**Momentum Categories:**
-- `accelerating`: 3-month trend > 6-month trend (growth speeding up)
-- `decelerating`: 3-month trend < 50% of 6-month trend (growth slowing)
-- `steady`: Everything else
-
-**UI Features:**
-- Summary stat cards (total trending, avg score, accelerating count, total properties)
-- Interactive map with color-coded markers (requires Google Maps API)
-- Ranked ZIP code cards with trend details (3M/6M/12M growth rates)
-- State filter dropdown (NY/NJ/CT)
-- "View Properties" links to Opportunity Screener with ZIP filter
-
-**Files:**
-- `client/src/pages/UpAndComingZips.tsx` - Frontend page component
-- `server/storage.ts` - `getUpAndComingZips()` method
-- `server/routes.ts` - `/api/market/up-and-coming` endpoint
-- `shared/schema.ts` - `UpAndComingZip` type definition
-
-## Recent Fixes
-
-**SEO-Friendly URLs:**
-- Updated all routes to use descriptive, keyword-rich paths
-- Updated all internal navigation links to use new URL structure
-
-**Query Parameter Fixes (Frontend):**
-- Market Explorer geo search now correctly uses query parameter format (`/api/search/geo?q=query`)
-- Market aggregates now correctly passes geoType and geoId as query parameters
-- Opportunity Screener now correctly calls `/api/properties/screener` endpoint with proper query parameters
-- Query keys use stable array format for proper React Query cache invalidation
-
-**User Authentication:**
-- Fixed upsertUser to handle unique email constraint violations gracefully
-- Existing users with same email are updated instead of causing errors
+The platform uses real data from:
+-   **Zillow Research:** Zillow Home Value Index (ZHVI)
+-   **NYC Open Data PLUTO:** Property Land Use Tax Lot Output
+-   **NYC Open Data Sales:** Rolling property sales records
+The data is processed via ETL scripts (`server/etl/zillow-data.ts`, `server/etl/nyc-opendata.ts`, `server/etl/import-real-data.ts`) to populate the database with comprehensive property and market information.
