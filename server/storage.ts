@@ -183,6 +183,31 @@ export class DatabaseStorage implements IStorage {
   async getProperties(filters: ScreenerFilters, limit = 50, offset = 0): Promise<Property[]> {
     const conditions = [];
     
+    // Always filter out properties with invalid sqft data to prevent unrealistic price/sqft
+    // Properties must have valid sqft (>= 100) and reasonable pricePerSqft (>= 50 $/sqft for Tri-State area)
+    conditions.push(isNotNull(properties.sqft));
+    conditions.push(gte(properties.sqft, 100));
+    conditions.push(
+      or(
+        isNotNull(properties.pricePerSqft),
+        and(isNotNull(properties.estimatedValue), isNotNull(properties.sqft))
+      )
+    );
+    // Filter out unrealistically low price per sqft (below $50/sqft is not realistic for NY/NJ/CT)
+    // Also compute derived pricePerSqft when the stored value is NULL
+    conditions.push(
+      or(
+        and(
+          isNotNull(properties.pricePerSqft),
+          gte(properties.pricePerSqft, 50)
+        ),
+        and(
+          sql`${properties.pricePerSqft} IS NULL`,
+          sql`(${properties.estimatedValue}::numeric / NULLIF(${properties.sqft}, 0)) >= 50`
+        )
+      )
+    );
+    
     if (filters.state) {
       conditions.push(eq(properties.state, filters.state));
     }

@@ -185,6 +185,73 @@ export default function Landing() {
           </div>
         </section>
 
+        <section className="py-12 border-b">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mb-8 text-center">
+              <h2 className="mb-2 text-2xl font-bold tracking-tight md:text-3xl">
+                Explore Our Platform
+              </h2>
+              <p className="text-muted-foreground">
+                Browse our tools without signing up
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Link href="/market-intelligence">
+                <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-market-explorer">
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <BarChart3 className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Market Explorer</p>
+                      <p className="text-sm text-muted-foreground">Pricing by ZIP & city</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              <Link href="/investment-opportunities">
+                <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-opportunity-screener">
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Target className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Opportunity Screener</p>
+                      <p className="text-sm text-muted-foreground">Find underpriced properties</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              <Link href="/up-and-coming">
+                <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-up-and-coming">
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <TrendingUp className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Up and Coming</p>
+                      <p className="text-sm text-muted-foreground">Trending ZIP codes</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              <Link href="/admin-console">
+                <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-coverage-map">
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Shield className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Coverage Map</p>
+                      <p className="text-sm text-muted-foreground">Data availability</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+          </div>
+        </section>
+
         <section className="py-20">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-12 text-center">

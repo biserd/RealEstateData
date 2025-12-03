@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { FileText, Download, Loader2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { FileText, Download, Loader2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, XCircle, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 interface DealMemoData {
@@ -63,6 +64,7 @@ export function DealMemo({ propertyId }: DealMemoProps) {
   const [memo, setMemo] = useState<DealMemoData | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const generateMemo = useMutation({
     mutationFn: async () => {
@@ -115,6 +117,50 @@ export function DealMemo({ propertyId }: DealMemoProps) {
     URL.revokeObjectURL(url);
   };
 
+  if (!isAuthenticated && !authLoading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setIsOpen(true)}
+            data-testid="button-generate-memo"
+          >
+            <FileText className="h-4 w-4" />
+            Generate Deal Memo
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Deal Memo
+            </DialogTitle>
+            <DialogDescription>
+              Sign in to generate AI-powered investment analysis
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <LogIn className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="mb-2 text-lg font-semibold">Sign In Required</h3>
+            <p className="mb-6 text-sm text-muted-foreground max-w-xs">
+              Create a free account to generate professional deal memos with AI-powered analysis, pricing insights, and investment recommendations.
+            </p>
+            <a href="/api/login" className="w-full">
+              <Button className="w-full" data-testid="button-login-deal-memo">
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In to Continue
+              </Button>
+            </a>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -139,6 +185,9 @@ export function DealMemo({ propertyId }: DealMemoProps) {
             <FileText className="h-5 w-5" />
             Investment Deal Memo
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            AI-generated investment analysis for this property
+          </DialogDescription>
         </DialogHeader>
 
         {generateMemo.isPending ? (

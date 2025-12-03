@@ -18,7 +18,8 @@ import {
   AlertCircle,
   FileText,
   Bot,
-  Calculator
+  Calculator,
+  LogIn
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AppLayout } from "@/components/layouts";
 import { OpportunityScore } from "@/components/OpportunityScore";
 import { PriceDistribution } from "@/components/PriceDistribution";
@@ -39,6 +41,7 @@ import { DealMemo } from "@/components/DealMemo";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import type { Property, OpportunityScoreBreakdown, Comp, MarketAggregate, AIResponse } from "@shared/schema";
 
 interface PropertyWithDetails extends Property {
@@ -53,8 +56,10 @@ interface CompWithProperty extends Comp {
 export default function PropertyDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   
   const id = useMemo(() => {
     if (!slug) return undefined;
@@ -275,20 +280,60 @@ export default function PropertyDetail() {
 
           <div className="space-y-6">
             <div>
-              <div className="mb-2 flex items-start justify-between gap-4">
-                <h1 className="text-2xl font-bold md:text-3xl" data-testid="text-property-address">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <h1 className="text-xl font-bold md:text-2xl lg:text-3xl break-words min-w-0" data-testid="text-property-address">
                   {property.address}
                 </h1>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => saveMutation.mutate()}
-                    disabled={saveMutation.isPending}
-                    data-testid="button-save-property"
-                  >
-                    <Heart className="h-4 w-4" />
-                  </Button>
+                <div className="flex gap-2 flex-shrink-0">
+                  {isAuthenticated ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => saveMutation.mutate()}
+                      disabled={saveMutation.isPending}
+                      data-testid="button-save-property"
+                    >
+                      <Heart className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          data-testid="button-save-property"
+                        >
+                          <Heart className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <Heart className="h-5 w-5" />
+                            Save to Watchlist
+                          </DialogTitle>
+                          <DialogDescription>
+                            Sign in to save properties to your watchlist
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col items-center justify-center py-8 text-center">
+                          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                            <LogIn className="h-8 w-8 text-primary" />
+                          </div>
+                          <h3 className="mb-2 text-lg font-semibold">Sign In Required</h3>
+                          <p className="mb-6 text-sm text-muted-foreground max-w-xs">
+                            Create a free account to save properties, set up alerts, and track your favorite opportunities.
+                          </p>
+                          <a href="/api/login" className="w-full">
+                            <Button className="w-full" data-testid="button-login-save">
+                              <LogIn className="mr-2 h-4 w-4" />
+                              Sign In to Continue
+                            </Button>
+                          </a>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
                   <Button variant="outline" size="icon" data-testid="button-share">
                     <Share2 className="h-4 w-4" />
                   </Button>
@@ -355,7 +400,7 @@ export default function PropertyDetail() {
             )}
 
             <div className="flex flex-wrap gap-3">
-              <Button className="flex-1" data-testid="button-contact-agent">
+              <Button className="flex-1 min-w-[140px]" data-testid="button-contact-agent">
                 Contact Agent
               </Button>
               <DealMemo propertyId={id!} />
@@ -366,13 +411,14 @@ export default function PropertyDetail() {
                 data-testid="button-download-report"
               >
                 <Download className="mr-2 h-4 w-4" />
-                {isExportingReport ? "Exporting..." : "Report"}
+                <span className="hidden sm:inline">{isExportingReport ? "Exporting..." : "Report"}</span>
+                <span className="sm:hidden">{isExportingReport ? "..." : "PDF"}</span>
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="mb-8 grid gap-4 md:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
           <Card>
             <CardContent className="flex items-center gap-4 p-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -420,16 +466,18 @@ export default function PropertyDetail() {
         </div>
 
         <Tabs defaultValue="pricing" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-none">
-            <TabsTrigger value="pricing" data-testid="tab-pricing">Pricing</TabsTrigger>
-            <TabsTrigger value="comps" data-testid="tab-comps">Comps</TabsTrigger>
-            <TabsTrigger value="investment" data-testid="tab-investment">
-              <Calculator className="h-4 w-4 mr-1 hidden sm:inline" />
-              Investment
-            </TabsTrigger>
-            <TabsTrigger value="signals" data-testid="tab-signals">Signals</TabsTrigger>
-            <TabsTrigger value="ai" data-testid="tab-ai">AI Analysis</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <TabsList className="inline-flex w-auto min-w-full whitespace-nowrap md:min-w-0">
+              <TabsTrigger value="pricing" className="flex-shrink-0" data-testid="tab-pricing">Pricing</TabsTrigger>
+              <TabsTrigger value="comps" className="flex-shrink-0" data-testid="tab-comps">Comps</TabsTrigger>
+              <TabsTrigger value="investment" className="flex-shrink-0" data-testid="tab-investment">
+                <Calculator className="h-4 w-4 mr-1 hidden sm:inline" />
+                Investment
+              </TabsTrigger>
+              <TabsTrigger value="signals" className="flex-shrink-0" data-testid="tab-signals">Signals</TabsTrigger>
+              <TabsTrigger value="ai" className="flex-shrink-0" data-testid="tab-ai">AI</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="pricing" className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-2">

@@ -38,11 +38,15 @@ export async function registerRoutes(
 
   app.get("/api/properties/screener", async (req, res) => {
     try {
-      const filters = {
-        state: req.query.state as string | undefined,
+      const stateParam = req.query.state as string | undefined;
+      const validStates = ["NY", "NJ", "CT"] as const;
+      const state = stateParam && validStates.includes(stateParam as any) ? stateParam as "NY" | "NJ" | "CT" : undefined;
+      
+      const filters: ScreenerFilters = {
+        state,
         zipCodes: req.query.zipCodes ? (req.query.zipCodes as string).split(",") : undefined,
         cities: req.query.cities ? (req.query.cities as string).split(",") : undefined,
-        propertyTypes: req.query.propertyTypes ? (req.query.propertyTypes as string).split(",") : undefined,
+        propertyTypes: req.query.propertyTypes ? (req.query.propertyTypes as string).split(",") as any : undefined,
         bedsBands: req.query.bedsBands ? (req.query.bedsBands as string).split(",") : undefined,
         bathsBands: req.query.bathsBands ? (req.query.bathsBands as string).split(",") : undefined,
         yearBuiltBands: req.query.yearBuiltBands ? (req.query.yearBuiltBands as string).split(",") : undefined,
@@ -50,7 +54,7 @@ export async function registerRoutes(
         priceMin: req.query.priceMin ? parseInt(req.query.priceMin as string) : undefined,
         priceMax: req.query.priceMax ? parseInt(req.query.priceMax as string) : undefined,
         opportunityScoreMin: req.query.opportunityScoreMin ? parseInt(req.query.opportunityScoreMin as string) : undefined,
-        confidenceLevels: req.query.confidenceLevels ? (req.query.confidenceLevels as string).split(",") : undefined,
+        confidenceLevels: req.query.confidenceLevels ? (req.query.confidenceLevels as string).split(",") as any : undefined,
       };
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
@@ -626,11 +630,15 @@ export async function registerRoutes(
 
   app.get("/api/export/opportunities", isAuthenticated, async (req: any, res) => {
     try {
-      const filters = {
-        state: req.query.state as string | undefined,
+      const stateParam = req.query.state as string | undefined;
+      const validStates = ["NY", "NJ", "CT"] as const;
+      const state = stateParam && validStates.includes(stateParam as any) ? stateParam as "NY" | "NJ" | "CT" : undefined;
+      
+      const filters: ScreenerFilters = {
+        state,
         zipCodes: req.query.zipCodes ? (req.query.zipCodes as string).split(",") : undefined,
         cities: req.query.cities ? (req.query.cities as string).split(",") : undefined,
-        propertyTypes: req.query.propertyTypes ? (req.query.propertyTypes as string).split(",") : undefined,
+        propertyTypes: req.query.propertyTypes ? (req.query.propertyTypes as string).split(",") as any : undefined,
         priceMin: req.query.priceMin ? parseInt(req.query.priceMin as string) : undefined,
         priceMax: req.query.priceMax ? parseInt(req.query.priceMax as string) : undefined,
         opportunityScoreMin: req.query.opportunityScoreMin ? parseInt(req.query.opportunityScoreMin as string) : undefined,
