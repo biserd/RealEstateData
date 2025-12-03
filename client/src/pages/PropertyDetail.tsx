@@ -641,11 +641,30 @@ export default function PropertyDetail() {
 
           <TabsContent value="ai">
             <Card className="h-[600px]">
-              <AIChat
-                propertyId={id}
-                contextLabel={`${property.address}, ${property.city}`}
-                onSendMessage={handleSendAIMessage}
-              />
+              {isAuthenticated ? (
+                <AIChat
+                  propertyId={id}
+                  contextLabel={`${property.address}, ${property.city}`}
+                  onSendMessage={handleSendAIMessage}
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                  <div className="mb-4 rounded-full bg-primary/10 p-4">
+                    <Bot className="h-10 w-10 text-primary" />
+                  </div>
+                  <h3 className="mb-2 text-xl font-semibold">AI Property Analysis</h3>
+                  <p className="mb-6 max-w-md text-sm text-muted-foreground">
+                    Get AI-powered insights about this property, including pricing analysis, 
+                    market comparisons, risk factors, and investment recommendations backed by real data.
+                  </p>
+                  <a href="/api/login">
+                    <Button data-testid="button-login-ai">
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Sign In to Use AI Analysis
+                    </Button>
+                  </a>
+                </div>
+              )}
             </Card>
           </TabsContent>
         </Tabs>
