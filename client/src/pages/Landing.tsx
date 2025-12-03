@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Brain, Database, Loader2 } from "lucide-react";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -74,11 +74,6 @@ export default function Landing() {
       value: formatNumber(platformStats.marketAggregates), 
       label: "Market Data Points",
       icon: <BarChart3 className="h-5 w-5" />,
-    },
-    { 
-      value: formatNumber(platformStats.aiChats), 
-      label: "AI Analyses",
-      icon: <Brain className="h-5 w-5" />,
     },
     { 
       value: platformStats.dataSources.toString(), 
