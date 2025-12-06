@@ -1,11 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 
+interface SubscriptionDetails {
+  currentPeriodEnd: number | null;
+  currentPeriodStart: number | null;
+  cancelAtPeriodEnd: boolean | null;
+  cancelAt: number | null;
+  canceledAt: number | null;
+}
+
 interface SubscriptionData {
   tier: "free" | "pro";
   status: string | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  subscriptionDetails: SubscriptionDetails | null;
 }
 
 export function useSubscription() {
@@ -57,5 +66,6 @@ export function useSubscription() {
     getFeatureLimit,
     hasCustomer: !!data?.stripeCustomerId,
     hasSubscription: !!data?.stripeSubscriptionId,
+    subscriptionDetails: data?.subscriptionDetails || null,
   };
 }

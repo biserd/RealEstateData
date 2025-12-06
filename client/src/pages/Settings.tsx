@@ -10,7 +10,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSubscription } from "@/hooks/useSubscription";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { Header } from "@/components/Header";
-import { Key, Copy, RefreshCw, Trash2, AlertTriangle, Check, ExternalLink } from "lucide-react";
+import { Key, Copy, RefreshCw, Trash2, AlertTriangle, Check, ExternalLink, Crown, CreditCard, Calendar, Zap } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 interface ApiKeyData {
   id: string;
@@ -45,11 +45,52 @@ interface GenerateKeyResponse {
 
 export default function Settings() {
   const { toast } = useToast();
-  const { isPro, isLoading: subLoading } = useSubscription();
+  const [, navigate] = useLocation();
+  const { isPro, isFree, isLoading: subLoading, status, subscriptionDetails, hasCustomer } = useSubscription();
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
   const [newRawKey, setNewRawKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const portalMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/billing-portal");
+      return response.json();
+    },
+    onSuccess: (data: { url: string }) => {
+      window.location.href = data.url;
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to open billing portal", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const formatDate = (timestamp: number | null) => {
+    if (!timestamp) return "N/A";
+    return new Date(timestamp * 1000).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const getStatusBadge = () => {
+    if (!status || status === "free") {
+      return <Badge variant="secondary">Free</Badge>;
+    }
+    switch (status) {
+      case "active":
+        return <Badge variant="default">Active</Badge>;
+      case "canceled":
+        return <Badge variant="secondary">Canceled</Badge>;
+      case "past_due":
+        return <Badge variant="destructive">Past Due</Badge>;
+      case "trialing":
+        return <Badge variant="outline">Trial</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
 
   const { data: apiKeyData, isLoading } = useQuery<ApiKeyResponse>({
     queryKey: ["/api/api-keys"],
@@ -115,6 +156,114 @@ export default function Settings() {
         <p className="text-muted-foreground mb-8">Manage your account and developer settings</p>
 
         <div className="space-y-6">
+          {/* Subscription Management Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                <CardTitle>Subscription</CardTitle>
+                {getStatusBadge()}
+              </div>
+              <CardDescription>
+                Manage your subscription plan and billing
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isFree ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4 p-4 bg-muted rounded-lg">
+                    <Zap className="h-10 w-10 text-muted-foreground" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold mb-1">Free Plan</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        You're on the free tier with limited access to features. Upgrade to Pro to unlock AI assistant, Deal Memo generator, unlimited watchlists, exports, and API access.
+                      </p>
+                      <div className="flex gap-2">
+                        <Link href="/pricing">
+                          <Button data-testid="button-upgrade-settings">
+                            <Crown className="h-4 w-4 mr-2" />
+                            Upgrade to Pro
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4 p-4 bg-muted rounded-lg">
+                    <Crown className="h-10 w-10 text-primary" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold">Pro Plan</h4>
+                        {subscriptionDetails?.cancelAtPeriodEnd && (
+                          <Badge variant="destructive">Canceling</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Full access to all features including AI assistant, Deal Memo, exports, and API access.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Current Period</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(subscriptionDetails?.currentPeriodStart ?? null)} - {formatDate(subscriptionDetails?.currentPeriodEnd ?? null)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">
+                          {subscriptionDetails?.cancelAtPeriodEnd ? "Access Until" : "Next Renewal"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(subscriptionDetails?.currentPeriodEnd ?? null)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {subscriptionDetails?.cancelAtPeriodEnd && (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        Your subscription is set to cancel at the end of the billing period. You'll continue to have Pro access until {formatDate(subscriptionDetails?.currentPeriodEnd)}.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Manage Billing</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Update payment method, view invoices, or cancel subscription
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => portalMutation.mutate()}
+                      disabled={portalMutation.isPending || !hasCustomer}
+                      data-testid="button-manage-billing"
+                    >
+                      {portalMutation.isPending ? "Loading..." : "Manage Billing"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* API Access Section */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">

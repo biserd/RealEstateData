@@ -864,11 +864,30 @@ export async function registerRoutes(
         return res.status(404).json({ message: "User not found" });
       }
 
+      let subscriptionDetails = null;
+      if (user.stripeSubscriptionId) {
+        try {
+          const subscription = await stripeService.getSubscription(user.stripeSubscriptionId);
+          if (subscription) {
+            subscriptionDetails = {
+              currentPeriodEnd: subscription.current_period_end,
+              currentPeriodStart: subscription.current_period_start,
+              cancelAtPeriodEnd: subscription.cancel_at_period_end,
+              cancelAt: subscription.cancel_at,
+              canceledAt: subscription.canceled_at,
+            };
+          }
+        } catch (subError) {
+          console.error("Error fetching subscription details:", subError);
+        }
+      }
+
       res.json({
         tier: user.subscriptionTier || "free",
         status: user.subscriptionStatus,
         stripeCustomerId: user.stripeCustomerId,
         stripeSubscriptionId: user.stripeSubscriptionId,
+        subscriptionDetails,
       });
     } catch (error) {
       console.error("Error fetching subscription:", error);
