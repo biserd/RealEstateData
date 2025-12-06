@@ -10,12 +10,15 @@ export function Footer() {
     { href: "/investment-opportunities", label: "Opportunity Screener" },
     { href: "/up-and-coming", label: "Trending Areas" },
     { href: "/saved-properties", label: "Watchlists" },
+    { href: "/api-access", label: "API Access" },
   ];
 
   const companyLinks = [
     { href: "/about", label: "About Us" },
     { href: "/faq", label: "FAQ" },
     { href: "/contact", label: "Contact" },
+    { href: "/developers", label: "Developers" },
+    { href: "/release-notes", label: "Release Notes" },
   ];
 
   const legalLinks = [

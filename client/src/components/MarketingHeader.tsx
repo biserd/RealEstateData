@@ -11,9 +11,10 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
 
   const navLinks = [
     { href: "/pricing", label: "Pricing" },
+    { href: "/api-access", label: "API" },
+    { href: "/developers", label: "Developers" },
+    { href: "/release-notes", label: "What's New" },
     { href: "/about", label: "About" },
-    { href: "/faq", label: "FAQ" },
-    { href: "/contact", label: "Contact" },
   ];
 
   return (
