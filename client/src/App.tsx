@@ -24,6 +24,8 @@ import Contact from "@/pages/Contact";
 import FAQ from "@/pages/FAQ";
 import Pricing from "@/pages/Pricing";
 import CheckoutSuccess from "@/pages/CheckoutSuccess";
+import Settings from "@/pages/Settings";
+import Developers from "@/pages/Developers";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,6 +52,10 @@ function Router() {
       <Route path="/faq" component={FAQ} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/checkout/success" component={CheckoutSuccess} />
+      <Route path="/settings">
+        {isAuthenticated ? <Settings /> : <Login />}
+      </Route>
+      <Route path="/developers" component={Developers} />
       <Route component={NotFound} />
     </Switch>
   );

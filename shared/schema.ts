@@ -53,6 +53,40 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// API Key status
+export const apiKeyStatuses = ["active", "revoked"] as const;
+export type ApiKeyStatus = typeof apiKeyStatuses[number];
+
+// API Keys table for developer access
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id").notNull().references(() => users.id),
+    hashedKey: varchar("hashed_key").notNull(),
+    prefix: varchar("prefix").notNull(), // First 8 chars for quick lookup (e.g., "rd_live_")
+    lastFour: varchar("last_four").notNull(), // Last 4 chars for display
+    name: varchar("name").default("Default API Key"),
+    status: varchar("status").default("active"), // active, revoked
+    lastUsedAt: timestamp("last_used_at"),
+    requestCount: integer("request_count").default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_api_keys_user").on(table.userId),
+    index("idx_api_keys_prefix").on(table.prefix),
+  ]
+);
+
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;
+
 // Data Source Types for tagging
 export const dataSourceTypes = ["PLUTO", "Valuations", "ACRIS", "HPD", "Zillow", "Manual"] as const;
 export type DataSourceType = typeof dataSourceTypes[number];

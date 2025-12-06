@@ -79,9 +79,44 @@ The platform uses a freemium model with Stripe for payment processing:
 -   `POST /api/stripe/webhook/:uuid` - Stripe webhook handler
 
 **Feature Gating:**
--   `requirePro` middleware gates AI features, exports, and unlimited watchlists
+-   `requirePro` middleware gates AI features, exports, unlimited watchlists, and API access
 -   Frontend uses `useSubscription` hook and `UpgradePrompt` component for gated features
 -   Pro badge displayed in header for subscribed users
+
+### Developer API Access
+
+Pro subscribers can generate API keys to programmatically access the platform:
+
+**Backend Implementation:**
+-   `server/apiKeyService.ts` - Secure API key generation (bcrypt hashed), storage, and validation
+-   `server/apiMiddleware.ts` - Bearer token validation, Pro subscription checking, rate limiting
+-   Rate limits: 10 requests/second burst, 10,000 requests/day quota
+
+**Database (api_keys table):**
+-   `id`: Primary key
+-   `userId`: Foreign key to users
+-   `keyHash`: bcrypt hash of the API key
+-   `prefix`: First 8 characters for display
+-   `lastFour`: Last 4 characters for identification
+-   `status`: 'active' or 'revoked'
+-   `requestCount`: Usage tracking
+-   `lastUsedAt`: Last usage timestamp
+
+**External API Endpoints (Pro only):**
+-   `GET /api/external/properties` - Search/filter properties with pagination
+-   `GET /api/external/properties/:id` - Get single property details
+-   `GET /api/external/market-stats` - Market statistics by geography
+-   `GET /api/external/comps/:propertyId` - Comparable properties
+-   `GET /api/external/up-and-coming` - Trending ZIP codes
+
+**API Key Management Endpoints:**
+-   `GET /api/api-keys` - Get current user's API key info
+-   `POST /api/api-keys/generate` - Generate new API key (revokes existing)
+-   `POST /api/api-keys/:keyId/revoke` - Revoke API key
+
+**Frontend Pages:**
+-   `/settings` - Account settings with API key management (Pro users)
+-   `/developers` - Public developer documentation with code examples
 
 ### Key NPM Packages
 

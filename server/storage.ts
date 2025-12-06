@@ -13,6 +13,7 @@ import {
   comps,
   dataSources,
   aiChats,
+  apiKeys,
   type User,
   type InsertUser,
   type Property,
@@ -37,6 +38,8 @@ import {
   type InsertDataSource,
   type AiChat,
   type InsertAiChat,
+  type ApiKey,
+  type InsertApiKey,
   type ScreenerFilters,
   type UpAndComingZip,
 } from "@shared/schema";
@@ -123,6 +126,16 @@ export interface IStorage {
     aiChats: number;
     dataSources: number;
   }>;
+  
+  // API Key operations
+  getApiKey(id: string): Promise<ApiKey | undefined>;
+  getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined>;
+  getApiKeysByLastFour(lastFour: string): Promise<ApiKey[]>;
+  getApiKeysForUser(userId: string): Promise<ApiKey[]>;
+  createApiKey(apiKey: InsertApiKey): Promise<ApiKey>;
+  updateApiKey(id: string, data: Partial<InsertApiKey>): Promise<ApiKey | undefined>;
+  revokeApiKey(id: string): Promise<void>;
+  incrementApiKeyUsage(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -758,6 +771,67 @@ export class DatabaseStorage implements IStorage {
       aiChats: aiChatsCount?.count || 0,
       dataSources: dataSourcesCount?.count || 0,
     };
+  }
+
+  // API Key operations
+  async getApiKey(id: string): Promise<ApiKey | undefined> {
+    const [key] = await db.select().from(apiKeys).where(eq(apiKeys.id, id));
+    return key;
+  }
+
+  async getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined> {
+    const [key] = await db.select().from(apiKeys).where(eq(apiKeys.prefix, prefix));
+    return key;
+  }
+
+  async getApiKeysByLastFour(lastFour: string): Promise<ApiKey[]> {
+    return await db
+      .select()
+      .from(apiKeys)
+      .where(and(eq(apiKeys.lastFour, lastFour), eq(apiKeys.status, "active")));
+  }
+
+  async getApiKeysForUser(userId: string): Promise<ApiKey[]> {
+    return await db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.userId, userId))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+
+  async createApiKey(apiKey: InsertApiKey): Promise<ApiKey> {
+    const [newKey] = await db
+      .insert(apiKeys)
+      .values(apiKey)
+      .returning();
+    return newKey;
+  }
+
+  async updateApiKey(id: string, data: Partial<InsertApiKey>): Promise<ApiKey | undefined> {
+    const [updated] = await db
+      .update(apiKeys)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(apiKeys.id, id))
+      .returning();
+    return updated;
+  }
+
+  async revokeApiKey(id: string): Promise<void> {
+    await db
+      .update(apiKeys)
+      .set({ status: "revoked", updatedAt: new Date() })
+      .where(eq(apiKeys.id, id));
+  }
+
+  async incrementApiKeyUsage(id: string): Promise<void> {
+    await db
+      .update(apiKeys)
+      .set({ 
+        lastUsedAt: new Date(),
+        requestCount: sql`${apiKeys.requestCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(apiKeys.id, id));
   }
 }
 

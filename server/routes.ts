@@ -8,6 +8,8 @@ import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, an
 import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema, type ScreenerFilters } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
+import { apiKeyService } from "./apiKeyService";
+import { externalApiMiddleware } from "./apiMiddleware";
 
 const requirePro = async (req: any, res: any, next: any) => {
   try {
@@ -970,6 +972,148 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error listing products:", error);
       res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // ============================================
+  // API KEY MANAGEMENT ROUTES
+  // ============================================
+
+  app.get("/api/api-keys", isAuthenticated, requirePro, async (req: any, res) => {
+    try {
+      const apiKey = await apiKeyService.getApiKeyForUser(req.user.id);
+      if (!apiKey) {
+        return res.json({ hasKey: false, apiKey: null });
+      }
+      res.json({
+        hasKey: true,
+        apiKey: {
+          id: apiKey.id,
+          prefix: apiKey.prefix,
+          lastFour: apiKey.lastFour,
+          name: apiKey.name,
+          status: apiKey.status,
+          lastUsedAt: apiKey.lastUsedAt,
+          requestCount: apiKey.requestCount,
+          createdAt: apiKey.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching API key:", error);
+      res.status(500).json({ message: "Failed to fetch API key" });
+    }
+  });
+
+  app.post("/api/api-keys/generate", isAuthenticated, requirePro, async (req: any, res) => {
+    try {
+      const { apiKey, rawKey } = await apiKeyService.generateApiKey(req.user.id);
+      res.json({
+        apiKey: {
+          id: apiKey.id,
+          prefix: apiKey.prefix,
+          lastFour: apiKey.lastFour,
+          name: apiKey.name,
+          status: apiKey.status,
+          createdAt: apiKey.createdAt,
+        },
+        rawKey,
+        warning: "This is the only time you will see the full API key. Store it securely.",
+      });
+    } catch (error: any) {
+      console.error("Error generating API key:", error);
+      res.status(400).json({ message: error.message || "Failed to generate API key" });
+    }
+  });
+
+  app.post("/api/api-keys/:id/revoke", isAuthenticated, requirePro, async (req: any, res) => {
+    try {
+      await apiKeyService.revokeApiKey(req.user.id, req.params.id);
+      res.json({ success: true, message: "API key revoked" });
+    } catch (error: any) {
+      console.error("Error revoking API key:", error);
+      res.status(400).json({ message: error.message || "Failed to revoke API key" });
+    }
+  });
+
+  // ============================================
+  // EXTERNAL API ROUTES (API key authenticated)
+  // ============================================
+
+  app.get("/api/external/properties", externalApiMiddleware, async (req: any, res: any) => {
+    try {
+      const filters: ScreenerFilters = {
+        state: req.query.state as any,
+        cities: req.query.cities ? (req.query.cities as string).split(",") : undefined,
+        zipCodes: req.query.zipCodes ? (req.query.zipCodes as string).split(",") : undefined,
+        propertyTypes: req.query.propertyTypes ? (req.query.propertyTypes as string).split(",") as any : undefined,
+        opportunityScoreMin: req.query.opportunityScoreMin ? parseInt(req.query.opportunityScoreMin) : undefined,
+        priceMin: req.query.priceMin ? parseInt(req.query.priceMin) : undefined,
+        priceMax: req.query.priceMax ? parseInt(req.query.priceMax) : undefined,
+      };
+
+      const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+      const offset = parseInt(req.query.offset) || 0;
+
+      const properties = await storage.getProperties(filters, limit, offset);
+      res.json({
+        success: true,
+        data: properties,
+        pagination: { limit, offset, count: properties.length },
+      });
+    } catch (error) {
+      console.error("External API error:", error);
+      res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch properties" });
+    }
+  });
+
+  app.get("/api/external/properties/:id", externalApiMiddleware, async (req: any, res: any) => {
+    try {
+      const property = await storage.getProperty(req.params.id);
+      if (!property) {
+        return res.status(404).json({ error: "Not Found", message: "Property not found" });
+      }
+      res.json({ success: true, data: property });
+    } catch (error) {
+      console.error("External API error:", error);
+      res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch property" });
+    }
+  });
+
+  app.get("/api/external/market-stats", externalApiMiddleware, async (req: any, res: any) => {
+    try {
+      const { geoType, geoId } = req.query;
+      if (!geoType || !geoId) {
+        return res.status(400).json({ error: "Bad Request", message: "geoType and geoId are required" });
+      }
+
+      const aggregates = await storage.getMarketAggregates(geoType as string, geoId as string);
+      res.json({ success: true, data: aggregates });
+    } catch (error) {
+      console.error("External API error:", error);
+      res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch market stats" });
+    }
+  });
+
+  app.get("/api/external/comps/:propertyId", externalApiMiddleware, async (req: any, res: any) => {
+    try {
+      const comps = await storage.getComps(req.params.propertyId);
+      res.json({ success: true, data: comps });
+    } catch (error) {
+      console.error("External API error:", error);
+      res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch comps" });
+    }
+  });
+
+  app.get("/api/external/up-and-coming", externalApiMiddleware, async (req: any, res: any) => {
+    try {
+      const state = req.query.state as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+      
+      const zips = await storage.getUpAndComingZips(state, limit);
+      res.json({ success: true, data: zips });
+    } catch (error) {
+      console.error("External API error:", error);
+      res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch trending areas" });
     }
   });
 
