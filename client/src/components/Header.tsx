@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, Menu, Search, User, LogOut, Settings, ChevronDown, X, TrendingUp, Building2, Heart, Home } from "lucide-react";
+import { Bell, Menu, Search, User, LogOut, Settings, ChevronDown, X, TrendingUp, Building2, Heart, Home, Crown, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -30,6 +31,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
   const { user, logout } = useAuth();
+  const { isPro, isFree } = useSubscription();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -172,9 +174,17 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                   <AvatarFallback>{getInitials()}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">
-                    {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "User"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "User"}
+                    </span>
+                    {isPro && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4" data-testid="badge-pro">
+                        <Crown className="h-2.5 w-2.5 mr-0.5" />
+                        PRO
+                      </Badge>
+                    )}
+                  </div>
                   <span className="text-xs text-muted-foreground">{user?.email}</span>
                 </div>
               </div>
@@ -187,6 +197,21 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
+              {isFree ? (
+                <Link href="/pricing">
+                  <DropdownMenuItem data-testid="menu-upgrade" className="text-primary">
+                    <Crown className="mr-2 h-4 w-4" />
+                    Upgrade to Pro
+                  </DropdownMenuItem>
+                </Link>
+              ) : (
+                <Link href="/pricing">
+                  <DropdownMenuItem data-testid="menu-billing">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Manage Subscription
+                  </DropdownMenuItem>
+                </Link>
+              )}
               {user?.role === "admin" && (
                 <>
                   <DropdownMenuSeparator />

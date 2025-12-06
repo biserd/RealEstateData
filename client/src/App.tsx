@@ -22,6 +22,8 @@ import Privacy from "@/pages/Privacy";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
 import FAQ from "@/pages/FAQ";
+import Pricing from "@/pages/Pricing";
+import CheckoutSuccess from "@/pages/CheckoutSuccess";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -46,6 +48,8 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/contact" component={Contact} />
       <Route path="/faq" component={FAQ} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/checkout/success" component={CheckoutSuccess} />
       <Route component={NotFound} />
     </Switch>
   );

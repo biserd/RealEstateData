@@ -5,7 +5,36 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, type ScenarioInputs } from "./openai";
-import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema } from "@shared/schema";
+import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema, type ScreenerFilters } from "@shared/schema";
+import { stripeService } from "./stripeService";
+import { getStripePublishableKey } from "./stripeClient";
+
+const requirePro = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    
+    if (user.subscriptionTier !== "pro" || user.subscriptionStatus !== "active") {
+      return res.status(403).json({ 
+        message: "Pro subscription required",
+        upgrade: true,
+        upgradeUrl: "/pricing"
+      });
+    }
+    
+    next();
+  } catch (error) {
+    console.error("Error checking subscription:", error);
+    res.status(500).json({ message: "Failed to verify subscription" });
+  }
+};
 
 export async function registerRoutes(
   httpServer: Server,
@@ -310,7 +339,7 @@ export async function registerRoutes(
   // Watchlist routes
   app.get("/api/watchlists", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const watchlists = await storage.getWatchlists(userId);
       
       // Enrich with properties
@@ -330,7 +359,7 @@ export async function registerRoutes(
 
   app.post("/api/watchlists", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const parsed = insertWatchlistSchema.parse({ ...req.body, userId });
       const watchlist = await storage.createWatchlist(parsed);
       res.status(201).json(watchlist);
@@ -346,7 +375,7 @@ export async function registerRoutes(
       if (!watchlist) {
         return res.status(404).json({ message: "Watchlist not found" });
       }
-      if (watchlist.userId !== req.user.claims.sub) {
+      if (watchlist.userId !== req.user.id) {
         return res.status(403).json({ message: "Forbidden" });
       }
       await storage.deleteWatchlist(req.params.id);
@@ -364,7 +393,7 @@ export async function registerRoutes(
       // If no watchlistId, get or create default watchlist
       let targetWatchlistId = watchlistId;
       if (!targetWatchlistId) {
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         const watchlists = await storage.getWatchlists(userId);
         let defaultWatchlist = watchlists.find((w) => w.name === "Saved Properties");
         if (!defaultWatchlist) {
@@ -390,7 +419,7 @@ export async function registerRoutes(
   // Alert routes
   app.get("/api/alerts", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const alerts = await storage.getAlerts(userId);
       res.json(alerts);
     } catch (error) {
@@ -401,7 +430,7 @@ export async function registerRoutes(
 
   app.post("/api/alerts", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const parsed = insertAlertSchema.parse({ ...req.body, userId });
       const alert = await storage.createAlert(parsed);
       res.status(201).json(alert);
@@ -414,7 +443,7 @@ export async function registerRoutes(
   // Notification routes
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const notifications = await storage.getNotifications(userId);
       res.json(notifications);
     } catch (error) {
@@ -435,10 +464,10 @@ export async function registerRoutes(
     }
   });
 
-  // AI Chat route
-  app.post("/api/ai/chat", isAuthenticated, async (req: any, res) => {
+  // AI Chat route - Pro only
+  app.post("/api/ai/chat", isAuthenticated, requirePro, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { propertyId, geoId, question } = req.body;
 
       if (!question) {
@@ -490,8 +519,8 @@ export async function registerRoutes(
     }
   });
 
-  // AI Deal Memo generation
-  app.post("/api/ai/deal-memo/:propertyId", isAuthenticated, async (req: any, res) => {
+  // AI Deal Memo generation - Pro only
+  app.post("/api/ai/deal-memo/:propertyId", isAuthenticated, requirePro, async (req: any, res) => {
     try {
       const { propertyId } = req.params;
       
@@ -520,8 +549,8 @@ export async function registerRoutes(
     }
   });
 
-  // Investment Scenario Calculator
-  app.post("/api/ai/scenario/:propertyId", isAuthenticated, async (req: any, res) => {
+  // Investment Scenario Calculator - Pro only
+  app.post("/api/ai/scenario/:propertyId", isAuthenticated, requirePro, async (req: any, res) => {
     try {
       const { propertyId } = req.params;
       const inputs: ScenarioInputs = req.body;
@@ -574,7 +603,7 @@ export async function registerRoutes(
   // Coverage matrix routes (admin)
   app.get("/api/admin/coverage", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Forbidden" });
       }
@@ -589,7 +618,7 @@ export async function registerRoutes(
   // Data sources routes (admin)
   app.get("/api/admin/data-sources", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Forbidden" });
       }
@@ -604,7 +633,7 @@ export async function registerRoutes(
   // ETL status (admin) - mock for now
   app.get("/api/admin/etl-status", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Forbidden" });
       }
@@ -620,8 +649,8 @@ export async function registerRoutes(
     }
   });
 
-  // Export routes
-  app.get("/api/export/market-report", isAuthenticated, async (req: any, res) => {
+  // Export routes - Pro only
+  app.get("/api/export/market-report", isAuthenticated, requirePro, async (req: any, res) => {
     try {
       const { geoType, geoId, propertyType, bedsBand, yearBuiltBand, format } = req.query;
       
@@ -670,7 +699,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/export/property-dossier/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/export/property-dossier/:id", isAuthenticated, requirePro, async (req: any, res) => {
     try {
       const property = await storage.getProperty(req.params.id);
       if (!property) {
@@ -730,7 +759,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/export/opportunities", isAuthenticated, async (req: any, res) => {
+  app.get("/api/export/opportunities", isAuthenticated, requirePro, async (req: any, res) => {
     try {
       const stateParam = req.query.state as string | undefined;
       const validStates = ["NY", "NJ", "CT"] as const;
@@ -786,7 +815,7 @@ export async function registerRoutes(
 
   app.get("/api/export/admin-data", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user.id);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Forbidden" });
       }
@@ -807,6 +836,140 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error exporting admin data:", error);
       res.status(500).json({ message: "Failed to export admin data" });
+    }
+  });
+
+  // ============================================
+  // STRIPE SUBSCRIPTION ROUTES
+  // ============================================
+
+  app.get("/api/stripe/config", async (req, res) => {
+    try {
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error) {
+      console.error("Error getting Stripe config:", error);
+      res.status(500).json({ message: "Failed to get Stripe configuration" });
+    }
+  });
+
+  app.get("/api/subscription", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({
+        tier: user.subscriptionTier || "free",
+        status: user.subscriptionStatus,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
+      });
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ message: "Failed to fetch subscription" });
+    }
+  });
+
+  app.post("/api/checkout", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      const { priceId } = req.body;
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!priceId || typeof priceId !== 'string' || !priceId.startsWith('price_')) {
+        return res.status(400).json({ message: "Invalid price ID format" });
+      }
+
+      const isValidPrice = await stripeService.isValidProPrice(priceId);
+      if (!isValidPrice) {
+        return res.status(400).json({ message: "Invalid subscription plan" });
+      }
+
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined;
+        const customer = await stripeService.createCustomer(user.email, user.id, fullName);
+        await storage.updateUserStripeInfo(user.id, { stripeCustomerId: customer.id });
+        customerId = customer.id;
+      }
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const session = await stripeService.createCheckoutSession(
+        customerId,
+        priceId,
+        `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        `${baseUrl}/pricing`
+      );
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: "Unable to process checkout request" });
+    }
+  });
+
+  app.post("/api/billing-portal", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+
+      if (!user || !user.stripeCustomerId) {
+        return res.status(400).json({ message: "No billing account found" });
+      }
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const session = await stripeService.createCustomerPortalSession(
+        user.stripeCustomerId,
+        `${baseUrl}/settings`
+      );
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating billing portal session:", error);
+      res.status(500).json({ message: "Failed to create billing portal session" });
+    }
+  });
+
+  app.get("/api/products", async (req, res) => {
+    try {
+      const rows = await stripeService.listProductsWithPrices(true);
+      
+      const productsMap = new Map();
+      for (const row of rows as any[]) {
+        if (!productsMap.has(row.product_id)) {
+          productsMap.set(row.product_id, {
+            id: row.product_id,
+            name: row.product_name,
+            description: row.product_description,
+            active: row.product_active,
+            metadata: row.product_metadata,
+            prices: []
+          });
+        }
+        if (row.price_id) {
+          productsMap.get(row.product_id).prices.push({
+            id: row.price_id,
+            unit_amount: row.unit_amount,
+            currency: row.currency,
+            recurring: row.recurring,
+            active: row.price_active,
+            metadata: row.price_metadata,
+          });
+        }
+      }
+
+      res.json({ data: Array.from(productsMap.values()) });
+    } catch (error) {
+      console.error("Error listing products:", error);
+      res.status(500).json({ message: "Failed to fetch products" });
     }
   });
 

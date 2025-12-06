@@ -10,6 +10,7 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
   const [location] = useLocation();
 
   const navLinks = [
+    { href: "/pricing", label: "Pricing" },
     { href: "/about", label: "About" },
     { href: "/faq", label: "FAQ" },
     { href: "/contact", label: "Contact" },

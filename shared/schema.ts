@@ -24,6 +24,10 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)]
 );
 
+// Subscription tiers
+export const subscriptionTiers = ["free", "pro"] as const;
+export type SubscriptionTier = typeof subscriptionTiers[number];
+
 // User storage table for username/password authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -33,6 +37,10 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").default("user"), // user, admin
+  subscriptionTier: varchar("subscription_tier").default("free"), // free, pro
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionStatus: varchar("subscription_status"), // active, canceled, past_due, etc.
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
