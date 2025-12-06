@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2 } from "lucide-react";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ export default function Landing() {
     {
       icon: <BarChart3 className="h-6 w-6" />,
       title: "Market Intelligence",
-      description: "Instant pricing bands (p25/p50/p75) for any ZIP, city, or neighborhood across NY, NJ, and CT.",
+      description: "Instant pricing bands (P25/P50/P75) for any ZIP, city, or neighborhood across NY, NJ, and CT.",
     },
     {
       icon: <Target className="h-6 w-6" />,
@@ -43,14 +43,34 @@ export default function Landing() {
       description: "Proprietary 0-100 scores with transparent breakdowns showing mispricing, confidence, and risk.",
     },
     {
+      icon: <TrendingUp className="h-6 w-6" />,
+      title: "Up and Coming ZIPs",
+      description: "Identify trending neighborhoods with our algorithm analyzing price appreciation and momentum.",
+    },
+    {
       icon: <Shield className="h-6 w-6" />,
       title: "Grounded AI",
       description: "AI insights backed by real data with citations. No hallucinations, just evidence-based analysis.",
     },
     {
+      icon: <Heart className="h-6 w-6" />,
+      title: "Watchlists & Alerts",
+      description: "Save properties, monitor price changes, and get notified when opportunities arise.",
+    },
+    {
+      icon: <FileText className="h-6 w-6" />,
+      title: "Deal Memo Generator",
+      description: "AI-powered deal memos with market context, comparable sales, and investment analysis.",
+    },
+    {
+      icon: <Code className="h-6 w-6" />,
+      title: "Developer API",
+      description: "RESTful API access for Pro subscribers to integrate property data into their own applications.",
+    },
+    {
       icon: <Zap className="h-6 w-6" />,
-      title: "Real-Time Alerts",
-      description: "Get notified when properties hit your criteria or market conditions change.",
+      title: "Export & Reports",
+      description: "Export market reports, property dossiers, and opportunity lists for clients and analysis.",
     },
   ];
 
@@ -244,7 +264,7 @@ export default function Landing() {
               </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {features.map((feature) => (
                 <Card key={feature.title} className="hover-elevate">
                   <CardContent className="p-6">

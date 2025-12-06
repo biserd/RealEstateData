@@ -26,6 +26,8 @@ import Pricing from "@/pages/Pricing";
 import CheckoutSuccess from "@/pages/CheckoutSuccess";
 import Settings from "@/pages/Settings";
 import Developers from "@/pages/Developers";
+import ApiAccess from "@/pages/ApiAccess";
+import ReleaseNotes from "@/pages/ReleaseNotes";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -56,6 +58,8 @@ function Router() {
         {isAuthenticated ? <Settings /> : <Login />}
       </Route>
       <Route path="/developers" component={Developers} />
+      <Route path="/api-access" component={ApiAccess} />
+      <Route path="/release-notes" component={ReleaseNotes} />
       <Route component={NotFound} />
     </Switch>
   );
