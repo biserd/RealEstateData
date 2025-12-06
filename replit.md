@@ -49,7 +49,7 @@ AI features are powered by OpenAI API (GPT-5) via Replit AI Integrations. It pro
 -   **Authentication:** Username/password with Passport Local Strategy (bcrypt for password hashing)
 -   **AI Services:** Replit AI Integrations (OpenAI-compatible API for GPT-5)
 -   **Database:** Neon Serverless PostgreSQL
--   **Payments:** Stripe integration via stripe-replit-sync for subscription management
+-   **Payments:** Stripe integration via stripe-replit-sync for subscription management (STRIPE_SECRET_KEY must be set to production key for live payments)
 
 ### Subscription System
 
