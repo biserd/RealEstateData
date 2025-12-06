@@ -189,14 +189,12 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 </div>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem data-testid="menu-profile">
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem data-testid="menu-settings">
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
+              <Link href="/settings">
+                <DropdownMenuItem data-testid="menu-settings" className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+              </Link>
               {isFree ? (
                 <Link href="/pricing">
                   <DropdownMenuItem data-testid="menu-upgrade" className="text-primary">
