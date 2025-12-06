@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { MarketingHeader } from "@/components/MarketingHeader";
+import { Footer } from "@/components/Footer";
 
 interface SubscriptionData {
   tier: string;
@@ -44,6 +45,7 @@ const FREE_FEATURES = [
   { name: "Watchlists", included: true, limit: "1 list, 5 properties" },
   { name: "Alerts & Notifications", included: false },
   { name: "Export Reports", included: false },
+  { name: "Developer API Access", included: false },
 ];
 
 const PRO_FEATURES = [
@@ -55,6 +57,7 @@ const PRO_FEATURES = [
   { name: "Watchlists", included: true, limit: "Unlimited" },
   { name: "Alerts & Notifications", included: true, limit: "Unlimited" },
   { name: "Export Reports", included: true, limit: "Full access" },
+  { name: "Developer API Access", included: true, limit: "10K requests/day" },
 ];
 
 export default function Pricing() {
@@ -353,6 +356,8 @@ export default function Pricing() {
           </p>
         </div>
       </main>
+      
+      <Footer />
     </div>
   );
 }
