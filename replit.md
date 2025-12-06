@@ -1,8 +1,14 @@
-# Tri-State Real Estate Intelligence Platform
+# Realtors Dashboard - Real Estate Intelligence Platform
 
 ## Overview
 
-This subscription SaaS platform empowers buyers, investors, and agents to identify real estate opportunities across New York, New Jersey, and Connecticut. It provides market intelligence, proprietary opportunity scoring, and AI-powered property analysis with a focus on transparent, data-backed insights. The platform aims to be a comprehensive tool for informed real estate decisions, offering deep data insights for various user types from retail buyers to market analysts.
+**Realtors Dashboard** (formerly TriState Intel) is a subscription SaaS platform empowering buyers, investors, and agents to identify real estate opportunities. Currently covering New York, New Jersey, and Connecticut with nationwide expansion planned. The platform provides market intelligence, proprietary opportunity scoring, and AI-powered property analysis with a focus on transparent, data-backed insights.
+
+**Branding:**
+- Platform name: **Realtors Dashboard**
+- Logo: **RD** (rounded box with primary background)
+- Contact: hello@realtorsdashboard.com
+- Vision: National expansion beyond tri-state area
 
 ## User Preferences
 
