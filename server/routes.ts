@@ -90,11 +90,18 @@ export async function registerRoutes(
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Logout failed" });
+    req.logout((logoutErr) => {
+      if (logoutErr) {
+        console.error("Logout error:", logoutErr);
       }
-      res.json({ message: "Logged out successfully" });
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error("Session destroy error:", destroyErr);
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.clearCookie("connect.sid");
+        res.json({ message: "Logged out successfully" });
+      });
     });
   });
 
