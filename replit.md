@@ -49,6 +49,39 @@ AI features are powered by OpenAI API (GPT-5) via Replit AI Integrations. It pro
 -   **Authentication:** Username/password with Passport Local Strategy (bcrypt for password hashing)
 -   **AI Services:** Replit AI Integrations (OpenAI-compatible API for GPT-5)
 -   **Database:** Neon Serverless PostgreSQL
+-   **Payments:** Stripe integration via stripe-replit-sync for subscription management
+
+### Subscription System
+
+The platform uses a freemium model with Stripe for payment processing:
+
+**Tiers:**
+-   **Free:** Basic market explorer, view-only opportunity screener, 3 watchlist properties, no exports
+-   **Pro ($29/month or $290/year):** Unlimited features, AI assistant, Deal Memo generator, exports, unlimited watchlists/alerts
+
+**Backend Implementation:**
+-   `server/stripeClient.ts` - Stripe client initialization and sync setup
+-   `server/stripeService.ts` - Checkout, billing portal, price validation services
+-   `server/webhookHandlers.ts` - Webhook processing and user subscription updates
+-   Webhook route registered BEFORE express.json() for raw body access
+
+**Database Fields (users table):**
+-   `subscriptionTier`: 'free' or 'pro'
+-   `stripeCustomerId`: Stripe customer ID
+-   `stripeSubscriptionId`: Active subscription ID
+-   `subscriptionStatus`: 'active', 'canceled', 'past_due', etc.
+
+**API Endpoints:**
+-   `GET /api/subscription` - Get current user's subscription status
+-   `POST /api/checkout` - Create Stripe checkout session (validates price IDs against Pro Plan)
+-   `POST /api/billing-portal` - Create customer portal session
+-   `GET /api/stripe/products` - List available products/prices
+-   `POST /api/stripe/webhook/:uuid` - Stripe webhook handler
+
+**Feature Gating:**
+-   `requirePro` middleware gates AI features, exports, and unlimited watchlists
+-   Frontend uses `useSubscription` hook and `UpgradePrompt` component for gated features
+-   Pro badge displayed in header for subscribed users
 
 ### Key NPM Packages
 
