@@ -1,13 +1,27 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Crown, Settings, LogOut, Home, ChevronDown } from "lucide-react";
 
 interface MarketingHeaderProps {
   showLogin?: boolean;
 }
 
 export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const { user, isAuthenticated, logout, isLoading } = useAuth();
+  const { isPro } = useSubscription();
 
   const navLinks = [
     { href: "/pricing", label: "Pricing" },
@@ -16,6 +30,21 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
     { href: "/release-notes", label: "What's New" },
     { href: "/about", label: "About" },
   ];
+
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -45,11 +74,48 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
         </div>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          {showLogin && (
+          {isLoading ? (
+            <div className="h-9 w-20 animate-pulse bg-muted rounded-md" />
+          ) : isAuthenticated && user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2" data-testid="button-user-menu-marketing">
+                  <Avatar className="h-7 w-7">
+                    <AvatarFallback className="text-xs">{getInitials()}</AvatarFallback>
+                  </Avatar>
+                  <span className="hidden sm:inline-block text-sm max-w-[120px] truncate">
+                    {user.firstName || user.email?.split("@")[0]}
+                  </span>
+                  {isPro && <Badge variant="default" className="text-xs"><Crown className="h-3 w-3" /></Badge>}
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium">{user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/")} data-testid="menu-dashboard">
+                  <Home className="mr-2 h-4 w-4" />
+                  Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/settings")} data-testid="menu-settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} data-testid="menu-logout">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : showLogin ? (
             <Link href="/login">
               <Button data-testid="button-login">Log In</Button>
             </Link>
-          )}
+          ) : null}
         </div>
       </div>
     </header>
