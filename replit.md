@@ -22,7 +22,7 @@ The frontend uses React 18+ with TypeScript, Vite for tooling, Wouter for routin
 
 ### Backend
 
-The backend is built with Express.js and TypeScript, utilizing Node's `http` module. Authentication integrates Replit Auth (OpenID Connect) via Passport.js with PostgreSQL-backed session storage. The API is RESTful, returning JSON, and includes robust export functionalities for market reports, property dossiers, and opportunity lists. A monorepo structure is used for client and server code, with shared schemas and an `esbuild` configuration for optimized bundling.
+The backend is built with Express.js and TypeScript, utilizing Node's `http` module. Authentication uses **Passport Local Strategy** with username/password authentication, bcrypt password hashing (12 rounds), and PostgreSQL-backed session storage. The API is RESTful, returning JSON, and includes robust export functionalities for market reports, property dossiers, and opportunity lists. A monorepo structure is used for client and server code, with shared schemas and an `esbuild` configuration for optimized bundling.
 
 ### Database
 
@@ -46,7 +46,7 @@ AI features are powered by OpenAI API (GPT-5) via Replit AI Integrations. It pro
 
 ### Third-Party Services
 
--   **Authentication:** Replit Auth (OpenID Connect)
+-   **Authentication:** Username/password with Passport Local Strategy (bcrypt for password hashing)
 -   **AI Services:** Replit AI Integrations (OpenAI-compatible API for GPT-5)
 -   **Database:** Neon Serverless PostgreSQL
 
@@ -55,9 +55,23 @@ AI features are powered by OpenAI API (GPT-5) via Replit AI Integrations. It pro
 -   **UI Components:** `@radix-ui/*`, `cmdk`, `lucide-react`, `class-variance-authority`, `tailwind-merge`, `clsx`
 -   **Forms & Validation:** `react-hook-form`, `@hookform/resolvers`, `zod`, `drizzle-zod`
 -   **Data Fetching:** `@tanstack/react-query`
--   **Backend Core:** `express`, `drizzle-orm`, `passport`, `passport-local`, `express-session`, `connect-pg-simple`
+-   **Backend Core:** `express`, `drizzle-orm`, `passport`, `passport-local`, `express-session`, `connect-pg-simple`, `bcrypt`
 -   **Build Tools:** `vite`, `esbuild`, `typescript`, `tsx`
 -   **Utilities:** `date-fns`, `nanoid`, `ws`
+
+### Authentication System
+
+The platform uses username/password authentication:
+-   **Backend:** `server/auth.ts` - Passport Local Strategy with bcrypt password hashing
+-   **API Endpoints:**
+    -   `POST /api/auth/register` - User registration with email/password
+    -   `POST /api/auth/login` - User login
+    -   `POST /api/auth/logout` - Session destruction and logout
+    -   `GET /api/auth/user` - Get current authenticated user
+-   **Frontend Pages:**
+    -   `/login` - Login page
+    -   `/register` - Registration page
+-   **Hook:** `client/src/hooks/useAuth.ts` - React hook for auth state and logout function
 
 ### Development Tools
 
