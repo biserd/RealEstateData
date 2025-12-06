@@ -14,7 +14,7 @@ import {
   dataSources,
   aiChats,
   type User,
-  type UpsertUser,
+  type InsertUser,
   type Property,
   type InsertProperty,
   type Sale,
@@ -44,7 +44,8 @@ import {
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
   
   // Property operations
   getProperty(id: string): Promise<Property | undefined>;
@@ -125,48 +126,12 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    if (userData.email) {
-      const [existingByEmail] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, userData.email));
-      
-      if (existingByEmail) {
-        const [updated] = await db
-          .update(users)
-          .set({
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            profileImageUrl: userData.profileImageUrl,
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, existingByEmail.id))
-          .returning();
-        return updated;
-      }
-    }
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
 
-    const [existingById] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userData.id || ""));
-    
-    if (existingById) {
-      const [updated] = await db
-        .update(users)
-        .set({
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, existingById.id))
-        .returning();
-      return updated;
-    }
-
+  async createUser(userData: InsertUser): Promise<User> {
     const [newUser] = await db
       .insert(users)
       .values(userData)
