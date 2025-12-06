@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, Menu, Search, User, LogOut, Settings, ChevronDown, X, TrendingUp, Building2, Heart, Home, Crown, CreditCard } from "lucide-react";
+import { Menu, Search, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -146,16 +146,6 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          
-          <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications">
-            <Bell className="h-5 w-5" />
-            <Badge 
-              variant="destructive" 
-              className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
-            >
-              3
-            </Badge>
-          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

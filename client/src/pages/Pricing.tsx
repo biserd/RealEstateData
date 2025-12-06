@@ -71,7 +71,7 @@ export default function Pricing() {
     enabled: !!user,
   });
 
-  const { data: productsData } = useQuery<{ data: Product[] }>({
+  const { data: productsData, isLoading: isProductsLoading } = useQuery<{ data: Product[] }>({
     queryKey: ["/api/products"],
   });
 
@@ -129,10 +129,17 @@ export default function Pricing() {
       setLocation("/login?redirect=/pricing");
       return;
     }
+    if (isProductsLoading) {
+      toast({
+        title: "Loading",
+        description: "Please wait while we load pricing information...",
+      });
+      return;
+    }
     if (!selectedPrice?.id) {
       toast({
         title: "Error",
-        description: "Pricing not available. Please try again later.",
+        description: "Pricing not available. Please refresh the page and try again.",
         variant: "destructive",
       });
       return;
@@ -159,6 +166,12 @@ export default function Pricing() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Start free and upgrade when you need more. Pro unlocks the full power of real estate intelligence.
           </p>
+          {user && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Logged in as <span className="font-medium text-foreground">{user.email}</span>
+              {isPro && <Badge variant="default" className="ml-2">Pro</Badge>}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center justify-center gap-4 mb-12">
