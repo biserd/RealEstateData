@@ -29,7 +29,7 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -199,11 +199,13 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 </>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <a href="/api/logout" className="flex items-center" data-testid="menu-logout">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </a>
+              <DropdownMenuItem 
+                onClick={() => logout()}
+                className="cursor-pointer"
+                data-testid="menu-logout"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

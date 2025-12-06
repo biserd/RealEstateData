@@ -44,9 +44,9 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
         <div className="flex items-center gap-4">
           <ThemeToggle />
           {showLogin && (
-            <a href="/api/login">
+            <Link href="/login">
               <Button data-testid="button-login">Log In</Button>
-            </a>
+            </Link>
           )}
         </div>
       </div>

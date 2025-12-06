@@ -8,6 +8,8 @@ import { MapProvider } from "@/components/MapProvider";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import Home from "@/pages/Home";
 import MarketExplorer from "@/pages/MarketExplorer";
 import OpportunityScreener from "@/pages/OpportunityScreener";
@@ -27,15 +29,17 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={isLoading || !isAuthenticated ? Landing : Home} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       <Route path="/market-intelligence" component={MarketExplorer} />
       <Route path="/investment-opportunities" component={OpportunityScreener} />
       <Route path="/up-and-coming" component={UpAndComingZips} />
       <Route path="/properties/:slug" component={PropertyDetail} />
       <Route path="/saved-properties">
-        {isAuthenticated ? <Watchlists /> : <Landing />}
+        {isAuthenticated ? <Watchlists /> : <Login />}
       </Route>
       <Route path="/admin-console">
-        {isAuthenticated ? <AdminConsole /> : <Landing />}
+        {isAuthenticated ? <AdminConsole /> : <Login />}
       </Route>
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
