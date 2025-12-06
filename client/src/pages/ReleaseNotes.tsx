@@ -31,7 +31,7 @@ interface ReleaseNote {
 const releaseNotes: ReleaseNote[] = [
   {
     version: "1.3.0",
-    date: "December 2024",
+    date: "December 2025",
     title: "Developer API & Settings",
     description: "Introducing API access for Pro subscribers and new account settings.",
     type: "major",
@@ -65,7 +65,7 @@ const releaseNotes: ReleaseNote[] = [
   },
   {
     version: "1.2.0",
-    date: "November 2024",
+    date: "November 2025",
     title: "Stripe Subscriptions & Pro Features",
     description: "Monetization with Stripe and premium feature gating.",
     type: "major",
@@ -94,7 +94,7 @@ const releaseNotes: ReleaseNote[] = [
   },
   {
     version: "1.1.0",
-    date: "October 2024",
+    date: "October 2025",
     title: "Up and Coming ZIPs & Enhanced Analytics",
     description: "New trending neighborhoods feature and improved market analytics.",
     type: "minor",
@@ -123,7 +123,7 @@ const releaseNotes: ReleaseNote[] = [
   },
   {
     version: "1.0.0",
-    date: "September 2024",
+    date: "September 2025",
     title: "Initial Launch",
     description: "Realtors Dashboard launches with core market intelligence features.",
     type: "major",
