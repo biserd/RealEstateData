@@ -11,7 +11,7 @@ export default function Privacy() {
           <section>
             <h2 className="text-xl font-semibold mb-4">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              TriState Intel ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy 
+              Realtors Dashboard ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy 
               explains how we collect, use, disclose, and safeguard your information when you use our real estate 
               market intelligence platform.
             </p>
@@ -130,8 +130,8 @@ export default function Privacy() {
             <h2 className="text-xl font-semibold mb-4">11. Contact Us</h2>
             <p className="text-muted-foreground leading-relaxed">
               If you have any questions about this Privacy Policy or our data practices, please contact us at{" "}
-              <a href="mailto:privacy@tristateintel.com" className="text-primary hover:underline">
-                privacy@tristateintel.com
+              <a href="mailto:hello@realtorsdashboard.com" className="text-primary hover:underline">
+                hello@realtorsdashboard.com
               </a>
               .
             </p>

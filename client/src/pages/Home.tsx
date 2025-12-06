@@ -57,7 +57,7 @@ export default function Home() {
             Welcome back, {user?.firstName || "there"}
           </h1>
           <p className="text-muted-foreground">
-            Here's what's happening in the Tri-State real estate market
+            Here's what's happening in your real estate markets
           </p>
         </div>
 

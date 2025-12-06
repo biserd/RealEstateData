@@ -37,7 +37,7 @@ export default function About() {
       <section className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
         <div className="max-w-3xl">
           <h1 className="text-3xl font-bold tracking-tight mb-4 md:text-4xl">
-            About TriState Intel
+            About Realtors Dashboard
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
             We're building the market intelligence platform we wished existed when we started investing 
@@ -57,7 +57,7 @@ export default function About() {
                 analytics while everyone else relies on intuition and outdated listings.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                TriState Intel levels the playing field. We aggregate public data, apply rigorous 
+                Realtors Dashboard levels the playing field. We aggregate public data, apply rigorous 
                 analysis, and present insights in a way that's actually useful. No jargon, no hidden 
                 algorithms—just clear, actionable intelligence.
               </p>
@@ -94,8 +94,8 @@ export default function About() {
         <div className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
           <h2 className="text-2xl font-bold tracking-tight mb-8">Coverage Area</h2>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            We focus exclusively on the Tri-State area—New York, New Jersey, and Connecticut. 
-            Deep expertise in one region beats shallow coverage everywhere.
+            We're currently covering New York, New Jersey, and Connecticut—with more states 
+            coming soon as we expand nationwide.
           </p>
           <div className="grid gap-6 md:grid-cols-3">
             {coverage.map((item) => (

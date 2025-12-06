@@ -69,9 +69,9 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
             <SheetHeader className="border-b p-4">
               <SheetTitle className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <span className="text-sm font-bold">TI</span>
+                  <span className="text-sm font-bold">RD</span>
                 </div>
-                <span>TriState Intel</span>
+                <span>Realtors Dashboard</span>
               </SheetTitle>
             </SheetHeader>
             <nav className="flex flex-col p-2">
@@ -106,10 +106,10 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
 
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <span className="text-sm font-bold">TI</span>
+            <span className="text-sm font-bold">RD</span>
           </div>
           <span className="hidden text-lg tracking-tight sm:inline-block" data-testid="text-logo">
-            TriState Intel
+            Realtors Dashboard
           </span>
         </Link>
 

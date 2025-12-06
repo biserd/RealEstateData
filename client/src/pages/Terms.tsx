@@ -11,7 +11,7 @@ export default function Terms() {
           <section>
             <h2 className="text-xl font-semibold mb-4">1. Acceptance of Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
-              By accessing or using TriState Intel ("the Service"), you agree to be bound by these Terms of Service. 
+              By accessing or using Realtors Dashboard ("the Service"), you agree to be bound by these Terms of Service. 
               If you do not agree to these terms, please do not use our Service. We reserve the right to modify these 
               terms at any time, and such modifications will be effective immediately upon posting.
             </p>
@@ -20,9 +20,9 @@ export default function Terms() {
           <section>
             <h2 className="text-xl font-semibold mb-4">2. Description of Service</h2>
             <p className="text-muted-foreground leading-relaxed">
-              TriState Intel provides real estate market intelligence, property analysis, and investment opportunity 
-              identification services for properties in New York, New Jersey, and Connecticut. Our platform offers 
-              market data, property valuations, opportunity scoring, and AI-powered analysis tools.
+              Realtors Dashboard provides real estate market intelligence, property analysis, and investment opportunity 
+              identification services. Currently covering New York, New Jersey, and Connecticut, with nationwide 
+              expansion planned. Our platform offers market data, property valuations, opportunity scoring, and AI-powered analysis tools.
             </p>
           </section>
 
@@ -38,7 +38,7 @@ export default function Terms() {
           <section>
             <h2 className="text-xl font-semibold mb-4">4. Data Accuracy and Limitations</h2>
             <p className="text-muted-foreground leading-relaxed">
-              While we strive to provide accurate and up-to-date information, TriState Intel does not guarantee 
+              While we strive to provide accurate and up-to-date information, Realtors Dashboard does not guarantee 
               the accuracy, completeness, or reliability of any data or analysis provided through the Service. 
               Our market data is sourced from public records and third-party providers, and may contain errors 
               or omissions. Users should independently verify all information before making investment decisions.
@@ -48,7 +48,7 @@ export default function Terms() {
           <section>
             <h2 className="text-xl font-semibold mb-4">5. Not Financial Advice</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The information provided by TriState Intel is for informational purposes only and does not constitute 
+              The information provided by Realtors Dashboard is for informational purposes only and does not constitute 
               financial, legal, or investment advice. Our opportunity scores, market analysis, and AI-generated 
               insights are tools to assist your research, not recommendations to buy, sell, or hold any property. 
               Always consult with qualified professionals before making real estate investment decisions.
@@ -59,7 +59,7 @@ export default function Terms() {
             <h2 className="text-xl font-semibold mb-4">6. Intellectual Property</h2>
             <p className="text-muted-foreground leading-relaxed">
               All content, features, and functionality of the Service, including but not limited to text, graphics, 
-              logos, algorithms, and software, are the exclusive property of TriState Intel and are protected by 
+              logos, algorithms, and software, are the exclusive property of Realtors Dashboard and are protected by 
               copyright, trademark, and other intellectual property laws. You may not reproduce, distribute, or 
               create derivative works without our express written permission.
             </p>
@@ -83,7 +83,7 @@ export default function Terms() {
           <section>
             <h2 className="text-xl font-semibold mb-4">8. Limitation of Liability</h2>
             <p className="text-muted-foreground leading-relaxed">
-              To the maximum extent permitted by law, TriState Intel shall not be liable for any indirect, 
+              To the maximum extent permitted by law, Realtors Dashboard shall not be liable for any indirect, 
               incidental, special, consequential, or punitive damages, including but not limited to loss of 
               profits, data, or business opportunities, arising from your use of or inability to use the Service.
             </p>
@@ -102,8 +102,8 @@ export default function Terms() {
             <h2 className="text-xl font-semibold mb-4">10. Contact Information</h2>
             <p className="text-muted-foreground leading-relaxed">
               If you have any questions about these Terms of Service, please contact us at{" "}
-              <a href="mailto:legal@tristateintel.com" className="text-primary hover:underline">
-                legal@tristateintel.com
+              <a href="mailto:hello@realtorsdashboard.com" className="text-primary hover:underline">
+                hello@realtorsdashboard.com
               </a>
               .
             </p>

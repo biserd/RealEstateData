@@ -3,7 +3,7 @@ import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search,
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
 import { useQuery } from "@tanstack/react-query";
 
@@ -90,22 +90,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-2 font-semibold">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <span className="text-sm font-bold">TI</span>
-            </div>
-            <span className="text-lg tracking-tight" data-testid="text-logo">TriState Intel</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <a href="/api/login">
-              <Button data-testid="button-login">Log In</Button>
-            </a>
-          </div>
-        </div>
-      </header>
+      <MarketingHeader />
 
       <main>
         <section className="relative overflow-hidden">
@@ -113,12 +98,12 @@ export default function Landing() {
           <div className="relative mx-auto max-w-7xl px-4 py-24 md:px-6 md:py-32">
             <div className="mx-auto max-w-3xl text-center">
               <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-                Find Real Estate Opportunities in the{" "}
-                <span className="text-primary">Tri-State Area</span>
+                Find Real Estate Opportunities{" "}
+                <span className="text-primary">Nationwide</span>
               </h1>
               <p className="mb-8 text-lg text-muted-foreground md:text-xl">
-                AI-powered market intelligence for NY, NJ, and CT. Understand pricing, 
-                find undervalued properties, and make data-driven decisions.
+                AI-powered market intelligence starting with NY, NJ, and CT—expanding nationwide. 
+                Understand pricing, find undervalued properties, and make data-driven decisions.
               </p>
               
               <div className="mx-auto mb-8 max-w-xl">
@@ -335,7 +320,7 @@ export default function Landing() {
               Ready to Find Your Next Opportunity?
             </h2>
             <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-              Join investors, agents, and analysts using TriState Intel to make 
+              Join investors, agents, and analysts using Realtors Dashboard to make 
               smarter real estate decisions.
             </p>
             <a href="/api/login">

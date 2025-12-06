@@ -14,6 +14,7 @@ export function Footer() {
 
   const companyLinks = [
     { href: "/about", label: "About Us" },
+    { href: "/faq", label: "FAQ" },
     { href: "/contact", label: "Contact" },
   ];
 
@@ -29,12 +30,12 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 font-semibold">
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <span className="text-sm font-bold">TI</span>
+                <span className="text-sm font-bold">RD</span>
               </div>
-              <span className="text-lg tracking-tight">TriState Intel</span>
+              <span className="text-lg tracking-tight">Realtors Dashboard</span>
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              Real estate market intelligence for NY, NJ, and CT. Data-driven insights for smarter property decisions.
+              Real estate market intelligence expanding nationwide. Data-driven insights for smarter property decisions.
             </p>
             <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
               <MapPin className="h-4 w-4" />
@@ -111,10 +112,10 @@ export function Footer() {
 
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <p className="text-sm text-muted-foreground">
-            &copy; {currentYear} TriState Intel. All rights reserved.
+            &copy; {currentYear} Realtors Dashboard. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Covering NY, NJ & CT</span>
+            <span>Currently: NY, NJ & CT • More states coming soon</span>
             <span className="hidden md:inline">|</span>
             <span className="hidden md:inline">Data updated daily</span>
           </div>
