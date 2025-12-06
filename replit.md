@@ -117,6 +117,8 @@ Pro subscribers can generate API keys to programmatically access the platform:
 **Frontend Pages:**
 -   `/settings` - Account settings with API key management (Pro users)
 -   `/developers` - Public developer documentation with code examples
+-   `/api-access` - Marketing page showcasing API benefits, endpoints, and pricing
+-   `/release-notes` - Public changelog with version history (v1.0.0 - v1.3.0)
 
 ### Key NPM Packages
 
