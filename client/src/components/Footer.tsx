@@ -43,11 +43,11 @@ export function Footer() {
             <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
               <Mail className="h-4 w-4" />
               <a 
-                href="mailto:support@tristateintel.com" 
+                href="mailto:hello@realtorsdashboard.com" 
                 className="hover:text-foreground transition-colors"
                 data-testid="link-footer-email"
               >
-                support@tristateintel.com
+                hello@realtorsdashboard.com
               </a>
             </div>
           </div>

@@ -38,8 +38,8 @@ export default function Contact() {
     {
       icon: <Mail className="h-5 w-5" />,
       title: "Email",
-      value: "support@tristateintel.com",
-      href: "mailto:support@tristateintel.com",
+      value: "hello@realtorsdashboard.com",
+      href: "mailto:hello@realtorsdashboard.com",
     },
     {
       icon: <MapPin className="h-5 w-5" />,
