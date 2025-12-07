@@ -61,6 +61,7 @@ export interface IStorage {
   getProperties(filters: ScreenerFilters, limit?: number, offset?: number): Promise<Property[]>;
   getPropertiesByArea(geoType: string, geoId: string, limit?: number): Promise<Property[]>;
   getTopOpportunities(limit?: number): Promise<Property[]>;
+  getAllPropertiesForSitemap(): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property | undefined>;
   
@@ -276,6 +277,17 @@ export class DatabaseStorage implements IStorage {
       .where(gte(properties.opportunityScore, 70))
       .orderBy(desc(properties.opportunityScore))
       .limit(limit);
+  }
+
+  async getAllPropertiesForSitemap(): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]> {
+    return await db
+      .select({
+        id: properties.id,
+        address: properties.address,
+        city: properties.city,
+        zipCode: properties.zipCode,
+      })
+      .from(properties);
   }
 
   async createProperty(property: InsertProperty): Promise<Property> {

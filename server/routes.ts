@@ -38,12 +38,111 @@ const requirePro = async (req: any, res: any, next: any) => {
   }
 };
 
+// Helper function to generate property slug for sitemap
+function generateSitemapSlug(property: { id: string; address: string | null; city: string | null; zipCode: string | null }): string {
+  const slugParts: string[] = [];
+  
+  if (property.address) {
+    const addressSlug = property.address
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 50);
+    slugParts.push(addressSlug);
+  }
+  
+  if (property.city) {
+    const citySlug = property.city
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-');
+    slugParts.push(citySlug);
+  }
+  
+  if (property.zipCode) {
+    slugParts.push(property.zipCode);
+  }
+  
+  slugParts.push(property.id);
+  
+  return slugParts.filter(Boolean).join('-');
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // SEO: robots.txt
+  app.get("/robots.txt", (req, res) => {
+    const baseUrl = `https://${req.get("host")}`;
+    res.type("text/plain");
+    res.send(`User-agent: *
+Allow: /
+
+Sitemap: ${baseUrl}/sitemap.xml
+`);
+  });
+
+  // SEO: Dynamic sitemap.xml
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const baseUrl = `https://${req.get("host")}`;
+      const today = new Date().toISOString().split("T")[0];
+      
+      // Static pages
+      const staticPages = [
+        { url: "/", priority: "1.0", changefreq: "daily" },
+        { url: "/pricing", priority: "0.8", changefreq: "weekly" },
+        { url: "/api-access", priority: "0.7", changefreq: "monthly" },
+        { url: "/developers", priority: "0.7", changefreq: "monthly" },
+        { url: "/release-notes", priority: "0.5", changefreq: "monthly" },
+        { url: "/login", priority: "0.3", changefreq: "yearly" },
+        { url: "/register", priority: "0.3", changefreq: "yearly" },
+      ];
+      
+      // Get all properties
+      const properties = await storage.getAllPropertiesForSitemap();
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+`;
+      
+      // Add static pages
+      for (const page of staticPages) {
+        xml += `  <url>
+    <loc>${baseUrl}${page.url}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${page.changefreq}</changefreq>
+    <priority>${page.priority}</priority>
+  </url>
+`;
+      }
+      
+      // Add property pages
+      for (const property of properties) {
+        const slug = generateSitemapSlug(property);
+        xml += `  <url>
+    <loc>${baseUrl}/properties/${slug}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+`;
+      }
+      
+      xml += `</urlset>`;
+      
+      res.type("application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating sitemap:", error);
+      res.status(500).send("Error generating sitemap");
+    }
+  });
 
   // Registration schema
   const registerSchema = z.object({

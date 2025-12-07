@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
+import { SEO } from "@/components/SEO";
 import { 
   Sparkles, 
   Zap, 
@@ -177,7 +178,12 @@ const versionTypeConfig = {
 
 export default function ReleaseNotes() {
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEO 
+        title="Release Notes - Product Updates & New Features"
+        description="Stay up to date with the latest Realtors Dashboard features, improvements, and bug fixes. See what's new in our real estate intelligence platform."
+      />
+      <div className="min-h-screen bg-background">
       <MarketingHeader />
 
       <main className="py-12 md:py-16">
@@ -247,6 +253,7 @@ export default function ReleaseNotes() {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

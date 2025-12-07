@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
+import { SEO } from "@/components/SEO";
 import { Code, Key, Zap, Shield, Book, Copy, Check, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
@@ -65,7 +66,12 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
 
 export default function Developers() {
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEO 
+        title="API Documentation - Developer Guide"
+        description="Complete API documentation with code examples in cURL, JavaScript, and Python. Build real estate applications with our property data API."
+      />
+      <div className="min-h-screen bg-background">
       <MarketingHeader />
       
       <div className="container mx-auto px-4 py-12 max-w-5xl">
@@ -418,6 +424,7 @@ export default function Developers() {
       </div>
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
+import { SEO } from "@/components/SEO";
 import { useQuery } from "@tanstack/react-query";
 
 interface PlatformStats {
@@ -109,8 +110,13 @@ export default function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <MarketingHeader />
+    <>
+      <SEO 
+        title="Realtors Dashboard - Real Estate Market Intelligence"
+        description="AI-powered real estate intelligence for NY, NJ, and CT. Find underpriced properties, analyze market trends, and make data-driven investment decisions."
+      />
+      <div className="min-h-screen bg-background">
+        <MarketingHeader />
 
       <main>
         <section className="relative overflow-hidden">
@@ -354,6 +360,7 @@ export default function Landing() {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

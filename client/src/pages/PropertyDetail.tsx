@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { extractPropertyIdFromSlug } from "@/lib/propertySlug";
+import { SEO } from "@/components/SEO";
+import { PropertyJsonLd } from "@/components/PropertyJsonLd";
 import { 
   ArrowLeft, 
   Heart, 
@@ -245,17 +247,30 @@ export default function PropertyDetail() {
     ],
   };
 
+  const seoTitle = property.address 
+    ? `${property.address}, ${property.city}, ${property.state} ${property.zipCode} - Property Details`
+    : "Property Details";
+  const seoDescription = property.address
+    ? `View details for ${property.address} in ${property.city}, ${property.state}. ${property.beds || 0} beds, ${property.baths || 0} baths, ${property.sqft?.toLocaleString() || 'N/A'} sqft. ${property.lastSalePrice ? `Last sold for ${formatPrice(property.lastSalePrice)}.` : ''} Opportunity score: ${property.opportunityScore || 'N/A'}/100.`
+    : "View detailed property information including pricing, comparable sales, market analysis, and opportunity scoring.";
+
   return (
-    <AppLayout showSearch={false}>
-      <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-        <div className="mb-6">
-          <Link href="/investment-opportunities">
-            <Button variant="ghost" className="gap-2" data-testid="button-back">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Screener
-            </Button>
-          </Link>
-        </div>
+    <>
+      <SEO 
+        title={seoTitle}
+        description={seoDescription}
+      />
+      <PropertyJsonLd property={property} compsCount={comps?.length} />
+      <AppLayout showSearch={false}>
+        <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+          <div className="mb-6">
+            <Link href="/investment-opportunities">
+              <Button variant="ghost" className="gap-2" data-testid="button-back">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Screener
+              </Button>
+            </Link>
+          </div>
 
         <div className="mb-8 grid gap-8 lg:grid-cols-2">
           <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
@@ -669,6 +684,7 @@ export default function PropertyDetail() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
+      </AppLayout>
+    </>
   );
 }

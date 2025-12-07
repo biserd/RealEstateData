@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
+import { SEO } from "@/components/SEO";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, Check } from "lucide-react";
@@ -80,7 +81,12 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <>
+      <SEO 
+        title="Create Account - Start Finding Opportunities"
+        description="Join Realtors Dashboard to access real estate market intelligence, opportunity scoring, and AI-powered property analysis for NY, NJ, and CT."
+      />
+      <div className="min-h-screen bg-background flex flex-col">
       <MarketingHeader showLogin={false} />
       
       <main className="flex-1 flex items-center justify-center px-4 py-12">
@@ -278,6 +284,7 @@ export default function Register() {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

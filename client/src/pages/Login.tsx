@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
+import { SEO } from "@/components/SEO";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
@@ -64,7 +65,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <>
+      <SEO 
+        title="Log In"
+        description="Sign in to your Realtors Dashboard account to access market intelligence, opportunity screening, and AI-powered property analysis."
+      />
+      <div className="min-h-screen bg-background flex flex-col">
       <MarketingHeader showLogin={false} />
       
       <main className="flex-1 flex items-center justify-center px-4 py-12">
@@ -164,6 +170,7 @@ export default function Login() {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

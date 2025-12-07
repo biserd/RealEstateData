@@ -12,6 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
+import { SEO } from "@/components/SEO";
 
 interface SubscriptionData {
   tier: string;
@@ -152,7 +153,12 @@ export default function Pricing() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEO 
+        title="Pricing - Pro Features for Real Estate Professionals"
+        description="Unlock unlimited market searches, AI-powered deal memos, developer API access, and more with Realtors Dashboard Pro. Starting at $29/month."
+      />
+      <div className="min-h-screen bg-background">
       <MarketingHeader />
       
       <main className="container max-w-6xl mx-auto px-4 py-16">
@@ -371,6 +377,7 @@ export default function Pricing() {
       </main>
       
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

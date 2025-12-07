@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
+import { SEO } from "@/components/SEO";
 import { 
   Code, 
   Zap, 
@@ -99,7 +100,12 @@ export default function ApiAccess() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEO 
+        title="Developer API - Real Estate Data for Your Applications"
+        description="Access 199,500+ properties via REST API. Get property data, market statistics, opportunity scores, and comparable sales for NY, NJ, and CT."
+      />
+      <div className="min-h-screen bg-background">
       <MarketingHeader />
 
       <main>
@@ -280,6 +286,7 @@ export default function ApiAccess() {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }
