@@ -62,6 +62,8 @@ export interface IStorage {
   getPropertiesByArea(geoType: string, geoId: string, limit?: number): Promise<Property[]>;
   getTopOpportunities(limit?: number): Promise<Property[]>;
   getAllPropertiesForSitemap(): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
+  getPropertyCountForSitemap(): Promise<number>;
+  getPropertiesForSitemapPaginated(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property | undefined>;
   
@@ -288,6 +290,26 @@ export class DatabaseStorage implements IStorage {
         zipCode: properties.zipCode,
       })
       .from(properties);
+  }
+
+  async getPropertyCountForSitemap(): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(properties);
+    return result[0]?.count ?? 0;
+  }
+
+  async getPropertiesForSitemapPaginated(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]> {
+    return await db
+      .select({
+        id: properties.id,
+        address: properties.address,
+        city: properties.city,
+        zipCode: properties.zipCode,
+      })
+      .from(properties)
+      .limit(limit)
+      .offset(offset);
   }
 
   async createProperty(property: InsertProperty): Promise<Property> {

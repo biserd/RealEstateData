@@ -87,42 +87,104 @@ Sitemap: ${baseUrl}/sitemap.xml
 `);
   });
 
-  // SEO: Dynamic sitemap.xml
+  // SEO: Sitemap index (main sitemap.xml)
+  const PROPERTIES_PER_SITEMAP = 40000;
+  
   app.get("/sitemap.xml", async (req, res) => {
     try {
       const baseUrl = `https://${req.get("host")}`;
       const today = new Date().toISOString().split("T")[0];
       
-      // Static pages
-      const staticPages = [
-        { url: "/", priority: "1.0", changefreq: "daily" },
-        { url: "/pricing", priority: "0.8", changefreq: "weekly" },
-        { url: "/api-access", priority: "0.7", changefreq: "monthly" },
-        { url: "/developers", priority: "0.7", changefreq: "monthly" },
-        { url: "/release-notes", priority: "0.5", changefreq: "monthly" },
-        { url: "/login", priority: "0.3", changefreq: "yearly" },
-        { url: "/register", priority: "0.3", changefreq: "yearly" },
-      ];
-      
-      // Get all properties
-      const properties = await storage.getAllPropertiesForSitemap();
+      const propertyCount = await storage.getPropertyCountForSitemap();
+      const propertySitemapCount = Math.ceil(propertyCount / PROPERTIES_PER_SITEMAP);
       
       let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${baseUrl}/sitemap-static.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
 `;
       
-      // Add static pages
-      for (const page of staticPages) {
-        xml += `  <url>
+      for (let i = 1; i <= propertySitemapCount; i++) {
+        xml += `  <sitemap>
+    <loc>${baseUrl}/sitemap-properties-${i}.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+`;
+      }
+      
+      xml += `</sitemapindex>`;
+      
+      res.type("application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating sitemap index:", error);
+      res.status(500).send("Error generating sitemap index");
+    }
+  });
+
+  // SEO: Static pages sitemap
+  app.get("/sitemap-static.xml", (req, res) => {
+    const baseUrl = `https://${req.get("host")}`;
+    const today = new Date().toISOString().split("T")[0];
+    
+    const staticPages = [
+      { url: "/", priority: "1.0", changefreq: "daily" },
+      { url: "/pricing", priority: "0.8", changefreq: "weekly" },
+      { url: "/api-access", priority: "0.7", changefreq: "monthly" },
+      { url: "/developers", priority: "0.7", changefreq: "monthly" },
+      { url: "/release-notes", priority: "0.5", changefreq: "monthly" },
+      { url: "/login", priority: "0.3", changefreq: "yearly" },
+      { url: "/register", priority: "0.3", changefreq: "yearly" },
+      { url: "/market-explorer", priority: "0.9", changefreq: "daily" },
+      { url: "/investment-opportunities", priority: "0.9", changefreq: "daily" },
+      { url: "/up-and-coming-areas", priority: "0.8", changefreq: "weekly" },
+      { url: "/coverage-matrix", priority: "0.6", changefreq: "monthly" },
+    ];
+    
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+`;
+    
+    for (const page of staticPages) {
+      xml += `  <url>
     <loc>${baseUrl}${page.url}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
     <priority>${page.priority}</priority>
   </url>
 `;
+    }
+    
+    xml += `</urlset>`;
+    
+    res.type("application/xml");
+    res.send(xml);
+  });
+
+  // SEO: Property pages sitemap (paginated)
+  app.get("/sitemap-properties-:page.xml", async (req, res) => {
+    try {
+      const page = parseInt(req.params.page, 10);
+      if (isNaN(page) || page < 1) {
+        return res.status(404).send("Invalid sitemap page");
       }
       
-      // Add property pages
+      const baseUrl = `https://${req.get("host")}`;
+      const today = new Date().toISOString().split("T")[0];
+      
+      const offset = (page - 1) * PROPERTIES_PER_SITEMAP;
+      const properties = await storage.getPropertiesForSitemapPaginated(PROPERTIES_PER_SITEMAP, offset);
+      
+      if (properties.length === 0) {
+        return res.status(404).send("Sitemap page not found");
+      }
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+`;
+      
       for (const property of properties) {
         const slug = generateSitemapSlug(property);
         xml += `  <url>
@@ -139,7 +201,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       res.type("application/xml");
       res.send(xml);
     } catch (error) {
-      console.error("Error generating sitemap:", error);
+      console.error("Error generating property sitemap:", error);
       res.status(500).send("Error generating sitemap");
     }
   });
