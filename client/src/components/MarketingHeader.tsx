@@ -112,16 +112,9 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : showLogin ? (
-            <div className="flex items-center gap-2">
-              <Link href="/pricing">
-                <Button variant="ghost" size="sm" data-testid="button-view-pricing">
-                  View Pricing
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button data-testid="button-start-free">Start Free</Button>
-              </Link>
-            </div>
+            <Link href="/register">
+              <Button data-testid="button-start-free">Start Free</Button>
+            </Link>
           ) : null}
         </div>
       </div>
