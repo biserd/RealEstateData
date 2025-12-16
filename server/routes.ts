@@ -1080,8 +1080,9 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(400).json({ message: "Invalid price ID format" });
       }
 
-      const isValidPrice = await stripeService.isValidProPrice(priceId);
-      if (!isValidPrice) {
+      // Validate that the price is for Pro or Premium plan
+      const priceValidation = await stripeService.isValidSubscriptionPrice(priceId);
+      if (!priceValidation.valid) {
         return res.status(400).json({ message: "Invalid subscription plan" });
       }
 

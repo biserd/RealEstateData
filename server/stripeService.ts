@@ -92,6 +92,43 @@ export class StripeService {
     );
     return result.rows.length > 0;
   }
+
+  async isValidPremiumPrice(priceId: string): Promise<boolean> {
+    const result = await db.execute(
+      sql`
+        SELECT pr.id 
+        FROM stripe.prices pr
+        JOIN stripe.products p ON pr.product = p.id
+        WHERE pr.id = ${priceId}
+          AND pr.active = true
+          AND p.active = true
+          AND p.name = 'Premium Plan'
+      `
+    );
+    return result.rows.length > 0;
+  }
+
+  async isValidSubscriptionPrice(priceId: string): Promise<{ valid: boolean; tier: 'pro' | 'premium' | null }> {
+    const result = await db.execute(
+      sql`
+        SELECT pr.id, p.name 
+        FROM stripe.prices pr
+        JOIN stripe.products p ON pr.product = p.id
+        WHERE pr.id = ${priceId}
+          AND pr.active = true
+          AND p.active = true
+          AND p.name IN ('Pro Plan', 'Premium Plan')
+      `
+    );
+    if (result.rows.length === 0) {
+      return { valid: false, tier: null };
+    }
+    const productName = (result.rows[0] as any).name;
+    return { 
+      valid: true, 
+      tier: productName === 'Premium Plan' ? 'premium' : 'pro' 
+    };
+  }
   
   async getValidPriceIds(): Promise<string[]> {
     const result = await db.execute(
@@ -101,10 +138,25 @@ export class StripeService {
         JOIN stripe.products p ON pr.product = p.id
         WHERE pr.active = true
           AND p.active = true
-          AND p.name = 'Pro Plan'
+          AND p.name IN ('Pro Plan', 'Premium Plan')
       `
     );
     return result.rows.map((row: any) => row.id);
+  }
+
+  async getPricesForPlan(planName: 'Pro Plan' | 'Premium Plan'): Promise<any[]> {
+    const result = await db.execute(
+      sql`
+        SELECT pr.* 
+        FROM stripe.prices pr
+        JOIN stripe.products p ON pr.product = p.id
+        WHERE pr.active = true
+          AND p.active = true
+          AND p.name = ${planName}
+        ORDER BY pr.unit_amount ASC
+      `
+    );
+    return result.rows;
   }
 
   async getSubscription(subscriptionId: string) {

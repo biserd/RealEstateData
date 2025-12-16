@@ -29,6 +29,34 @@ export class WebhookHandlers {
   }
 }
 
+async function determineTierFromSubscription(subscription: any): Promise<'free' | 'pro' | 'premium'> {
+  const status = subscription.status;
+  if (status !== 'active' && status !== 'trialing') {
+    return 'free';
+  }
+  
+  // Check the product via items
+  const items = subscription.items?.data || [];
+  for (const item of items) {
+    const priceId = typeof item.price === 'object' ? item.price.id : item.price;
+    
+    // Check if this price belongs to Premium Plan
+    const premiumCheck = await db.execute(
+      sql`
+        SELECT p.name FROM stripe.prices pr
+        JOIN stripe.products p ON pr.product = p.id
+        WHERE pr.id = ${priceId} AND p.name = 'Premium Plan'
+      `
+    );
+    
+    if (premiumCheck.rows.length > 0) {
+      return 'premium';
+    }
+  }
+  
+  return 'pro';
+}
+
 async function handleSubscriptionEvent(subscription: any): Promise<void> {
   try {
     const customerId = typeof subscription.customer === 'object' 
@@ -37,7 +65,7 @@ async function handleSubscriptionEvent(subscription: any): Promise<void> {
     const subscriptionId = subscription.id;
     const status = subscription.status;
 
-    const tier = (status === 'active' || status === 'trialing') ? 'pro' : 'free';
+    const tier = await determineTierFromSubscription(subscription);
 
     const result = await db.execute(
       sql`UPDATE users SET 
@@ -50,7 +78,7 @@ async function handleSubscriptionEvent(subscription: any): Promise<void> {
     );
 
     if (result.rows.length > 0) {
-      console.log(`[Webhook] Updated subscription for user: ${result.rows[0].id}, tier: ${tier}, status: ${status}`);
+      console.log(`[Webhook] Updated subscription for user: ${(result.rows[0] as any).id}, tier: ${tier}, status: ${status}`);
     } else {
       console.log(`[Webhook] No user found with customerId: ${customerId}`);
     }
@@ -93,10 +121,32 @@ async function handleCheckoutCompleted(session: any): Promise<void> {
       : session.subscription;
 
     if (subscriptionId) {
+      // Determine tier from the line items
+      let tier: 'pro' | 'premium' = 'pro';
+      const lineItems = session.line_items?.data || [];
+      
+      for (const item of lineItems) {
+        const priceId = typeof item.price === 'object' ? item.price.id : item.price;
+        if (priceId) {
+          const premiumCheck = await db.execute(
+            sql`
+              SELECT p.name FROM stripe.prices pr
+              JOIN stripe.products p ON pr.product = p.id
+              WHERE pr.id = ${priceId} AND p.name = 'Premium Plan'
+            `
+          );
+          
+          if (premiumCheck.rows.length > 0) {
+            tier = 'premium';
+            break;
+          }
+        }
+      }
+
       const result = await db.execute(
         sql`UPDATE users SET 
           stripe_subscription_id = ${subscriptionId},
-          subscription_tier = 'pro',
+          subscription_tier = ${tier},
           subscription_status = 'active',
           updated_at = NOW()
         WHERE stripe_customer_id = ${customerId}
@@ -104,7 +154,7 @@ async function handleCheckoutCompleted(session: any): Promise<void> {
       );
 
       if (result.rows.length > 0) {
-        console.log(`[Webhook] Checkout completed for user: ${result.rows[0].id}`);
+        console.log(`[Webhook] Checkout completed for user: ${(result.rows[0] as any).id}, tier: ${tier}`);
       }
     }
   } catch (error) {
