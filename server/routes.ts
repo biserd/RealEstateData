@@ -10,6 +10,7 @@ import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
+import { sendWelcomeEmail, sendNewUserNotificationToAdmin } from "./emailService";
 
 const requirePro = async (req: any, res: any, next: any) => {
   try {
@@ -241,11 +242,20 @@ Sitemap: ${baseUrl}/sitemap.xml
           lastName: user.lastName,
           role: user.role 
         },
-        (err) => {
+        async (err) => {
           if (err) {
             console.error("Login after register error:", err);
             return res.status(500).json({ message: "Registration successful but login failed" });
           }
+          
+          // Send welcome email and admin notification (non-blocking)
+          Promise.all([
+            sendWelcomeEmail(user.email, user.firstName),
+            sendNewUserNotificationToAdmin(user.email, user.firstName, user.lastName)
+          ]).catch(emailErr => {
+            console.error("Email sending failed:", emailErr);
+          });
+          
           res.json({ 
             id: user.id, 
             email: user.email, 
