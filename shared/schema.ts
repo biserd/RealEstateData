@@ -25,7 +25,7 @@ export const sessions = pgTable(
 );
 
 // Subscription tiers
-export const subscriptionTiers = ["free", "pro"] as const;
+export const subscriptionTiers = ["free", "pro", "premium"] as const;
 export type SubscriptionTier = typeof subscriptionTiers[number];
 
 // User storage table for username/password authentication
@@ -765,6 +765,29 @@ export const propertyDataLinks = pgTable(
 );
 
 export type PropertyDataLink = typeof propertyDataLinks.$inferSelect;
+
+// Usage Tracking for Free tier limits
+export const usageTracking = pgTable(
+  "usage_tracking",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id").notNull().references(() => users.id),
+    actionType: varchar("action_type").notNull(), // search, property_unlock, pdf_export
+    actionDate: timestamp("action_date").defaultNow(),
+    propertyId: varchar("property_id"), // Optional reference to property
+    metadata: jsonb("metadata"), // Additional context
+  },
+  (table) => [
+    index("idx_usage_user_type_date").on(table.userId, table.actionType, table.actionDate),
+  ]
+);
+
+export const insertUsageTrackingSchema = createInsertSchema(usageTracking).omit({
+  id: true,
+  actionDate: true,
+});
+export type InsertUsageTracking = z.infer<typeof insertUsageTrackingSchema>;
+export type UsageTracking = typeof usageTracking.$inferSelect;
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
