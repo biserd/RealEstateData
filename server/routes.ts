@@ -1442,6 +1442,45 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Admin endpoint to manually trigger Stripe sync
+  app.post("/api/admin/stripe-sync", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.id);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { getStripeSync } = await import('./stripeClient');
+      const stripeSync = await getStripeSync();
+      
+      console.log('Admin triggered Stripe sync...');
+      await stripeSync.syncBackfill();
+      console.log('Stripe sync completed');
+      
+      res.json({ message: "Stripe sync completed successfully" });
+    } catch (error: any) {
+      console.error("Error syncing Stripe:", error);
+      res.status(500).json({ message: "Failed to sync Stripe data", error: error.message });
+    }
+  });
+
+  // Debug endpoint to see raw products in database
+  app.get("/api/debug/stripe-products", async (req, res) => {
+    try {
+      const rows = await stripeService.listProductsWithPrices(true);
+      const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
+      
+      res.json({ 
+        environment: isProduction ? 'production' : 'development',
+        productCount: (rows as any[]).length,
+        products: rows 
+      });
+    } catch (error: any) {
+      console.error("Error fetching debug products:", error);
+      res.status(500).json({ message: "Failed to fetch products", error: error.message });
+    }
+  });
+
   // ============================================
   // API KEY MANAGEMENT ROUTES
   // ============================================
