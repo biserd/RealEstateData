@@ -1,0 +1,161 @@
+Below is a plug-and-play packaging + CTA + gating playbook tailored to what RealtorsDashboard already does (Opportunity Screener / Market Explorer, “Generate Deal Memo”, “Report PDF”, daily-updated NY/NJ/CT data, and API access).  ￼
+
+⸻
+
+1) Packaging & pricing (keep Pro as-is; add Premium above it)
+
+You already anchor Pro at $29/mo or $290/yr and position it as “unlimited access + API + AI deal memos”. Don’t take those away—add Premium as new power features.  ￼
+
+Plans
+
+Free — $0
+Pro — $29/mo or $290/yr (existing)  ￼
+Premium — $79/mo or $790/yr (new)
+Team/Brokerage — “Contact” (optional, but great for upsell later)
+
+What’s “new” in Premium (so it’s defensible)
+
+Premium should unlock things Pro doesn’t currently promise:
+	•	Alerts & monitoring: watchlist alerts (price change / opportunity score change / new comps), daily/weekly digests
+	•	Portfolio & reporting: multi-property portfolio view, branded client reports, bulk PDF generation
+	•	Bulk workflows: batch screening, CSV export, saved filters/templates
+	•	Bigger API: keep Pro at the published quota (10k/day, 10 rps burst). Premium increases that (example: 100k/day, 50 rps).  ￼
+	•	Priority: faster support + early access to new states (“More states coming soon”).  ￼
+
+⸻
+
+2) Gating structure (exact rules to implement)
+
+You have SEO traffic landing on property pages and discovery pages (Opportunity Screener). The gating should convert without blocking Google.
+
+A. Anonymous visitor (no login)
+
+Show enough to feel valuable, but not enough to “finish the job”:
+	•	Show: headline metrics + Opportunity Score + “vs median” teaser + a preview of comps count  ￼
+	•	Lock behind blur:
+	•	Full Comps table
+	•	Investment Signals
+	•	AI section
+	•	Generate Deal Memo
+	•	Report PDF  ￼
+
+Trigger paywall when they click: “Generate Deal Memo” / “Report PDF” / “Full Comps”.
+
+B. Free account (email captured)
+
+Give a small “aha” so they trust the model:
+	•	Allow per day:
+	•	5 Market/Opportunity searches
+	•	3 full property unlocks/day (full comps + score breakdown)
+	•	1 watermarked PDF/week (“Sample / Free” watermark)
+	•	Always locked:
+	•	Bulk exports
+	•	Alerts
+	•	API
+
+C. Pro
+	•	Unlimited Market Explorer + Opportunity Screener usage
+	•	Unlimited property unlocks
+	•	Deal Memo + PDF exports
+	•	API at published quota (10k/day, 10 rps burst)  ￼
+
+D. Premium
+	•	Everything in Pro
+	•	Alerts/digests + portfolio + bulk exports
+	•	Higher API quota + priority support
+
+⸻
+
+3) CTA placement playbook (what to add where)
+
+Global header (all pages)
+
+Primary button: “Start free”
+Secondary link: “View pricing”
+
+Homepage hero
+
+Primary CTA: “Start free”
+Secondary CTA: “See Opportunity Screener” (deep link to /investment-opportunities)  ￼
+
+Property detail pages (your #1 SEO money page)
+
+Add a sticky right-rail card (desktop) / sticky bottom bar (mobile):
+	•	Primary: “Generate Deal Memo (Pro)”
+	•	Secondary: “Unlock Full Comps”
+	•	Micro-trust line: “Currently NY/NJ/CT • Data updated daily”  ￼
+
+Opportunity Screener results
+	•	Above results: “Save this search” (Free)
+	•	On export / sorting filters: Upgrade prompt (Pro)
+	•	On alerts: Upgrade prompt (Premium)
+
+⸻
+
+4) Exact copy to paste (homepage, property pages, pricing, paywalls)
+
+A) Homepage hero (paste)
+
+H1: Real estate market intelligence for NY, NJ & CT
+Subhead: Find underpriced properties, understand pricing percentiles, and generate investor-ready deal memos—powered by daily-updated data.  ￼
+Primary button: Start free
+Secondary button: See Opportunity Screener
+Trust line: Currently: NY, NJ & CT • More states coming soon • Data updated daily  ￼
+
+B) Property page sticky CTA card (paste)
+
+Title: Want the full picture on this property?
+Bullets (dynamic if possible):
+	•	Unlock Full Comps and pricing bands
+	•	Generate a Deal Memo with market context
+	•	Export a PDF report to share instantly  ￼
+Primary: Generate Deal Memo (Pro)
+Secondary: Unlock Full Comps
+Footnote: Pro is $29/mo ($290/yr). Premium adds alerts + bulk exports.
+
+C) Paywall modal: click “Generate Deal Memo” (paste)
+
+Headline: Generate a Deal Memo for this property
+Body: Get an AI-powered summary with comps, pricing context, and key investment signals—ready to share as a PDF.  ￼
+Buttons:
+	•	Upgrade to Pro — $29/mo
+	•	Go Premium — $79/mo (alerts + bulk exports)
+	•	Not ready? Create free account (limited unlocks)
+
+D) Pricing page (paste-ready plan cards)
+
+Free
+	•	Explore Market Explorer & Opportunity Screener (limited)  ￼
+	•	Limited property unlocks
+	•	Watermarked sample PDF
+CTA: Start free
+
+Pro (Most popular) — $29/mo or $290/yr  ￼
+	•	Unlimited market searches  ￼
+	•	Full property details (Pricing / Comps / Investment Signals / AI)  ￼
+	•	Deal Memo generator + PDF exports  ￼
+	•	Developer API included (10k req/day; 10 rps burst)  ￼
+CTA: Upgrade to Pro
+
+Premium — $79/mo or $790/yr
+	•	Everything in Pro
+	•	Watchlist alerts + daily/weekly digests
+	•	Portfolio view + branded client reports
+	•	Bulk exports (CSV + batch PDFs)
+	•	Higher API quota + priority support
+CTA: Go Premium
+
+FAQ copy (paste)
+	•	Is the data updated? Yes—data is updated daily.  ￼
+	•	What markets do you cover? Currently NY, NJ & CT (more states coming soon).  ￼
+	•	Do Pro plans include API? Yes—API access is included with Pro.  ￼
+
+⸻
+
+5) The “conversion loop” you should implement (in order)
+	1.	Email capture on first high-intent click (“Deal Memo” or “Report PDF”).
+	2.	Immediately show a limited free preview (1 section) so it feels real.
+	3.	Upsell to Pro to remove friction (“unlimited + exports + API”).  ￼
+	4.	Upsell to Premium only when they try: alerts, bulk export, portfolio, higher API.
+
+If you tell me which page gets the most SEO landings (Property pages vs Opportunity Screener vs API), I’ll tailor the exact paywall triggers/quotas to maximize Pro conversions first and Premium second.
