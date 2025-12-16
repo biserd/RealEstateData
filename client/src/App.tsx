@@ -28,6 +28,7 @@ import Settings from "@/pages/Settings";
 import Developers from "@/pages/Developers";
 import ApiAccess from "@/pages/ApiAccess";
 import ReleaseNotes from "@/pages/ReleaseNotes";
+import Portfolio from "@/pages/Portfolio";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -56,6 +57,9 @@ function Router() {
       <Route path="/checkout/success" component={CheckoutSuccess} />
       <Route path="/settings">
         {isAuthenticated ? <Settings /> : <Login />}
+      </Route>
+      <Route path="/portfolio">
+        {isAuthenticated ? <Portfolio /> : <Login />}
       </Route>
       <Route path="/developers" component={Developers} />
       <Route path="/api-access" component={ApiAccess} />

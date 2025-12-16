@@ -1054,6 +1054,218 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // ============================================
+  // PREMIUM BULK EXPORT ROUTES
+  // ============================================
+
+  app.get("/api/export/bulk/watchlist/:watchlistId", isAuthenticated, requirePremium, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const watchlist = await storage.getWatchlist(req.params.watchlistId);
+      
+      if (!watchlist) {
+        return res.status(404).json({ message: "Watchlist not found" });
+      }
+      
+      if (watchlist.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const properties = await storage.getWatchlistProperties(req.params.watchlistId);
+      const format = req.query.format || "csv";
+      
+      if (format === "csv") {
+        const headers = [
+          "ID", "Address", "City", "State", "ZIP", "Property Type",
+          "Beds", "Baths", "Sqft", "Year Built", "Estimated Value",
+          "Opportunity Score", "Price/Sqft", "Confidence Level"
+        ];
+        
+        let csv = `# Watchlist: ${watchlist.name}\n`;
+        csv += `# Exported: ${new Date().toISOString()}\n`;
+        csv += `# Total Properties: ${properties.length}\n\n`;
+        csv += headers.join(",") + "\n";
+        
+        properties.forEach((p: any) => {
+          csv += [
+            p.id, `"${p.address}"`, p.city, p.state, p.zipCode, p.propertyType,
+            p.beds, p.baths, p.sqft, p.yearBuilt, p.estimatedValue,
+            p.opportunityScore, p.pricePerSqft, p.confidenceLevel
+          ].join(",") + "\n";
+        });
+        
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader("Content-Disposition", `attachment; filename=watchlist-${watchlist.name.replace(/\s+/g, "-")}.csv`);
+        res.send(csv);
+      } else {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Content-Disposition", `attachment; filename=watchlist-${watchlist.name.replace(/\s+/g, "-")}.json`);
+        res.json({
+          watchlist: {
+            id: watchlist.id,
+            name: watchlist.name,
+          },
+          count: properties.length,
+          properties,
+          exportedAt: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error("Error exporting watchlist:", error);
+      res.status(500).json({ message: "Failed to export watchlist" });
+    }
+  });
+
+  app.get("/api/export/bulk/portfolio", isAuthenticated, requirePremium, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const watchlists = await storage.getWatchlists(userId);
+      
+      const portfolioData: any[] = [];
+      
+      for (const watchlist of watchlists) {
+        const properties = await storage.getWatchlistProperties(watchlist.id);
+        properties.forEach((p: any) => {
+          portfolioData.push({
+            ...p,
+            watchlistName: watchlist.name,
+          });
+        });
+      }
+      
+      const uniqueProperties = Array.from(
+        new Map(portfolioData.map(p => [p.id, p])).values()
+      );
+      
+      let totalValue = 0;
+      let scoreSum = 0;
+      let scoreCount = 0;
+      
+      uniqueProperties.forEach((p: any) => {
+        if (p.estimatedValue) totalValue += Number(p.estimatedValue);
+        if (p.opportunityScore) {
+          scoreSum += p.opportunityScore;
+          scoreCount++;
+        }
+      });
+      
+      const format = req.query.format || "csv";
+      
+      if (format === "csv") {
+        const headers = [
+          "ID", "Address", "City", "State", "ZIP", "Property Type",
+          "Beds", "Baths", "Sqft", "Year Built", "Estimated Value",
+          "Opportunity Score", "Price/Sqft", "Confidence Level", "Watchlist"
+        ];
+        
+        let csv = `# Portfolio Export\n`;
+        csv += `# Exported: ${new Date().toISOString()}\n`;
+        csv += `# Total Properties: ${uniqueProperties.length}\n`;
+        csv += `# Total Estimated Value: $${totalValue.toLocaleString()}\n`;
+        csv += `# Average Opportunity Score: ${scoreCount > 0 ? Math.round(scoreSum / scoreCount) : "N/A"}\n\n`;
+        csv += headers.join(",") + "\n";
+        
+        uniqueProperties.forEach((p: any) => {
+          csv += [
+            p.id, `"${p.address}"`, p.city, p.state, p.zipCode, p.propertyType,
+            p.beds, p.baths, p.sqft, p.yearBuilt, p.estimatedValue,
+            p.opportunityScore, p.pricePerSqft, p.confidenceLevel, `"${p.watchlistName}"`
+          ].join(",") + "\n";
+        });
+        
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader("Content-Disposition", `attachment; filename=portfolio-export.csv`);
+        res.send(csv);
+      } else {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Content-Disposition", `attachment; filename=portfolio-export.json`);
+        res.json({
+          summary: {
+            totalProperties: uniqueProperties.length,
+            totalWatchlists: watchlists.length,
+            totalEstimatedValue: totalValue,
+            averageOpportunityScore: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null,
+          },
+          watchlists: watchlists.map(w => ({ id: w.id, name: w.name })),
+          properties: uniqueProperties,
+          exportedAt: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error("Error exporting portfolio:", error);
+      res.status(500).json({ message: "Failed to export portfolio" });
+    }
+  });
+
+  app.post("/api/export/bulk/dossiers", isAuthenticated, requirePremium, async (req: any, res) => {
+    try {
+      const { propertyIds } = req.body;
+      
+      if (!propertyIds || !Array.isArray(propertyIds) || propertyIds.length === 0) {
+        return res.status(400).json({ message: "propertyIds array is required" });
+      }
+      
+      if (propertyIds.length > 50) {
+        return res.status(400).json({ message: "Maximum 50 properties per batch export" });
+      }
+      
+      const dossiers: any[] = [];
+      
+      for (const propertyId of propertyIds) {
+        const property = await storage.getProperty(propertyId);
+        if (property) {
+          const comps = await storage.getComps(propertyId);
+          const sales = await storage.getSalesForProperty(propertyId);
+          
+          dossiers.push({
+            property,
+            comparables: comps,
+            salesHistory: sales,
+          });
+        }
+      }
+      
+      const format = req.query.format || "json";
+      
+      if (format === "csv") {
+        let csv = `# Batch Property Dossiers\n`;
+        csv += `# Exported: ${new Date().toISOString()}\n`;
+        csv += `# Total Properties: ${dossiers.length}\n\n`;
+        
+        const headers = [
+          "ID", "Address", "City", "State", "ZIP", "Property Type",
+          "Beds", "Baths", "Sqft", "Year Built", "Estimated Value",
+          "Opportunity Score", "Price/Sqft", "Num Comps", "Num Sales"
+        ];
+        csv += headers.join(",") + "\n";
+        
+        dossiers.forEach((d: any) => {
+          const p = d.property;
+          csv += [
+            p.id, `"${p.address}"`, p.city, p.state, p.zipCode, p.propertyType,
+            p.beds, p.baths, p.sqft, p.yearBuilt, p.estimatedValue,
+            p.opportunityScore, p.pricePerSqft, d.comparables.length, d.salesHistory.length
+          ].join(",") + "\n";
+        });
+        
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader("Content-Disposition", `attachment; filename=batch-dossiers.csv`);
+        res.send(csv);
+      } else {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Content-Disposition", `attachment; filename=batch-dossiers.json`);
+        res.json({
+          count: dossiers.length,
+          dossiers,
+          exportedAt: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error("Error exporting batch dossiers:", error);
+      res.status(500).json({ message: "Failed to export batch dossiers" });
+    }
+  });
+
+  // ============================================
   // STRIPE SUBSCRIPTION ROUTES
   // ============================================
 

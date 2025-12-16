@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, Search, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard } from "lucide-react";
+import { Menu, Search, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,7 +31,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
   const { user, logout } = useAuth();
-  const { isPro, isFree } = useSubscription();
+  const { isPro, isPremium, isFree } = useSubscription();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -41,6 +41,7 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
     { href: "/investment-opportunities", label: "Opportunity Screener", icon: Building2 },
     { href: "/up-and-coming", label: "Trending Areas", icon: TrendingUp },
     { href: "/saved-properties", label: "Watchlists", icon: Heart },
+    { href: "/portfolio", label: "Portfolio", icon: BarChart3, premium: true },
   ];
 
   const getInitials = () => {
