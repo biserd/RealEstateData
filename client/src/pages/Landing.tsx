@@ -139,7 +139,7 @@ export default function Landing() {
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
-                <Link href="/screener">
+                <Link href="/investment-opportunities">
                   <Button size="lg" variant="outline" className="h-14 px-8 text-lg" data-testid="button-hero-see-screener">
                     <Target className="mr-2 h-5 w-5" />
                     See Opportunity Screener

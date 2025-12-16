@@ -42,7 +42,7 @@ async function getResendClient() {
   };
 }
 
-const ADMIN_EMAIL = 'hello@realtorsdashboard.com';
+const ADMIN_EMAIL = 'hello@bigappledigital.nyc';
 
 export async function sendWelcomeEmail(userEmail: string, firstName?: string | null) {
   try {
