@@ -1481,6 +1481,80 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Debug endpoint to check Stripe API directly and trigger sync
+  app.get("/api/debug/stripe-check", async (req, res) => {
+    try {
+      const { getUncachableStripeClient, getStripeSync } = await import('./stripeClient');
+      const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
+      
+      // Get Stripe client and check what products exist in Stripe directly
+      const stripe = await getUncachableStripeClient();
+      const stripeProducts = await stripe.products.list({ active: true, limit: 10 });
+      const stripePrices = await stripe.prices.list({ active: true, limit: 20 });
+      
+      // Get database products
+      const dbRows = await stripeService.listProductsWithPrices(true);
+      
+      res.json({
+        environment: isProduction ? 'production' : 'development',
+        stripeApi: {
+          productCount: stripeProducts.data.length,
+          products: stripeProducts.data.map(p => ({
+            id: p.id,
+            name: p.name,
+            metadata: p.metadata
+          })),
+          priceCount: stripePrices.data.length,
+          prices: stripePrices.data.map(p => ({
+            id: p.id,
+            product: p.product,
+            unit_amount: p.unit_amount,
+            interval: p.recurring?.interval
+          }))
+        },
+        database: {
+          productCount: (dbRows as any[]).length,
+          products: dbRows
+        }
+      });
+    } catch (error: any) {
+      console.error("Error checking Stripe:", error);
+      res.status(500).json({ 
+        message: "Failed to check Stripe", 
+        error: error.message,
+        stack: error.stack 
+      });
+    }
+  });
+
+  // Endpoint to trigger sync without admin auth (for debugging)
+  app.post("/api/debug/stripe-sync", async (req, res) => {
+    try {
+      const { getStripeSync } = await import('./stripeClient');
+      const stripeSync = await getStripeSync();
+      
+      console.log('Debug: Triggering Stripe sync...');
+      await stripeSync.syncBackfill();
+      console.log('Debug: Stripe sync completed');
+      
+      // Check results after sync
+      const rows = await stripeService.listProductsWithPrices(true);
+      
+      res.json({ 
+        message: "Sync completed",
+        productCount: (rows as any[]).length,
+        products: rows
+      });
+    } catch (error: any) {
+      console.error("Error syncing Stripe:", error);
+      res.status(500).json({ 
+        message: "Failed to sync", 
+        error: error.message,
+        stack: error.stack 
+      });
+    }
+  });
+
   // ============================================
   // API KEY MANAGEMENT ROUTES
   // ============================================
