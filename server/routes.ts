@@ -1399,6 +1399,18 @@ Sitemap: ${baseUrl}/sitemap.xml
     try {
       const rows = await stripeService.listProductsWithPrices(true);
       
+      // Helper to parse JSON fields that might be strings
+      const parseJsonField = (field: any) => {
+        if (typeof field === 'string') {
+          try {
+            return JSON.parse(field);
+          } catch {
+            return field;
+          }
+        }
+        return field;
+      };
+      
       const productsMap = new Map();
       for (const row of rows as any[]) {
         if (!productsMap.has(row.product_id)) {
@@ -1407,7 +1419,7 @@ Sitemap: ${baseUrl}/sitemap.xml
             name: row.product_name,
             description: row.product_description,
             active: row.product_active,
-            metadata: row.product_metadata,
+            metadata: parseJsonField(row.product_metadata),
             prices: []
           });
         }
@@ -1416,9 +1428,9 @@ Sitemap: ${baseUrl}/sitemap.xml
             id: row.price_id,
             unit_amount: row.unit_amount,
             currency: row.currency,
-            recurring: row.recurring,
+            recurring: parseJsonField(row.recurring),
             active: row.price_active,
-            metadata: row.price_metadata,
+            metadata: parseJsonField(row.price_metadata),
           });
         }
       }
