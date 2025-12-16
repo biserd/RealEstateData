@@ -85,9 +85,22 @@ The platform uses a three-tier freemium model with Stripe for payment processing
 
 **Feature Gating:**
 -   `requirePro` middleware gates AI features, exports, unlimited watchlists, and API access
+-   `requirePremium` middleware gates alerts, portfolio dashboard, and bulk export features
 -   Frontend uses `useSubscription` hook (supports isPro, isPremium, tier checking) and `UpgradePrompt` component for gated features
 -   Pro/Premium badges displayed in header for subscribed users
 -   Content gating: Comps blurred for Free users, AI features locked for non-Pro, advanced features for Premium
+-   `PropertyStickyCTA` component shows tier-specific CTAs on property pages (desktop right rail, mobile bottom bar)
+
+**Premium-Only Features:**
+-   Portfolio Dashboard (`/portfolio`) - Multi-property analytics with aggregate stats
+-   Alerts system - Price change and opportunity score notifications
+-   Bulk CSV exports for watchlists and portfolio
+-   Batch property dossier exports (up to 50 properties)
+
+**Premium Bulk Export Endpoints:**
+-   `GET /api/export/bulk/watchlist/:watchlistId` - Export single watchlist properties
+-   `GET /api/export/bulk/portfolio` - Export all portfolio properties across watchlists
+-   `POST /api/export/bulk/dossiers` - Batch export property dossiers with comps (max 50)
 
 **Usage Tracking (Free Tier):**
 -   `server/usageService.ts` - Tracks daily searches, property unlocks, weekly PDF downloads
