@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Check, X, Zap, Crown, Loader2 } from "lucide-react";
+import { Check, X, Zap, Crown, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,25 +40,38 @@ interface Product {
 const FREE_FEATURES = [
   { name: "Market Explorer", included: true, limit: "5 searches/day" },
   { name: "Opportunity Screener", included: true, limit: "View top 10 only" },
-  { name: "Property Details", included: true, limit: "Limited fields" },
+  { name: "Property unlocks", included: true, limit: "3/day" },
   { name: "AI Assistant", included: false },
   { name: "Deal Memo Generator", included: false },
+  { name: "PDF Reports", included: true, limit: "1/week" },
   { name: "Watchlists", included: true, limit: "1 list, 5 properties" },
   { name: "Alerts & Notifications", included: false },
-  { name: "Export Reports", included: false },
+  { name: "CSV/Bulk Exports", included: false },
   { name: "Developer API Access", included: false },
 ];
 
 const PRO_FEATURES = [
   { name: "Market Explorer", included: true, limit: "Unlimited" },
   { name: "Opportunity Screener", included: true, limit: "Full access + filters" },
-  { name: "Property Details", included: true, limit: "Complete data" },
+  { name: "Property unlocks", included: true, limit: "Unlimited" },
   { name: "AI Assistant", included: true, limit: "Unlimited queries" },
   { name: "Deal Memo Generator", included: true, limit: "Unlimited" },
+  { name: "PDF Reports", included: true, limit: "Unlimited" },
   { name: "Watchlists", included: true, limit: "Unlimited" },
-  { name: "Alerts & Notifications", included: true, limit: "Unlimited" },
-  { name: "Export Reports", included: true, limit: "Full access" },
+  { name: "Alerts & Notifications", included: false },
+  { name: "CSV/Bulk Exports", included: false },
   { name: "Developer API Access", included: true, limit: "10K requests/day" },
+];
+
+const PREMIUM_FEATURES = [
+  { name: "Everything in Pro", included: true },
+  { name: "Price & score change alerts", included: true },
+  { name: "Portfolio dashboard", included: true },
+  { name: "Bulk CSV exports", included: true },
+  { name: "Batch PDF generation", included: true },
+  { name: "Branded client reports", included: true },
+  { name: "Higher API limits", included: true, limit: "50K requests/day" },
+  { name: "Priority support", included: true },
 ];
 
 export default function Pricing() {
@@ -115,17 +128,27 @@ export default function Pricing() {
   });
 
   const proProduct = productsData?.data?.find(p => p.metadata?.tier === "pro" || p.name === "Pro Plan");
-  const monthlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "month");
-  const yearlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "year");
+  const premiumProduct = productsData?.data?.find(p => p.metadata?.tier === "premium" || p.name === "Premium Plan");
+  
+  const proMonthlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "month");
+  const proYearlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "year");
+  const premiumMonthlyPrice = premiumProduct?.prices?.find(p => p.recurring?.interval === "month");
+  const premiumYearlyPrice = premiumProduct?.prices?.find(p => p.recurring?.interval === "year");
 
-  const selectedPrice = isYearly ? yearlyPrice : monthlyPrice;
-  const monthlyAmount = monthlyPrice?.unit_amount ? monthlyPrice.unit_amount / 100 : 29;
-  const yearlyAmount = yearlyPrice?.unit_amount ? yearlyPrice.unit_amount / 100 : 290;
-  const yearlySavings = (monthlyAmount * 12) - yearlyAmount;
+  const proMonthlyAmount = proMonthlyPrice?.unit_amount ? proMonthlyPrice.unit_amount / 100 : 29;
+  const proYearlyAmount = proYearlyPrice?.unit_amount ? proYearlyPrice.unit_amount / 100 : 290;
+  const premiumMonthlyAmount = premiumMonthlyPrice?.unit_amount ? premiumMonthlyPrice.unit_amount / 100 : 79;
+  const premiumYearlyAmount = premiumYearlyPrice?.unit_amount ? premiumYearlyPrice.unit_amount / 100 : 790;
+  
+  const proYearlySavings = (proMonthlyAmount * 12) - proYearlyAmount;
+  const premiumYearlySavings = (premiumMonthlyAmount * 12) - premiumYearlyAmount;
 
-  const isPro = subscription?.tier === "pro" && subscription?.status === "active";
+  const currentTier = subscription?.tier || "free";
+  const isActive = subscription?.status === "active";
+  const isPro = currentTier === "pro" && isActive;
+  const isPremium = currentTier === "premium" && isActive;
 
-  const handleUpgrade = () => {
+  const handleUpgrade = (tier: "pro" | "premium") => {
     if (!user) {
       setLocation("/login?redirect=/pricing");
       return;
@@ -137,6 +160,14 @@ export default function Pricing() {
       });
       return;
     }
+    
+    let selectedPrice;
+    if (tier === "pro") {
+      selectedPrice = isYearly ? proYearlyPrice : proMonthlyPrice;
+    } else {
+      selectedPrice = isYearly ? premiumYearlyPrice : premiumMonthlyPrice;
+    }
+    
     if (!selectedPrice?.id) {
       toast({
         title: "Error",
@@ -152,16 +183,127 @@ export default function Pricing() {
     portalMutation.mutate();
   };
 
+  const renderTierButton = (tier: "free" | "pro" | "premium") => {
+    if (tier === "free") {
+      if (user) {
+        return (
+          <Button variant="outline" className="w-full" disabled data-testid="button-current-plan-free">
+            {currentTier === "free" ? "Current Plan" : "Downgrade"}
+          </Button>
+        );
+      }
+      return (
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => setLocation("/register")}
+          data-testid="button-get-started-free"
+        >
+          Get Started Free
+        </Button>
+      );
+    }
+    
+    if (tier === "pro") {
+      if (isPro) {
+        return (
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={handleManageBilling}
+            disabled={portalMutation.isPending}
+            data-testid="button-manage-billing-pro"
+          >
+            {portalMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              "Manage Subscription"
+            )}
+          </Button>
+        );
+      }
+      if (isPremium) {
+        return (
+          <Button variant="outline" className="w-full" disabled data-testid="button-downgrade-pro">
+            Downgrade to Pro
+          </Button>
+        );
+      }
+      return (
+        <Button
+          className="w-full"
+          onClick={() => handleUpgrade("pro")}
+          disabled={checkoutMutation.isPending || isAuthLoading}
+          data-testid="button-upgrade-pro"
+        >
+          {checkoutMutation.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
+            </>
+          ) : (
+            "Upgrade to Pro"
+          )}
+        </Button>
+      );
+    }
+    
+    if (tier === "premium") {
+      if (isPremium) {
+        return (
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={handleManageBilling}
+            disabled={portalMutation.isPending}
+            data-testid="button-manage-billing-premium"
+          >
+            {portalMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              "Manage Subscription"
+            )}
+          </Button>
+        );
+      }
+      return (
+        <Button
+          className="w-full"
+          onClick={() => handleUpgrade("premium")}
+          disabled={checkoutMutation.isPending || isAuthLoading}
+          data-testid="button-upgrade-premium"
+        >
+          {checkoutMutation.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
+            </>
+          ) : (
+            "Upgrade to Premium"
+          )}
+        </Button>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <>
       <SEO 
-        title="Pricing - Pro Features for Real Estate Professionals"
-        description="Unlock unlimited market searches, AI-powered deal memos, developer API access, and more with Realtors Dashboard Pro. Starting at $29/month."
+        title="Pricing - Plans for Every Real Estate Professional"
+        description="Choose the plan that fits your needs. Free to get started, Pro for full access, or Premium for power users. Starting at $29/month."
       />
       <div className="min-h-screen bg-background">
       <MarketingHeader />
       
-      <main className="container max-w-6xl mx-auto px-4 py-16">
+      <main className="container max-w-7xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <Badge variant="secondary" className="mb-4">
             Pricing
@@ -170,12 +312,13 @@ export default function Pricing() {
             Simple, transparent pricing
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Start free and upgrade when you need more. Pro unlocks the full power of real estate intelligence.
+            Start free and upgrade when you need more. Pro unlocks full access, Premium adds power features for serious investors.
           </p>
           {user && (
             <p className="mt-4 text-sm text-muted-foreground">
               Logged in as <span className="font-medium text-foreground">{user.email}</span>
               {isPro && <Badge variant="default" className="ml-2">Pro</Badge>}
+              {isPremium && <Badge className="ml-2 bg-gradient-to-r from-purple-500 to-pink-500">Premium</Badge>}
             </p>
           )}
         </div>
@@ -195,12 +338,13 @@ export default function Pricing() {
           </Label>
           {isYearly && (
             <Badge variant="default" className="ml-2">
-              Save ${yearlySavings}
+              Save up to ${premiumYearlySavings}
             </Badge>
           )}
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {/* Free Tier */}
           <Card className="relative">
             <CardHeader>
               <div className="flex items-center gap-2 mb-2">
@@ -239,23 +383,11 @@ export default function Pricing() {
               </ul>
             </CardContent>
             <CardFooter>
-              {user ? (
-                <Button variant="outline" className="w-full" disabled data-testid="button-current-plan">
-                  {isPro ? "Downgrade" : "Current Plan"}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setLocation("/register")}
-                  data-testid="button-get-started-free"
-                >
-                  Get Started Free
-                </Button>
-              )}
+              {renderTierButton("free")}
             </CardFooter>
           </Card>
 
+          {/* Pro Tier */}
           <Card className="relative border-primary">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
               <Badge variant="default">Most Popular</Badge>
@@ -266,16 +398,16 @@ export default function Pricing() {
                 <CardTitle>Pro</CardTitle>
               </div>
               <CardDescription>
-                Full access to all features and AI-powered insights
+                Full access to all core features and AI insights
               </CardDescription>
               <div className="pt-4">
                 <span className="text-4xl font-bold">
-                  ${isYearly ? Math.round(yearlyAmount / 12) : monthlyAmount}
+                  ${isYearly ? Math.round(proYearlyAmount / 12) : proMonthlyAmount}
                 </span>
                 <span className="text-muted-foreground">/month</span>
                 {isYearly && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    Billed annually (${yearlyAmount}/year)
+                    Billed annually (${proYearlyAmount}/year) - Save ${proYearlySavings}
                   </p>
                 )}
               </div>
@@ -284,7 +416,60 @@ export default function Pricing() {
               <ul className="space-y-3">
                 {PRO_FEATURES.map((feature) => (
                   <li key={feature.name} className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                    {feature.included ? (
+                      <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                    ) : (
+                      <X className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <span className={feature.included ? "" : "text-muted-foreground"}>
+                        {feature.name}
+                      </span>
+                      {feature.limit && (
+                        <span className="text-sm text-muted-foreground ml-1">
+                          ({feature.limit})
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+            <CardFooter>
+              {renderTierButton("pro")}
+            </CardFooter>
+          </Card>
+
+          {/* Premium Tier */}
+          <Card className="relative border-2 border-transparent bg-gradient-to-b from-purple-500/10 to-pink-500/10">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+              <Badge className="bg-gradient-to-r from-purple-500 to-pink-500">Power User</Badge>
+            </div>
+            <CardHeader>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-5 w-5 text-purple-500" />
+                <CardTitle>Premium</CardTitle>
+              </div>
+              <CardDescription>
+                Advanced features for serious investors and teams
+              </CardDescription>
+              <div className="pt-4">
+                <span className="text-4xl font-bold">
+                  ${isYearly ? Math.round(premiumYearlyAmount / 12) : premiumMonthlyAmount}
+                </span>
+                <span className="text-muted-foreground">/month</span>
+                {isYearly && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Billed annually (${premiumYearlyAmount}/year) - Save ${premiumYearlySavings}
+                  </p>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                {PREMIUM_FEATURES.map((feature) => (
+                  <li key={feature.name} className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-purple-500 shrink-0 mt-0.5" />
                     <div>
                       <span>{feature.name}</span>
                       {feature.limit && (
@@ -298,40 +483,7 @@ export default function Pricing() {
               </ul>
             </CardContent>
             <CardFooter>
-              {isPro ? (
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={handleManageBilling}
-                  disabled={portalMutation.isPending}
-                  data-testid="button-manage-billing"
-                >
-                  {portalMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Manage Subscription"
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  className="w-full"
-                  onClick={handleUpgrade}
-                  disabled={checkoutMutation.isPending || isAuthLoading}
-                  data-testid="button-upgrade-pro"
-                >
-                  {checkoutMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Upgrade to Pro"
-                  )}
-                </Button>
-              )}
+              {renderTierButton("premium")}
             </CardFooter>
           </Card>
         </div>
@@ -354,13 +506,19 @@ export default function Pricing() {
             <div>
               <h3 className="font-semibold mb-2">Is there a free trial?</h3>
               <p className="text-muted-foreground">
-                Our Free tier gives you access to core features so you can explore the platform. Upgrade to Pro when you're ready for unlimited access.
+                Our Free tier gives you access to core features so you can explore the platform. Upgrade to Pro or Premium when you're ready for more.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold mb-2">What's included in the AI features?</h3>
+              <h3 className="font-semibold mb-2">What's the difference between Pro and Premium?</h3>
               <p className="text-muted-foreground">
-                Pro members get access to our AI-powered property analysis, Deal Memo generator, and investment scenario calculator powered by advanced language models.
+                Pro gives you unlimited access to all core features including AI assistant and Deal Memo. Premium adds alerts, portfolio dashboard, bulk exports, and higher API limits for power users.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Can I upgrade or downgrade later?</h3>
+              <p className="text-muted-foreground">
+                Absolutely! You can change your plan at any time through the billing portal. When upgrading, you'll be charged a prorated amount.
               </p>
             </div>
           </div>

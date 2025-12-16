@@ -21,7 +21,9 @@ import {
   FileText,
   Bot,
   Calculator,
-  LogIn
+  LogIn,
+  Crown,
+  Lock
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -41,9 +43,11 @@ import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { DealMemo } from "@/components/DealMemo";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
+import { UpgradeModal, BlurredContent, ProBadge } from "@/components/UpgradePrompt";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import type { Property, OpportunityScoreBreakdown, Comp, MarketAggregate, AIResponse } from "@shared/schema";
 
 interface PropertyWithDetails extends Property {
@@ -59,9 +63,12 @@ export default function PropertyDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isPro, isFree, isLoading: subLoading } = useSubscription();
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
   
   const id = useMemo(() => {
     if (!slug) return undefined;
@@ -80,6 +87,15 @@ export default function PropertyDetail() {
 
   const handleExportReport = async () => {
     if (!id) return;
+    if (!isAuthenticated) {
+      setShowLoginDialog(true);
+      return;
+    }
+    if (isFree && !subLoading) {
+      setUpgradeFeature("PDF Reports");
+      setShowUpgradeModal(true);
+      return;
+    }
     setIsExportingReport(true);
     try {
       const response = await fetch(`/api/export/property-dossier/${id}?format=json`, {
@@ -115,6 +131,15 @@ export default function PropertyDetail() {
 
   const handleExportCsv = async () => {
     if (!id) return;
+    if (!isAuthenticated) {
+      setShowLoginDialog(true);
+      return;
+    }
+    if (isFree && !subLoading) {
+      setUpgradeFeature("CSV Exports");
+      setShowUpgradeModal(true);
+      return;
+    }
     setIsExportingCsv(true);
     try {
       const response = await fetch(`/api/export/property-dossier/${id}?format=csv`, {
@@ -581,7 +606,10 @@ export default function PropertyDetail() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2">
-                <CardTitle>Comparable Sales</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Comparable Sales
+                  {isFree && <ProBadge />}
+                </CardTitle>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -594,7 +622,16 @@ export default function PropertyDetail() {
                 </Button>
               </CardHeader>
               <CardContent>
-                <CompsTable comps={comps || []} subjectProperty={property} />
+                {isPro ? (
+                  <CompsTable comps={comps || []} subjectProperty={property} />
+                ) : (
+                  <BlurredContent
+                    feature="Full Comps"
+                    description="Unlock detailed comparable sales data with Pro. See all comps, prices, and similarity scores."
+                  >
+                    <CompsTable comps={(comps || []).slice(0, 3)} subjectProperty={property} />
+                  </BlurredContent>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -656,12 +693,33 @@ export default function PropertyDetail() {
 
           <TabsContent value="ai">
             <Card className="h-[600px]">
-              {isAuthenticated ? (
+              {isAuthenticated && isPro ? (
                 <AIChat
                   propertyId={id}
                   contextLabel={`${property.address}, ${property.city}`}
                   onSendMessage={handleSendAIMessage}
                 />
+              ) : isAuthenticated && isFree ? (
+                <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                  <div className="mb-4 rounded-full bg-primary/10 p-4">
+                    <Crown className="h-10 w-10 text-primary" />
+                  </div>
+                  <h3 className="mb-2 text-xl font-semibold flex items-center gap-2">
+                    AI Property Analysis
+                    <ProBadge />
+                  </h3>
+                  <p className="mb-6 max-w-md text-sm text-muted-foreground">
+                    Get AI-powered insights about this property, including pricing analysis, 
+                    market comparisons, risk factors, and investment recommendations backed by real data.
+                    Upgrade to Pro to unlock this feature.
+                  </p>
+                  <Link href="/pricing">
+                    <Button data-testid="button-upgrade-ai">
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Pro
+                    </Button>
+                  </Link>
+                </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center p-8 text-center">
                   <div className="mb-4 rounded-full bg-primary/10 p-4">
@@ -684,6 +742,13 @@ export default function PropertyDetail() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        feature={upgradeFeature}
+        description={`${upgradeFeature} is a Pro feature. Upgrade to unlock unlimited exports and more.`}
+      />
       </AppLayout>
     </>
   );

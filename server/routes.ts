@@ -11,6 +11,7 @@ import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
 import { sendWelcomeEmail, sendNewUserNotificationToAdmin } from "./emailService";
+import { usageService } from "./usageService";
 
 const requirePro = async (req: any, res: any, next: any) => {
   try {
@@ -1063,6 +1064,17 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error fetching subscription:", error);
       res.status(500).json({ message: "Failed to fetch subscription" });
+    }
+  });
+
+  app.get("/api/usage-limits", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const limits = await usageService.getRemainingLimits(userId);
+      res.json(limits);
+    } catch (error) {
+      console.error("Error fetching usage limits:", error);
+      res.status(500).json({ message: "Failed to fetch usage limits" });
     }
   });
 

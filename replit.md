@@ -53,11 +53,16 @@ AI features are powered by OpenAI API (GPT-5) via Replit AI Integrations. It pro
 
 ### Subscription System
 
-The platform uses a freemium model with Stripe for payment processing:
+The platform uses a three-tier freemium model with Stripe for payment processing:
 
 **Tiers:**
--   **Free:** Basic market explorer, view-only opportunity screener, 3 watchlist properties, no exports
--   **Pro ($29/month or $290/year):** Unlimited features, AI assistant, Deal Memo generator, exports, unlimited watchlists/alerts
+-   **Free:** 5 searches/day, 3 property unlocks/day, 1 PDF/week, view-only screener (top 10), 1 watchlist (5 properties)
+-   **Pro ($29/month or $290/year):** Unlimited searches, unlocks, PDFs, AI assistant, Deal Memo, full comps, API access (10K/day)
+-   **Premium ($79/month or $790/year):** Everything in Pro + alerts, portfolio dashboard, bulk CSV exports, batch PDFs, branded reports, API (50K/day), priority support
+
+**Stripe Products:**
+-   Pro Plan: prod_TM8FiGjLDsJqAE (monthly: price_1RyLkJ..., yearly: price_1RyLl6...)
+-   Premium Plan: prod_Tc1Yp5kvJZLDWC (monthly: price_1SenVj..., yearly: price_1SenVj...)
 
 **Backend Implementation:**
 -   `server/stripeClient.ts` - Stripe client initialization and sync setup
@@ -80,8 +85,15 @@ The platform uses a freemium model with Stripe for payment processing:
 
 **Feature Gating:**
 -   `requirePro` middleware gates AI features, exports, unlimited watchlists, and API access
--   Frontend uses `useSubscription` hook and `UpgradePrompt` component for gated features
--   Pro badge displayed in header for subscribed users
+-   Frontend uses `useSubscription` hook (supports isPro, isPremium, tier checking) and `UpgradePrompt` component for gated features
+-   Pro/Premium badges displayed in header for subscribed users
+-   Content gating: Comps blurred for Free users, AI features locked for non-Pro, advanced features for Premium
+
+**Usage Tracking (Free Tier):**
+-   `server/usageService.ts` - Tracks daily searches, property unlocks, weekly PDF downloads
+-   `usageTracking` table in database with daily/weekly reset windows
+-   `useUsageLimits` hook for frontend usage limit checking
+-   Enforced limits: 5 searches/day, 3 property unlocks/day, 1 PDF/week
 
 ### Developer API Access
 

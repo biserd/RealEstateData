@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { FileText, Download, Loader2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, XCircle, LogIn } from "lucide-react";
+import { FileText, Download, Loader2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, XCircle, LogIn, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { cn } from "@/lib/utils";
+import { Link } from "wouter";
 
 interface DealMemoData {
   propertyOverview: {
@@ -65,6 +67,7 @@ export function DealMemo({ propertyId }: DealMemoProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isPro, isLoading: subLoading } = useSubscription();
 
   const generateMemo = useMutation({
     mutationFn: async () => {
@@ -155,6 +158,57 @@ export function DealMemo({ propertyId }: DealMemoProps) {
                 Sign In to Continue
               </Button>
             </a>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (isAuthenticated && !isPro && !subLoading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setIsOpen(true)}
+            data-testid="button-generate-memo"
+          >
+            <FileText className="h-4 w-4" />
+            <span className="flex items-center gap-1">
+              Generate Deal Memo
+              <Crown className="h-3 w-3 text-primary" />
+            </span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Deal Memo
+              <Badge variant="secondary" className="ml-2 gap-1">
+                <Crown className="h-3 w-3" />
+                Pro
+              </Badge>
+            </DialogTitle>
+            <DialogDescription>
+              Upgrade to Pro for AI-powered investment analysis
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <Crown className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="mb-2 text-lg font-semibold">Pro Feature</h3>
+            <p className="mb-6 text-sm text-muted-foreground max-w-xs">
+              Deal Memo generates comprehensive investment analysis with AI-powered pricing insights, risk assessment, and recommendations. Upgrade to Pro to unlock this feature.
+            </p>
+            <Link href="/pricing" className="w-full">
+              <Button className="w-full" data-testid="button-upgrade-deal-memo">
+                <Crown className="mr-2 h-4 w-4" />
+                Upgrade to Pro
+              </Button>
+            </Link>
           </div>
         </DialogContent>
       </Dialog>

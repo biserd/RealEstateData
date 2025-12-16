@@ -124,29 +124,38 @@ export default function Landing() {
           <div className="relative mx-auto max-w-7xl px-4 py-24 md:px-6 md:py-32">
             <div className="mx-auto max-w-3xl text-center">
               <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-                Find Real Estate Opportunities{" "}
-                <span className="text-primary">Nationwide</span>
+                Find Underpriced Properties{" "}
+                <span className="text-primary">Before Anyone Else</span>
               </h1>
               <p className="mb-8 text-lg text-muted-foreground md:text-xl">
-                AI-powered market intelligence starting with NY, NJ, and CT—expanding nationwide. 
-                Understand pricing, find undervalued properties, and make data-driven decisions.
+                Our proprietary Opportunity Score surfaces mispriced listings across NY, NJ, and CT. 
+                Get AI-powered analysis, comparable sales data, and deal memos—all backed by real data.
               </p>
               
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+                <Link href="/register">
+                  <Button size="lg" className="h-14 px-8 text-lg" data-testid="button-hero-start-free">
+                    Start Free
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link href="/screener">
+                  <Button size="lg" variant="outline" className="h-14 px-8 text-lg" data-testid="button-hero-see-screener">
+                    <Target className="mr-2 h-5 w-5" />
+                    See Opportunity Screener
+                  </Button>
+                </Link>
+              </div>
+
               <div className="mx-auto mb-8 max-w-xl">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="search"
                     placeholder="Search by ZIP code, city, or address..."
-                    className="h-14 pl-12 pr-32 text-lg"
+                    className="h-12 pl-12 pr-4 text-base"
                     data-testid="input-hero-search"
                   />
-                  <a href="/api/login" className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <Button size="lg" data-testid="button-hero-search">
-                      Get Started
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </a>
                 </div>
               </div>
 
