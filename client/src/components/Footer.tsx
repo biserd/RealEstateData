@@ -10,6 +10,7 @@ export function Footer() {
     { href: "/investment-opportunities", label: "Opportunity Screener" },
     { href: "/up-and-coming", label: "Trending Areas" },
     { href: "/saved-properties", label: "Watchlists" },
+    { href: "/pricing", label: "Pricing" },
     { href: "/api-access", label: "API Access" },
   ];
 
