@@ -25,9 +25,37 @@ const requirePro = async (req: any, res: any, next: any) => {
       return res.status(401).json({ message: "User not found" });
     }
     
-    if (user.subscriptionTier !== "pro" || user.subscriptionStatus !== "active") {
+    const tier = user.subscriptionTier;
+    if ((tier !== "pro" && tier !== "premium") || user.subscriptionStatus !== "active") {
       return res.status(403).json({ 
         message: "Pro subscription required",
+        upgrade: true,
+        upgradeUrl: "/pricing"
+      });
+    }
+    
+    next();
+  } catch (error) {
+    console.error("Error checking subscription:", error);
+    res.status(500).json({ message: "Failed to verify subscription" });
+  }
+};
+
+const requirePremium = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    
+    if (user.subscriptionTier !== "premium" || user.subscriptionStatus !== "active") {
+      return res.status(403).json({ 
+        message: "Premium subscription required",
         upgrade: true,
         upgradeUrl: "/pricing"
       });
@@ -602,7 +630,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  app.post("/api/alerts", isAuthenticated, async (req: any, res) => {
+  app.post("/api/alerts", isAuthenticated, requirePremium, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const parsed = insertAlertSchema.parse({ ...req.body, userId });
@@ -611,6 +639,18 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error creating alert:", error);
       res.status(500).json({ message: "Failed to create alert" });
+    }
+  });
+
+  app.delete("/api/alerts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const alertId = req.params.id;
+      await storage.deleteAlert(alertId, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting alert:", error);
+      res.status(500).json({ message: "Failed to delete alert" });
     }
   });
 

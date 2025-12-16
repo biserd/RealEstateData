@@ -99,6 +99,7 @@ export interface IStorage {
   getAlerts(userId: string): Promise<Alert[]>;
   createAlert(alert: InsertAlert): Promise<Alert>;
   updateAlert(id: string, alert: Partial<InsertAlert>): Promise<Alert | undefined>;
+  deleteAlert(id: string, userId: string): Promise<void>;
   
   // Notification operations
   getNotifications(userId: string): Promise<Notification[]>;
@@ -571,6 +572,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(alerts.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteAlert(id: string, userId: string): Promise<void> {
+    await db
+      .delete(alerts)
+      .where(and(eq(alerts.id, id), eq(alerts.userId, userId)));
   }
 
   // Notification operations

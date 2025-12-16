@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map } from "lucide-react";
+import { Link } from "wouter";
+import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map, Crown, Bell, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,19 +24,27 @@ import { PropertyCard } from "@/components/PropertyCard";
 import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
+import { UpgradeModal, ProBadge, PremiumBadge } from "@/components/UpgradePrompt";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import type { Property, ScreenerFilters } from "@shared/schema";
 
 const defaultFilters: ScreenerFilters = {};
 
 export default function OpportunityScreener() {
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
+  const { isPro, isPremium, isFree } = useSubscription();
   const [filters, setFilters] = useState<ScreenerFilters>(defaultFilters);
   const [sortBy, setSortBy] = useState("score");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | undefined>(undefined);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
+  const [upgradeDescription, setUpgradeDescription] = useState("");
 
   const { data: properties, isLoading } = useQuery<Property[]>({
     queryKey: [
@@ -82,6 +91,19 @@ export default function OpportunityScreener() {
   };
 
   const handleExportResults = async () => {
+    if (!isAuthenticated) {
+      setUpgradeFeature("Export Results");
+      setUpgradeDescription("Create a free account to export screener results and access more features.");
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (isFree) {
+      setUpgradeFeature("CSV Export");
+      setUpgradeDescription("Export screener results to CSV. Upgrade to Pro for unlimited exports.");
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     setIsExporting(true);
     try {
       const params = new URLSearchParams({ format: "csv" });
@@ -372,6 +394,13 @@ export default function OpportunityScreener() {
           </div>
         </main>
       </div>
+      
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        feature={upgradeFeature}
+        description={upgradeDescription}
+      />
     </AppLayout>
   );
 }
