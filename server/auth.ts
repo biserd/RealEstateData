@@ -118,3 +118,9 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   }
   return res.status(401).json({ message: "Unauthorized" });
 };
+
+export const optionalAuth: RequestHandler = (req, res, next) => {
+  passport.authenticate("session", { session: true }, () => {
+    next();
+  })(req, res, next);
+};

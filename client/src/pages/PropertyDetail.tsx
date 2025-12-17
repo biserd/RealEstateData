@@ -81,9 +81,22 @@ export default function PropertyDetail() {
     enabled: !!id,
   });
 
+  const [compsLimitReached, setCompsLimitReached] = useState(false);
+  
   const { data: comps } = useQuery<CompWithProperty[]>({
     queryKey: ["/api/properties", id, "comps"],
     enabled: !!id,
+    queryFn: async () => {
+      const res = await fetch(`/api/properties/${id}/comps`, {
+        credentials: "include",
+      });
+      if (res.status === 429) {
+        setCompsLimitReached(true);
+        return [];
+      }
+      if (!res.ok) throw new Error("Failed to fetch comps");
+      return res.json();
+    },
   });
 
   const handleExportReport = async () => {
@@ -623,7 +636,26 @@ export default function PropertyDetail() {
                 </Button>
               </CardHeader>
               <CardContent>
-                {isPro ? (
+                {compsLimitReached ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950">
+                    <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">
+                      Daily Limit Reached
+                    </h3>
+                    <p className="mt-2 text-amber-700 dark:text-amber-300">
+                      You've reached your daily limit of 3 Full Property Insights. Upgrade to Pro for unlimited access.
+                    </p>
+                    <Button
+                      className="mt-4"
+                      onClick={() => {
+                        setUpgradeFeature("Full Property Insights");
+                        setShowUpgradeModal(true);
+                      }}
+                      data-testid="button-upgrade-comps"
+                    >
+                      Unlock Unlimited Deals
+                    </Button>
+                  </div>
+                ) : isPro ? (
                   <CompsTable comps={comps || []} subjectProperty={property} />
                 ) : (
                   <BlurredContent

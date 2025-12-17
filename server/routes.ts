@@ -3,7 +3,7 @@ import { type Server } from "http";
 import passport from "passport";
 import { z } from "zod";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, hashPassword } from "./auth";
+import { setupAuth, isAuthenticated, optionalAuth, hashPassword } from "./auth";
 import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, type ScenarioInputs } from "./openai";
 import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema, type ScreenerFilters } from "@shared/schema";
 import { stripeService } from "./stripeService";
@@ -11,7 +11,26 @@ import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
 import { sendWelcomeEmail, sendNewUserNotificationToAdmin } from "./emailService";
-import { usageService } from "./usageService";
+import { usageService, ActionType } from "./usageService";
+
+async function checkUsageLimit(req: any, res: any, actionType: ActionType, propertyId?: string): Promise<boolean> {
+  if (!req.isAuthenticated()) {
+    return true;
+  }
+  
+  const result = await usageService.checkAndTrack(req.user.id, actionType, propertyId);
+  if (!result.allowed) {
+    res.status(429).json({
+      message: `Daily limit reached for ${actionType === 'search' ? 'searches' : actionType === 'property_unlock' ? 'property insights' : 'PDF exports'}. Upgrade to Pro for unlimited access.`,
+      upgrade: true,
+      upgradeUrl: "/pricing",
+      remaining: result.remaining,
+      limit: result.limit,
+    });
+    return false;
+  }
+  return true;
+}
 
 const requirePro = async (req: any, res: any, next: any) => {
   try {
@@ -369,7 +388,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  app.get("/api/properties/screener", async (req, res) => {
+  app.get("/api/properties/screener", optionalAuth, async (req: any, res) => {
     try {
       const stateParam = req.query.state as string | undefined;
       const validStates = ["NY", "NJ", "CT"] as const;
@@ -389,23 +408,43 @@ Sitemap: ${baseUrl}/sitemap.xml
         opportunityScoreMin: req.query.opportunityScoreMin ? parseInt(req.query.opportunityScoreMin as string) : undefined,
         confidenceLevels: req.query.confidenceLevels ? (req.query.confidenceLevels as string).split(",") as any : undefined,
       };
-      const limit = parseInt(req.query.limit as string) || 50;
+      
+      let requestedLimit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
       
+      let isFreeUser = true;
+      if (req.isAuthenticated()) {
+        const user = await storage.getUser(req.user.id);
+        const tier = user?.subscriptionTier;
+        const status = user?.subscriptionStatus;
+        isFreeUser = !((tier === "pro" || tier === "premium") && status === "active");
+      }
+      
+      const limit = isFreeUser ? Math.min(requestedLimit, 10) : requestedLimit;
       const properties = await storage.getProperties(filters, limit, offset);
-      res.json(properties);
+      
+      res.json({
+        properties,
+        limited: isFreeUser && requestedLimit > 10,
+        message: isFreeUser ? "Free users see top 10 results. Upgrade to Pro for full access." : undefined,
+      });
     } catch (error) {
       console.error("Error fetching screener properties:", error);
       res.status(500).json({ message: "Failed to fetch properties" });
     }
   });
 
-  app.get("/api/properties/area", async (req, res) => {
+  app.get("/api/properties/area", optionalAuth, async (req: any, res) => {
     try {
       const { geoType, geoId, limit } = req.query;
       if (!geoType || !geoId) {
         return res.status(400).json({ message: "geoType and geoId are required" });
       }
+      
+      if (!(await checkUsageLimit(req, res, "search"))) {
+        return;
+      }
+      
       const properties = await storage.getPropertiesByArea(
         geoType as string,
         geoId as string,
@@ -431,8 +470,17 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  app.get("/api/properties/:id/comps", async (req, res) => {
+  app.get("/api/properties/:id/comps", optionalAuth, async (req: any, res) => {
     try {
+      const property = await storage.getProperty(req.params.id);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      if (!(await checkUsageLimit(req, res, "property_unlock", req.params.id))) {
+        return;
+      }
+      
       const comps = await storage.getComps(req.params.id);
       res.json(comps);
     } catch (error) {
@@ -512,13 +560,18 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  // Search routes - public read access
-  app.get("/api/search/geo", async (req, res) => {
+  // Search routes - with usage limits for free users
+  app.get("/api/search/geo", optionalAuth, async (req: any, res) => {
     try {
       const query = req.query.q as string;
       if (!query || query.length < 2) {
         return res.json([]);
       }
+      
+      if (!(await checkUsageLimit(req, res, "search"))) {
+        return;
+      }
+      
       const results = await storage.searchGeo(query);
       res.json(results);
     } catch (error) {

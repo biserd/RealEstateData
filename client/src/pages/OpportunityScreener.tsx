@@ -46,7 +46,13 @@ export default function OpportunityScreener() {
   const [upgradeFeature, setUpgradeFeature] = useState("");
   const [upgradeDescription, setUpgradeDescription] = useState("");
 
-  const { data: properties, isLoading } = useQuery<Property[]>({
+  interface ScreenerResponse {
+    properties: Property[];
+    limited: boolean;
+    message?: string;
+  }
+
+  const { data: screenerData, isLoading } = useQuery<ScreenerResponse>({
     queryKey: [
       "/api/properties/screener", 
       filters.state || "", 
@@ -85,6 +91,9 @@ export default function OpportunityScreener() {
       return res.json();
     },
   });
+
+  const properties = screenerData?.properties;
+  const isLimited = screenerData?.limited;
 
   const handleResetFilters = () => {
     setFilters(defaultFilters);
@@ -166,6 +175,11 @@ export default function OpportunityScreener() {
                 <h1 className="text-xl font-semibold">Opportunity Screener</h1>
                 <p className="text-sm text-muted-foreground">
                   {properties?.length || 0} properties found
+                  {isLimited && (
+                    <span className="ml-2 text-amber-600 dark:text-amber-400">
+                      (showing top 10 only)
+                    </span>
+                  )}
                 </p>
               </div>
 
@@ -368,17 +382,40 @@ export default function OpportunityScreener() {
                   </div>
                 </div>
               ) : (
-                <div
-                  className={
-                    viewMode === "grid"
-                      ? "grid gap-6 md:grid-cols-2 xl:grid-cols-3"
-                      : "space-y-4"
-                  }
-                >
-                  {properties.map((property) => (
-                    <PropertyCard key={property.id} property={property} />
-                  ))}
-                </div>
+                <>
+                  <div
+                    className={
+                      viewMode === "grid"
+                        ? "grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+                        : "space-y-4"
+                    }
+                  >
+                    {properties.map((property) => (
+                      <PropertyCard key={property.id} property={property} />
+                    ))}
+                  </div>
+                  {isLimited && (
+                    <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950">
+                      <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">
+                        Unlock More Opportunities
+                      </h3>
+                      <p className="mt-2 text-amber-700 dark:text-amber-300">
+                        Free users see only the top 10 results. Upgrade to Pro for unlimited access to all properties and filters.
+                      </p>
+                      <Button
+                        className="mt-4"
+                        onClick={() => {
+                          setUpgradeFeature("Full Screener Access");
+                          setUpgradeDescription("See all properties that match your criteria, not just the top 10.");
+                          setShowUpgradeModal(true);
+                        }}
+                        data-testid="button-upgrade-screener"
+                      >
+                        Unlock Unlimited Deals
+                      </Button>
+                    </div>
+                  )}
+                </>
               )
             ) : (
               <EmptyState

@@ -103,10 +103,15 @@ The platform uses a three-tier freemium model with Stripe for payment processing
 -   `POST /api/export/bulk/dossiers` - Batch export property dossiers with comps (max 50)
 
 **Usage Tracking (Free Tier):**
--   `server/usageService.ts` - Tracks daily searches, property unlocks, weekly PDF downloads
+-   `server/usageService.ts` - Tracks and enforces daily searches, property unlocks, weekly PDF downloads
 -   `usageTracking` table in database with daily/weekly reset windows
 -   `useUsageLimits` hook for frontend usage limit checking
--   Enforced limits: 5 searches/day, 3 property unlocks/day, 1 PDF/week
+-   **Enforced limits:**
+    -   5 searches/day on `/api/search/geo` and `/api/properties/area`
+    -   3 Full Property Insights/day on `/api/properties/:id/comps`
+    -   Opportunity Screener limited to top 10 results for free users
+-   Frontend shows upgrade prompts when limits are reached (429 responses)
+-   `optionalAuth` middleware allows checking user tier without blocking unauthenticated requests
 
 ### Developer API Access
 

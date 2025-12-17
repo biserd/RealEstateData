@@ -77,13 +77,25 @@ export default function MarketExplorer() {
     enabled: !!selectedGeo,
   });
 
+  const [searchLimitReached, setSearchLimitReached] = useState(false);
+  
   const { data: searchResults, isLoading: searching } = useQuery<Array<{ type: string; id: string; name: string; state: string }>>({
     queryKey: ["/api/search/geo", searchQuery],
     queryFn: async () => {
       const res = await fetch(`/api/search/geo?q=${encodeURIComponent(searchQuery)}`, {
         credentials: "include",
       });
+      if (res.status === 429) {
+        setSearchLimitReached(true);
+        toast({
+          title: "Daily search limit reached",
+          description: "You've reached your limit of 5 searches per day. Upgrade to Pro for unlimited searches.",
+          variant: "destructive",
+        });
+        return [];
+      }
       if (!res.ok) throw new Error("Search failed");
+      setSearchLimitReached(false);
       return res.json();
     },
     enabled: searchQuery.length >= 2,
