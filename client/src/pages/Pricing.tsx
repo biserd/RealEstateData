@@ -245,7 +245,7 @@ export default function Pricing() {
               Loading...
             </>
           ) : (
-            "Upgrade to Pro"
+            "Unlock Unlimited Deals"
           )}
         </Button>
       );
@@ -309,7 +309,7 @@ export default function Pricing() {
             Pricing
           </Badge>
           <h1 className="text-4xl font-bold tracking-tight mb-4" data-testid="text-pricing-title">
-            Simple, transparent pricing
+            Stop Guessing. Start Closing.
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Start free and upgrade when you need more. Pro unlocks full access, Premium adds power features for serious investors.
