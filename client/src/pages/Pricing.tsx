@@ -40,7 +40,7 @@ interface Product {
 const FREE_FEATURES = [
   { name: "Market Explorer", included: true, limit: "5 searches/day" },
   { name: "Opportunity Screener", included: true, limit: "View top 10 only" },
-  { name: "Property unlocks", included: true, limit: "3/day" },
+  { name: "Full Property Insights", included: true, limit: "3/day" },
   { name: "AI Assistant", included: false },
   { name: "Deal Memo Generator", included: false },
   { name: "PDF Reports", included: true, limit: "1/week" },
@@ -53,24 +53,24 @@ const FREE_FEATURES = [
 const PRO_FEATURES = [
   { name: "Market Explorer", included: true, limit: "Unlimited" },
   { name: "Opportunity Screener", included: true, limit: "Full access + filters" },
-  { name: "Property unlocks", included: true, limit: "Unlimited" },
+  { name: "Full Property Insights", included: true, limit: "Unlimited" },
   { name: "AI Assistant", included: true, limit: "Unlimited queries" },
   { name: "Deal Memo Generator", included: true, limit: "Unlimited" },
   { name: "PDF Reports", included: true, limit: "Unlimited" },
   { name: "Watchlists", included: true, limit: "Unlimited" },
-  { name: "Alerts & Notifications", included: false },
+  { name: "Basic Alerts", included: true, limit: "5 active alerts" },
   { name: "CSV/Bulk Exports", included: false },
-  { name: "Developer API Access", included: true, limit: "10K requests/day" },
+  { name: "Developer API Access", included: false },
 ];
 
 const PREMIUM_FEATURES = [
   { name: "Everything in Pro", included: true },
-  { name: "Price & score change alerts", included: true },
+  { name: "Unlimited Alerts", included: true, limit: "Price & score changes" },
   { name: "Portfolio dashboard", included: true },
   { name: "Bulk CSV exports", included: true },
   { name: "Batch PDF generation", included: true },
   { name: "Branded client reports", included: true },
-  { name: "Higher API limits", included: true, limit: "50K requests/day" },
+  { name: "Developer API Access", included: true, limit: "100K requests/day" },
   { name: "Priority support", included: true },
 ];
 
@@ -512,7 +512,7 @@ export default function Pricing() {
             <div>
               <h3 className="font-semibold mb-2">What's the difference between Pro and Premium?</h3>
               <p className="text-muted-foreground">
-                Pro gives you unlimited access to all core features including AI assistant and Deal Memo. Premium adds alerts, portfolio dashboard, bulk exports, and higher API limits for power users.
+                Pro gives you unlimited access to all core features including AI assistant, Deal Memo, and 5 active alerts. Premium adds unlimited alerts, portfolio dashboard, bulk exports, Developer API access, and priority support for power users.
               </p>
             </div>
             <div>
