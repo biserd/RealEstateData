@@ -13,22 +13,77 @@ import { externalApiMiddleware } from "./apiMiddleware";
 import { sendWelcomeEmail, sendNewUserNotificationToAdmin } from "./emailService";
 import { usageService, ActionType } from "./usageService";
 
+const FREE_TIER_LIMITS = {
+  search: { daily: 5 },
+  property_unlock: { daily: 3 },
+  pdf_export: { weekly: 1 },
+} as const;
+
+function getSessionUsage(req: any, actionType: ActionType): { count: number; resetTime: number } {
+  if (!req.session.usage) {
+    req.session.usage = {};
+  }
+  if (!req.session.usage[actionType]) {
+    const now = Date.now();
+    const resetTime = actionType === 'pdf_export' 
+      ? now + 7 * 24 * 60 * 60 * 1000 
+      : now + 24 * 60 * 60 * 1000;
+    req.session.usage[actionType] = { count: 0, resetTime };
+  }
+  
+  const usage = req.session.usage[actionType];
+  if (Date.now() > usage.resetTime) {
+    const now = Date.now();
+    const resetTime = actionType === 'pdf_export' 
+      ? now + 7 * 24 * 60 * 60 * 1000 
+      : now + 24 * 60 * 60 * 1000;
+    req.session.usage[actionType] = { count: 0, resetTime };
+  }
+  
+  return req.session.usage[actionType];
+}
+
+function trackSessionUsage(req: any, actionType: ActionType): void {
+  const usage = getSessionUsage(req, actionType);
+  usage.count++;
+  req.session.usage[actionType] = usage;
+}
+
 async function checkUsageLimit(req: any, res: any, actionType: ActionType, propertyId?: string): Promise<boolean> {
-  if (!req.isAuthenticated()) {
+  if (req.isAuthenticated()) {
+    const result = await usageService.checkAndTrack(req.user.id, actionType, propertyId);
+    if (!result.allowed) {
+      res.status(429).json({
+        message: `Daily limit reached for ${actionType === 'search' ? 'searches' : actionType === 'property_unlock' ? 'Full Property Insights' : 'PDF exports'}. Upgrade to Pro for unlimited access.`,
+        upgrade: true,
+        upgradeUrl: "/pricing",
+        remaining: result.remaining,
+        limit: result.limit,
+      });
+      return false;
+    }
     return true;
   }
   
-  const result = await usageService.checkAndTrack(req.user.id, actionType, propertyId);
-  if (!result.allowed) {
+  const usage = getSessionUsage(req, actionType);
+  const limit = actionType === 'search' 
+    ? FREE_TIER_LIMITS.search.daily 
+    : actionType === 'property_unlock' 
+      ? FREE_TIER_LIMITS.property_unlock.daily 
+      : FREE_TIER_LIMITS.pdf_export.weekly;
+  
+  if (usage.count >= limit) {
     res.status(429).json({
-      message: `Daily limit reached for ${actionType === 'search' ? 'searches' : actionType === 'property_unlock' ? 'property insights' : 'PDF exports'}. Upgrade to Pro for unlimited access.`,
+      message: `Daily limit reached for ${actionType === 'search' ? 'searches' : actionType === 'property_unlock' ? 'Full Property Insights' : 'PDF exports'}. Sign up or upgrade to Pro for unlimited access.`,
       upgrade: true,
       upgradeUrl: "/pricing",
-      remaining: result.remaining,
-      limit: result.limit,
+      remaining: 0,
+      limit: limit,
     });
     return false;
   }
+  
+  trackSessionUsage(req, actionType);
   return true;
 }
 
@@ -420,13 +475,19 @@ Sitemap: ${baseUrl}/sitemap.xml
         isFreeUser = !((tier === "pro" || tier === "premium") && status === "active");
       }
       
-      const limit = isFreeUser ? Math.min(requestedLimit, 10) : requestedLimit;
-      const properties = await storage.getProperties(filters, limit, offset);
+      const FREE_VISIBLE_COUNT = 3;
+      const properties = await storage.getProperties(filters, requestedLimit, offset);
+      const totalCount = properties.length;
+      const hiddenCount = isFreeUser ? Math.max(0, totalCount - FREE_VISIBLE_COUNT) : 0;
       
       res.json({
         properties,
-        limited: isFreeUser && requestedLimit > 10,
-        message: isFreeUser ? "Free users see top 10 results. Upgrade to Pro for full access." : undefined,
+        limited: isFreeUser && totalCount > FREE_VISIBLE_COUNT,
+        visibleCount: isFreeUser ? FREE_VISIBLE_COUNT : totalCount,
+        hiddenCount,
+        message: isFreeUser && hiddenCount > 0 
+          ? `Unlock ${hiddenCount} more undervalued properties in this area with Pro.` 
+          : undefined,
       });
     } catch (error) {
       console.error("Error fetching screener properties:", error);

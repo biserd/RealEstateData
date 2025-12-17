@@ -105,11 +105,16 @@ The platform uses a three-tier freemium model with Stripe for payment processing
 **Usage Tracking (Free Tier):**
 -   `server/usageService.ts` - Tracks and enforces daily searches, property unlocks, weekly PDF downloads
 -   `usageTracking` table in database with daily/weekly reset windows
+-   Session-based tracking for unauthenticated users (same limits as free tier)
 -   `useUsageLimits` hook for frontend usage limit checking
 -   **Enforced limits:**
     -   5 searches/day on `/api/search/geo` and `/api/properties/area`
     -   3 Full Property Insights/day on `/api/properties/:id/comps`
-    -   Opportunity Screener limited to top 10 results for free users
+    -   Opportunity Screener: Shows first 3 properties, blurs rest with lock icon
+-   **Blur Technique on Screener:**
+    -   First 3 properties shown fully visible
+    -   Properties 4+ shown blurred with lock icon overlay
+    -   Upgrade CTA: "Unlock X more undervalued properties in this area with Pro"
 -   Frontend shows upgrade prompts when limits are reached (429 responses)
 -   `optionalAuth` middleware allows checking user tier without blocking unauthenticated requests
 

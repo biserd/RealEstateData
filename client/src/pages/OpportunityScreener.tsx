@@ -49,6 +49,8 @@ export default function OpportunityScreener() {
   interface ScreenerResponse {
     properties: Property[];
     limited: boolean;
+    visibleCount: number;
+    hiddenCount: number;
     message?: string;
   }
 
@@ -94,6 +96,8 @@ export default function OpportunityScreener() {
 
   const properties = screenerData?.properties;
   const isLimited = screenerData?.limited;
+  const visibleCount = screenerData?.visibleCount ?? 3;
+  const hiddenCount = screenerData?.hiddenCount ?? 0;
 
   const handleResetFilters = () => {
     setFilters(defaultFilters);
@@ -177,7 +181,7 @@ export default function OpportunityScreener() {
                   {properties?.length || 0} properties found
                   {isLimited && (
                     <span className="ml-2 text-amber-600 dark:text-amber-400">
-                      (showing top 10 only)
+                      (showing {visibleCount} of {properties?.length || 0})
                     </span>
                   )}
                 </p>
@@ -390,27 +394,48 @@ export default function OpportunityScreener() {
                         : "space-y-4"
                     }
                   >
-                    {properties.map((property) => (
+                    {properties.slice(0, visibleCount).map((property) => (
+                      <PropertyCard key={property.id} property={property} />
+                    ))}
+                    {isLimited && !isPro && !isPremium && properties.slice(visibleCount).map((property, index) => (
+                      <div 
+                        key={property.id} 
+                        className="relative overflow-hidden rounded-lg"
+                        data-testid={`card-property-blurred-${index}`}
+                        aria-hidden="true"
+                      >
+                        <div className="blur-sm pointer-events-none select-none" tabIndex={-1}>
+                          <PropertyCard property={property} />
+                        </div>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm">
+                          <Lock className="h-8 w-8 text-muted-foreground mb-2" />
+                          <span className="text-sm font-medium text-muted-foreground">Locked</span>
+                        </div>
+                      </div>
+                    ))}
+                    {!isLimited && properties.slice(visibleCount).map((property) => (
                       <PropertyCard key={property.id} property={property} />
                     ))}
                   </div>
-                  {isLimited && (
-                    <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950">
-                      <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">
-                        Unlock More Opportunities
+                  {isLimited && hiddenCount > 0 && !isPro && !isPremium && (
+                    <div className="mt-8 rounded-lg border border-primary/20 bg-primary/5 p-6 text-center">
+                      <Lock className="mx-auto h-10 w-10 text-primary mb-3" />
+                      <h3 className="text-lg font-semibold">
+                        Unlock {hiddenCount} more undervalued properties in this area with Pro
                       </h3>
-                      <p className="mt-2 text-amber-700 dark:text-amber-300">
-                        Free users see only the top 10 results. Upgrade to Pro for unlimited access to all properties and filters.
+                      <p className="mt-2 text-muted-foreground">
+                        You're seeing the top 3 results. Upgrade to access all {properties.length} properties and unlock advanced filters.
                       </p>
                       <Button
                         className="mt-4"
                         onClick={() => {
                           setUpgradeFeature("Full Screener Access");
-                          setUpgradeDescription("See all properties that match your criteria, not just the top 10.");
+                          setUpgradeDescription(`See all ${properties.length} properties that match your criteria.`);
                           setShowUpgradeModal(true);
                         }}
                         data-testid="button-upgrade-screener"
                       >
+                        <Crown className="mr-2 h-4 w-4" />
                         Unlock Unlimited Deals
                       </Button>
                     </div>
