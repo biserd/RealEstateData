@@ -83,6 +83,53 @@ export class UsageService {
     return { allowed, remaining: remaining - (allowed ? 1 : 0), limit };
   }
 
+  async checkRemaining(userId: string, actionType: ActionType, propertyId?: string): Promise<{ remaining: number; limit: number; alreadyTracked: boolean }> {
+    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const tier = user[0]?.subscriptionTier || "free";
+    const status = user[0]?.subscriptionStatus;
+    
+    const isPaidTier = (tier === "pro" || tier === "premium") && status === "active";
+    
+    if (isPaidTier) {
+      return { remaining: Infinity, limit: Infinity, alreadyTracked: true };
+    }
+
+    let currentUsage: number;
+    let limit: number;
+    
+    if (actionType === "pdf_export") {
+      currentUsage = await this.getWeeklyUsage(userId, actionType);
+      limit = FREE_TIER_LIMITS.pdf_export.weekly;
+    } else if (actionType === "search") {
+      currentUsage = await this.getDailyUsage(userId, actionType);
+      limit = FREE_TIER_LIMITS.search.daily;
+    } else {
+      currentUsage = await this.getDailyUsage(userId, actionType);
+      limit = FREE_TIER_LIMITS.property_unlock.daily;
+    }
+
+    let alreadyTracked = false;
+    if (propertyId && actionType === "property_unlock") {
+      const periodStart = new Date();
+      periodStart.setHours(0, 0, 0, 0);
+      
+      const existing = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(usageTracking)
+        .where(
+          and(
+            eq(usageTracking.userId, userId),
+            eq(usageTracking.actionType, actionType),
+            eq(usageTracking.propertyId, propertyId),
+            gte(usageTracking.actionDate, periodStart)
+          )
+        );
+      alreadyTracked = Number(existing[0]?.count || 0) > 0;
+    }
+
+    return { remaining: Math.max(0, limit - currentUsage), limit, alreadyTracked };
+  }
+
   async getRemainingLimits(userId: string): Promise<{
     searches: { used: number; limit: number; remaining: number };
     unlocks: { used: number; limit: number; remaining: number };

@@ -531,6 +531,119 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/properties/:id/view-status", optionalAuth, async (req: any, res) => {
+    try {
+      const propertyId = req.params.id;
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      if (req.isAuthenticated()) {
+        const user = await storage.getUser(req.user.id);
+        const tier = user?.subscriptionTier;
+        const status = user?.subscriptionStatus;
+        const isPaidUser = (tier === "pro" || tier === "premium") && status === "active";
+        
+        if (isPaidUser) {
+          return res.json({ unlocked: true, remaining: Infinity, limit: Infinity });
+        }
+        
+        const result = await usageService.checkRemaining(req.user.id, "property_unlock", propertyId);
+        return res.json({
+          unlocked: result.alreadyTracked || false,
+          remaining: result.remaining,
+          limit: result.limit,
+          canUnlock: result.remaining > 0 || result.alreadyTracked,
+        });
+      }
+      
+      const usage = getSessionUsage(req, "property_unlock");
+      const limit = FREE_TIER_LIMITS.property_unlock.daily;
+      const viewedProperties = req.session.viewedProperties || [];
+      const alreadyViewed = viewedProperties.includes(propertyId);
+      
+      return res.json({
+        unlocked: alreadyViewed,
+        remaining: Math.max(0, limit - usage.count),
+        limit: limit,
+        canUnlock: usage.count < limit || alreadyViewed,
+      });
+    } catch (error) {
+      console.error("Error checking property view status:", error);
+      res.status(500).json({ message: "Failed to check view status" });
+    }
+  });
+
+  app.post("/api/properties/:id/unlock", optionalAuth, async (req: any, res) => {
+    try {
+      const propertyId = req.params.id;
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      if (req.isAuthenticated()) {
+        const user = await storage.getUser(req.user.id);
+        const tier = user?.subscriptionTier;
+        const status = user?.subscriptionStatus;
+        const isPaidUser = (tier === "pro" || tier === "premium") && status === "active";
+        
+        if (isPaidUser) {
+          return res.json({ unlocked: true, remaining: Infinity });
+        }
+        
+        const result = await usageService.checkAndTrack(req.user.id, "property_unlock", propertyId);
+        if (!result.allowed) {
+          return res.status(429).json({
+            message: "Daily limit reached for Full Property Insights. Upgrade to Pro for unlimited access.",
+            upgrade: true,
+            upgradeUrl: "/pricing",
+            remaining: result.remaining,
+            limit: result.limit,
+          });
+        }
+        return res.json({ unlocked: true, remaining: result.remaining });
+      }
+      
+      if (!req.session.viewedProperties) {
+        req.session.viewedProperties = [];
+      }
+      
+      if (req.session.viewedProperties.includes(propertyId)) {
+        const usage = getSessionUsage(req, "property_unlock");
+        return res.json({ 
+          unlocked: true, 
+          remaining: Math.max(0, FREE_TIER_LIMITS.property_unlock.daily - usage.count) 
+        });
+      }
+      
+      const usage = getSessionUsage(req, "property_unlock");
+      const limit = FREE_TIER_LIMITS.property_unlock.daily;
+      
+      if (usage.count >= limit) {
+        return res.status(429).json({
+          message: "Daily limit reached for Full Property Insights. Sign up or upgrade to Pro for unlimited access.",
+          upgrade: true,
+          upgradeUrl: "/pricing",
+          remaining: 0,
+          limit: limit,
+        });
+      }
+      
+      trackSessionUsage(req, "property_unlock");
+      req.session.viewedProperties.push(propertyId);
+      
+      return res.json({ 
+        unlocked: true, 
+        remaining: Math.max(0, limit - usage.count - 1)
+      });
+    } catch (error) {
+      console.error("Error unlocking property:", error);
+      res.status(500).json({ message: "Failed to unlock property" });
+    }
+  });
+
   app.get("/api/properties/:id/comps", optionalAuth, async (req: any, res) => {
     try {
       const property = await storage.getProperty(req.params.id);

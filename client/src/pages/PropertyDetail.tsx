@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { extractPropertyIdFromSlug } from "@/lib/propertySlug";
@@ -23,7 +23,8 @@ import {
   Calculator,
   LogIn,
   Crown,
-  Lock
+  Lock,
+  Eye
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -83,9 +84,58 @@ export default function PropertyDetail() {
 
   const [compsLimitReached, setCompsLimitReached] = useState(false);
   
+  interface ViewStatus {
+    unlocked: boolean;
+    remaining: number;
+    limit: number;
+    canUnlock?: boolean;
+  }
+  
+  const { data: viewStatus, isLoading: viewStatusLoading, refetch: refetchViewStatus } = useQuery<ViewStatus>({
+    queryKey: ["/api/properties", id, "view-status"],
+    enabled: !!id,
+    queryFn: async () => {
+      const res = await fetch(`/api/properties/${id}/view-status`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to check view status");
+      return res.json();
+    },
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/properties/${id}/unlock`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.status === 429) {
+        const data = await res.json();
+        throw new Error(data.message || "Daily limit reached");
+      }
+      if (!res.ok) throw new Error("Failed to unlock property");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchViewStatus();
+      queryClient.invalidateQueries({ queryKey: ["/api/properties", id, "comps"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Unable to unlock",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const isPropertyUnlocked = isPro || viewStatus?.unlocked || false;
+  const canUnlockProperty = viewStatus?.canUnlock || false;
+  const remainingUnlocks = viewStatus?.remaining ?? 3;
+  
   const { data: comps } = useQuery<CompWithProperty[]>({
     queryKey: ["/api/properties", id, "comps"],
-    enabled: !!id,
+    enabled: !!id && isPropertyUnlocked,
     queryFn: async () => {
       const res = await fetch(`/api/properties/${id}/comps`, {
         credentials: "include",
@@ -534,147 +584,277 @@ export default function PropertyDetail() {
           </div>
 
           <TabsContent value="pricing" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Opportunity Score Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <OpportunityScore
-                    score={property.opportunityScore || 0}
-                    breakdown={mockScoreBreakdown}
-                    size="lg"
-                    showBreakdown
-                  />
-                </CardContent>
-              </Card>
+            {isPropertyUnlocked ? (
+              <>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Opportunity Score Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <OpportunityScore
+                        score={property.opportunityScore || 0}
+                        breakdown={mockScoreBreakdown}
+                        size="lg"
+                        showBreakdown
+                      />
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Market Position</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <PriceDistribution
-                    p25={480000}
-                    p50={550000}
-                    p75={650000}
-                    currentValue={property.estimatedValue || property.lastSalePrice || undefined}
-                    label="Price Distribution (3BR SFH)"
-                  />
-                  <Separator />
-                  <PriceDistribution
-                    p25={350}
-                    p50={425}
-                    p75={520}
-                    currentValue={property.pricePerSqft || undefined}
-                    label="$/sqft Distribution"
-                    unit="$"
-                  />
-                </CardContent>
-              </Card>
-            </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Market Position</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <PriceDistribution
+                        p25={480000}
+                        p50={550000}
+                        p75={650000}
+                        currentValue={property.estimatedValue || property.lastSalePrice || undefined}
+                        label="Price Distribution (3BR SFH)"
+                      />
+                      <Separator />
+                      <PriceDistribution
+                        p25={350}
+                        p50={425}
+                        p75={520}
+                        currentValue={property.pricePerSqft || undefined}
+                        label="$/sqft Distribution"
+                        unit="$"
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Expected Value Range</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="rounded-lg border p-4 text-center">
-                    <p className="text-sm text-muted-foreground">Low Estimate</p>
-                    <p className="text-2xl font-bold">$465,000</p>
-                    <p className="text-xs text-muted-foreground">10th percentile</p>
-                  </div>
-                  <div className="rounded-lg border border-primary bg-primary/5 p-4 text-center">
-                    <p className="text-sm text-muted-foreground">Expected Value</p>
-                    <p className="text-2xl font-bold text-primary">$525,000</p>
-                    <p className="text-xs text-muted-foreground">Model estimate</p>
-                  </div>
-                  <div className="rounded-lg border p-4 text-center">
-                    <p className="text-sm text-muted-foreground">High Estimate</p>
-                    <p className="text-2xl font-bold">$585,000</p>
-                    <p className="text-xs text-muted-foreground">90th percentile</p>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Expected Value Range</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="rounded-lg border p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Low Estimate</p>
+                        <p className="text-2xl font-bold">$465,000</p>
+                        <p className="text-xs text-muted-foreground">10th percentile</p>
+                      </div>
+                      <div className="rounded-lg border border-primary bg-primary/5 p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Expected Value</p>
+                        <p className="text-2xl font-bold text-primary">$525,000</p>
+                        <p className="text-xs text-muted-foreground">Model estimate</p>
+                      </div>
+                      <div className="rounded-lg border p-4 text-center">
+                        <p className="text-sm text-muted-foreground">High Estimate</p>
+                        <p className="text-2xl font-bold">$585,000</p>
+                        <p className="text-xs text-muted-foreground">90th percentile</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <div className="relative">
+                <div className="blur-sm pointer-events-none select-none" aria-hidden="true">
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Opportunity Score Breakdown</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-48 bg-muted rounded animate-pulse" />
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Market Position</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-48 bg-muted rounded animate-pulse" />
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Unlock Full Property Insights</h3>
+                  <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
+                    {canUnlockProperty 
+                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                      : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                  </p>
+                  {canUnlockProperty ? (
+                    <Button
+                      onClick={() => unlockMutation.mutate()}
+                      disabled={unlockMutation.isPending}
+                      data-testid="button-unlock-property"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      {unlockMutation.isPending ? "Unlocking..." : "Unlock This Property"}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        setUpgradeFeature("Full Property Insights");
+                        setShowUpgradeModal(true);
+                      }}
+                      data-testid="button-upgrade-property"
+                    >
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Pro
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="comps" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Property Location & Comps
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PropertyMap
-                  properties={comps?.map((c) => c.property) || []}
-                  subjectProperty={property}
-                  height="350px"
-                  showClustering={false}
-                />
-              </CardContent>
-            </Card>
+            {isPropertyUnlocked ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Property Location & Comps
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <PropertyMap
+                      properties={comps?.map((c) => c.property) || []}
+                      subjectProperty={property}
+                      height="350px"
+                      showClustering={false}
+                    />
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2">
-                  Comparable Sales
-                  {isFree && <ProBadge />}
-                </CardTitle>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleExportCsv}
-                  disabled={isExportingCsv}
-                  data-testid="button-export-comps"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {isExportingCsv ? "Exporting..." : "Export CSV"}
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {compsLimitReached ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950">
-                    <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">
-                      Daily Limit Reached
-                    </h3>
-                    <p className="mt-2 text-amber-700 dark:text-amber-300">
-                      You've reached your daily limit of 3 Full Property Insights. Upgrade to Pro for unlimited access.
-                    </p>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardTitle className="flex items-center gap-2">
+                      Comparable Sales
+                      {isFree && <ProBadge />}
+                    </CardTitle>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleExportCsv}
+                      disabled={isExportingCsv}
+                      data-testid="button-export-comps"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      {isExportingCsv ? "Exporting..." : "Export CSV"}
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {isPro ? (
+                      <CompsTable comps={comps || []} subjectProperty={property} />
+                    ) : (
+                      <BlurredContent
+                        feature="Full Comps"
+                        description="Unlock detailed comparable sales data with Pro. See all comps, prices, and similarity scores."
+                      >
+                        <CompsTable comps={(comps || []).slice(0, 3)} subjectProperty={property} />
+                      </BlurredContent>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <div className="relative">
+                <div className="blur-sm pointer-events-none select-none" aria-hidden="true">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Property Location & Comps</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-80 bg-muted rounded animate-pulse" />
+                    </CardContent>
+                  </Card>
+                </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Unlock Comps & Market Data</h3>
+                  <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
+                    {canUnlockProperty 
+                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                      : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                  </p>
+                  {canUnlockProperty ? (
                     <Button
-                      className="mt-4"
+                      onClick={() => unlockMutation.mutate()}
+                      disabled={unlockMutation.isPending}
+                      data-testid="button-unlock-comps"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      {unlockMutation.isPending ? "Unlocking..." : "Unlock This Property"}
+                    </Button>
+                  ) : (
+                    <Button
                       onClick={() => {
                         setUpgradeFeature("Full Property Insights");
                         setShowUpgradeModal(true);
                       }}
                       data-testid="button-upgrade-comps"
                     >
-                      Unlock Unlimited Deals
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Pro
                     </Button>
-                  </div>
-                ) : isPro ? (
-                  <CompsTable comps={comps || []} subjectProperty={property} />
-                ) : (
-                  <BlurredContent
-                    feature="Full Comps"
-                    description="Unlock detailed comparable sales data with Pro. See all comps, prices, and similarity scores."
-                  >
-                    <CompsTable comps={(comps || []).slice(0, 3)} subjectProperty={property} />
-                  </BlurredContent>
-                )}
-              </CardContent>
-            </Card>
+                  )}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="investment" className="space-y-6">
-            <ScenarioSimulator
-              propertyId={id!}
-              estimatedValue={property.estimatedValue || property.lastSalePrice}
-              estimatedRent={property.sqft ? Math.round(property.sqft * 1.8) : undefined}
-            />
+            {isPropertyUnlocked ? (
+              <ScenarioSimulator
+                propertyId={id!}
+                estimatedValue={property.estimatedValue || property.lastSalePrice}
+                estimatedRent={property.sqft ? Math.round(property.sqft * 1.8) : undefined}
+              />
+            ) : (
+              <div className="relative">
+                <div className="blur-sm pointer-events-none select-none" aria-hidden="true">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Investment Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64 bg-muted rounded animate-pulse" />
+                    </CardContent>
+                  </Card>
+                </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Unlock Investment Analysis</h3>
+                  <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
+                    {canUnlockProperty 
+                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                      : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                  </p>
+                  {canUnlockProperty ? (
+                    <Button
+                      onClick={() => unlockMutation.mutate()}
+                      disabled={unlockMutation.isPending}
+                      data-testid="button-unlock-investment"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      {unlockMutation.isPending ? "Unlocking..." : "Unlock This Property"}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        setUpgradeFeature("Full Property Insights");
+                        setShowUpgradeModal(true);
+                      }}
+                      data-testid="button-upgrade-investment"
+                    >
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Pro
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="signals">
