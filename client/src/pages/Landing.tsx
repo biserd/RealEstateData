@@ -135,7 +135,7 @@ export default function Landing() {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
                 <Link href="/register">
                   <Button size="lg" className="h-14 px-8 text-lg" data-testid="button-hero-start-free">
-                    Start Free
+                    Find me deals
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
