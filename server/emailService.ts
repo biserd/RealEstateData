@@ -17,7 +17,9 @@ export async function sendWelcomeEmail(userEmail: string, firstName?: string | n
     const client = getResendClient();
     const name = firstName || 'there';
     
-    await client.emails.send({
+    console.log(`[Resend] Attempting to send welcome email to ${userEmail} from ${FROM_EMAIL}`);
+    
+    const result = await client.emails.send({
       from: FROM_EMAIL,
       to: userEmail,
       subject: 'Welcome to Realtors Dashboard!',
@@ -76,10 +78,17 @@ export async function sendWelcomeEmail(userEmail: string, firstName?: string | n
       `,
     });
     
-    console.log(`Welcome email sent to ${userEmail}`);
+    console.log(`[Resend] Welcome email response:`, JSON.stringify(result, null, 2));
+    
+    if (result.error) {
+      console.error(`[Resend] Error sending welcome email:`, result.error);
+      return false;
+    }
+    
+    console.log(`[Resend] Welcome email sent successfully to ${userEmail}, id: ${result.data?.id}`);
     return true;
   } catch (error) {
-    console.error('Failed to send welcome email:', error);
+    console.error('[Resend] Failed to send welcome email:', error);
     return false;
   }
 }
@@ -95,7 +104,9 @@ export async function sendNewUserNotificationToAdmin(userEmail: string, firstNam
       timeStyle: 'short'
     });
     
-    await client.emails.send({
+    console.log(`[Resend] Attempting to send admin notification for ${userEmail} to ${ADMIN_EMAIL}`);
+    
+    const result = await client.emails.send({
       from: FROM_EMAIL,
       to: ADMIN_EMAIL,
       subject: `New User Signup: ${userEmail}`,
@@ -137,10 +148,17 @@ export async function sendNewUserNotificationToAdmin(userEmail: string, firstNam
       `,
     });
     
-    console.log(`Admin notification sent for new user: ${userEmail}`);
+    console.log(`[Resend] Admin notification response:`, JSON.stringify(result, null, 2));
+    
+    if (result.error) {
+      console.error(`[Resend] Error sending admin notification:`, result.error);
+      return false;
+    }
+    
+    console.log(`[Resend] Admin notification sent successfully for ${userEmail}, id: ${result.data?.id}`);
     return true;
   } catch (error) {
-    console.error('Failed to send admin notification:', error);
+    console.error('[Resend] Failed to send admin notification:', error);
     return false;
   }
 }
