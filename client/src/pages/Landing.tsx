@@ -213,16 +213,21 @@ export default function Landing() {
               </div>
 
               <form onSubmit={handleSearch} className="mx-auto mb-8 max-w-xl">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search by ZIP code, city, or address..."
-                    className="h-12 pl-12 pr-4 text-base"
-                    data-testid="input-hero-search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+                <div className="relative flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search by ZIP code, city, or address..."
+                      className="h-12 pl-12 pr-4 text-base"
+                      data-testid="input-hero-search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Button type="submit" size="lg" className="h-12 px-6" data-testid="button-hero-search">
+                    Search
+                  </Button>
                 </div>
               </form>
 
