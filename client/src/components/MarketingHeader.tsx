@@ -112,8 +112,8 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : showLogin ? (
-            <Link href="/register">
-              <Button data-testid="button-start-free">Find me deals</Button>
+            <Link href="/pricing">
+              <Button data-testid="button-get-pro">Get Pro</Button>
             </Link>
           ) : null}
         </div>

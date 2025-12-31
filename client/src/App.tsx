@@ -29,6 +29,7 @@ import Developers from "@/pages/Developers";
 import ApiAccess from "@/pages/ApiAccess";
 import ReleaseNotes from "@/pages/ReleaseNotes";
 import Portfolio from "@/pages/Portfolio";
+import Activate from "@/pages/Activate";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/" component={isLoading || !isAuthenticated ? Landing : Home} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/activate" component={Activate} />
       <Route path="/market-intelligence" component={MarketExplorer} />
       <Route path="/investment-opportunities" component={OpportunityScreener} />
       <Route path="/up-and-coming" component={UpAndComingZips} />

@@ -148,11 +148,26 @@ export default function Pricing() {
   const isPro = currentTier === "pro" && isActive;
   const isPremium = currentTier === "premium" && isActive;
 
+  const guestCheckoutMutation = useMutation({
+    mutationFn: async (priceId: string) => {
+      const response = await apiRequest("POST", "/api/checkout/guest", { priceId });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to start checkout. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleUpgrade = (tier: "pro" | "premium") => {
-    if (!user) {
-      setLocation("/login?redirect=/pricing");
-      return;
-    }
     if (isProductsLoading) {
       toast({
         title: "Loading",
@@ -176,7 +191,13 @@ export default function Pricing() {
       });
       return;
     }
-    checkoutMutation.mutate(selectedPrice.id);
+    
+    // Use guest checkout for unauthenticated users, regular checkout for authenticated users
+    if (!user) {
+      guestCheckoutMutation.mutate(selectedPrice.id);
+    } else {
+      checkoutMutation.mutate(selectedPrice.id);
+    }
   };
 
   const handleManageBilling = () => {

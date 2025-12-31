@@ -6,7 +6,20 @@ import { Input } from "@/components/ui/input";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+interface Product {
+  id: string;
+  name: string;
+  metadata?: { tier?: string };
+  prices?: Array<{
+    id: string;
+    unit_amount: number;
+    recurring?: { interval: string };
+  }>;
+}
 
 interface PlatformStats {
   properties: number;
@@ -18,9 +31,48 @@ interface PlatformStats {
 }
 
 export default function Landing() {
+  const { toast } = useToast();
+  
   const { data: platformStats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/stats/platform"],
   });
+
+  const { data: productsData } = useQuery<{ data: Product[] }>({
+    queryKey: ["/api/products"],
+  });
+
+  const guestCheckoutMutation = useMutation({
+    mutationFn: async (priceId: string) => {
+      const response = await apiRequest("POST", "/api/checkout/guest", { priceId });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to start checkout. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleGetPro = () => {
+    const proProduct = productsData?.data?.find(p => p.metadata?.tier === "pro" || p.name === "Pro Plan");
+    const proMonthlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "month");
+    
+    if (proMonthlyPrice?.id) {
+      guestCheckoutMutation.mutate(proMonthlyPrice.id);
+    } else {
+      toast({
+        title: "Loading",
+        description: "Please wait while we prepare checkout...",
+      });
+    }
+  };
 
   const formatNumber = (num: number): string => {
     if (num >= 1000000) {
@@ -133,12 +185,19 @@ export default function Landing() {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-                <Link href="/register">
-                  <Button size="lg" className="h-14 px-8 text-lg" data-testid="button-hero-start-free">
-                    Find me deals
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
+                <Button 
+                  size="lg" 
+                  className="h-14 px-8 text-lg" 
+                  data-testid="button-hero-get-pro"
+                  onClick={handleGetPro}
+                  disabled={guestCheckoutMutation.isPending}
+                >
+                  {guestCheckoutMutation.isPending ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : null}
+                  Get Pro - $29/mo
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
                 <Link href="/investment-opportunities">
                   <Button size="lg" variant="outline" className="h-14 px-8 text-lg" data-testid="button-hero-see-screener">
                     <Target className="mr-2 h-5 w-5" />
@@ -358,12 +417,19 @@ export default function Landing() {
               Join investors, agents, and analysts using Realtors Dashboard to make 
               smarter real estate decisions.
             </p>
-            <a href="/api/login">
-              <Button size="lg" className="h-12 px-8 text-lg" data-testid="button-cta">
-                Get Started Free
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </a>
+            <Button 
+              size="lg" 
+              className="h-12 px-8 text-lg" 
+              data-testid="button-cta"
+              onClick={handleGetPro}
+              disabled={guestCheckoutMutation.isPending}
+            >
+              {guestCheckoutMutation.isPending ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : null}
+              Get Pro - $29/mo
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
           </div>
         </section>
       </main>
