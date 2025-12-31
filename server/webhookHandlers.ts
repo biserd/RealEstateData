@@ -1,6 +1,8 @@
 import { getStripeSync } from './stripeClient';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
+import { generateActivationToken } from './auth';
+import { sendActivationEmail } from './emailService';
 
 let eventHandlersRegistered = false;
 
@@ -119,43 +121,111 @@ async function handleCheckoutCompleted(session: any): Promise<void> {
     const subscriptionId = typeof session.subscription === 'object'
       ? session.subscription.id
       : session.subscription;
+    
+    // Get customer email from session
+    const customerEmail = session.customer_details?.email || 
+      (typeof session.customer === 'object' ? session.customer.email : null);
 
-    if (subscriptionId) {
-      // Determine tier from the line items
-      let tier: 'pro' | 'premium' = 'pro';
-      const lineItems = session.line_items?.data || [];
-      
-      for (const item of lineItems) {
-        const priceId = typeof item.price === 'object' ? item.price.id : item.price;
-        if (priceId) {
-          const premiumCheck = await db.execute(
-            sql`
-              SELECT p.name FROM stripe.prices pr
-              JOIN stripe.products p ON pr.product = p.id
-              WHERE pr.id = ${priceId} AND p.name = 'Premium Plan'
-            `
-          );
-          
-          if (premiumCheck.rows.length > 0) {
-            tier = 'premium';
-            break;
-          }
+    if (!subscriptionId) {
+      console.log('[Webhook] No subscription in checkout session, skipping');
+      return;
+    }
+
+    // Determine tier from the line items
+    let tier: 'pro' | 'premium' = 'pro';
+    const lineItems = session.line_items?.data || [];
+    
+    for (const item of lineItems) {
+      const priceId = typeof item.price === 'object' ? item.price.id : item.price;
+      if (priceId) {
+        const premiumCheck = await db.execute(
+          sql`
+            SELECT p.name FROM stripe.prices pr
+            JOIN stripe.products p ON pr.product = p.id
+            WHERE pr.id = ${priceId} AND p.name = 'Premium Plan'
+          `
+        );
+        
+        if (premiumCheck.rows.length > 0) {
+          tier = 'premium';
+          break;
         }
       }
+    }
 
-      const result = await db.execute(
-        sql`UPDATE users SET 
-          stripe_subscription_id = ${subscriptionId},
-          subscription_tier = ${tier},
-          subscription_status = 'active',
-          updated_at = NOW()
-        WHERE stripe_customer_id = ${customerId}
-        RETURNING id`
+    // First, try to find user by stripe customer ID
+    let result = await db.execute(
+      sql`UPDATE users SET 
+        stripe_subscription_id = ${subscriptionId},
+        subscription_tier = ${tier},
+        subscription_status = 'active',
+        updated_at = NOW()
+      WHERE stripe_customer_id = ${customerId}
+      RETURNING id, email, status`
+    );
+
+    if (result.rows.length > 0) {
+      console.log(`[Webhook] Checkout completed for existing user: ${(result.rows[0] as any).id}, tier: ${tier}`);
+      return;
+    }
+
+    // No user with that customer ID - check by email
+    if (customerEmail) {
+      const existingUser = await db.execute(
+        sql`SELECT id, status FROM users WHERE email = ${customerEmail}`
       );
 
-      if (result.rows.length > 0) {
-        console.log(`[Webhook] Checkout completed for user: ${(result.rows[0] as any).id}, tier: ${tier}`);
+      if (existingUser.rows.length > 0) {
+        // User exists - attach subscription to them
+        const userId = (existingUser.rows[0] as any).id;
+        await db.execute(
+          sql`UPDATE users SET 
+            stripe_customer_id = ${customerId},
+            stripe_subscription_id = ${subscriptionId},
+            subscription_tier = ${tier},
+            subscription_status = 'active',
+            updated_at = NOW()
+          WHERE id = ${userId}`
+        );
+        console.log(`[Webhook] Attached subscription to existing user by email: ${userId}, tier: ${tier}`);
+        return;
       }
+
+      // No user exists - create pending_activation user
+      console.log(`[Webhook] Creating pending activation user for: ${customerEmail}`);
+      
+      const { token, hash, expiresAt } = generateActivationToken();
+      
+      const newUser = await db.execute(
+        sql`INSERT INTO users (
+          email, 
+          status, 
+          activation_token_hash, 
+          activation_token_expires_at,
+          stripe_customer_id, 
+          stripe_subscription_id, 
+          subscription_tier, 
+          subscription_status
+        ) VALUES (
+          ${customerEmail}, 
+          'pending_activation', 
+          ${hash}, 
+          ${expiresAt},
+          ${customerId}, 
+          ${subscriptionId}, 
+          ${tier}, 
+          'active'
+        ) RETURNING id`
+      );
+
+      if (newUser.rows.length > 0) {
+        console.log(`[Webhook] Created pending user: ${(newUser.rows[0] as any).id}, sending activation email`);
+        
+        // Send activation email with the unhashed token
+        await sendActivationEmail(customerEmail, token, tier);
+      }
+    } else {
+      console.log('[Webhook] No customer email available, cannot create user');
     }
   } catch (error) {
     console.error('[Webhook] Error handling checkout completed:', error);

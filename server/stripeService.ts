@@ -25,6 +25,22 @@ export class StripeService {
     });
   }
 
+  // Guest checkout - no account required, Stripe collects email
+  async createGuestCheckoutSession(priceId: string, successUrl: string, cancelUrl: string) {
+    const stripe = await getUncachableStripeClient();
+    return await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: 'subscription',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      // Let Stripe collect email - no customer pre-created
+      customer_creation: 'always',
+      // Expand customer details in webhook
+      expand: ['customer'],
+    });
+  }
+
   async createCustomerPortalSession(customerId: string, returnUrl: string) {
     const stripe = await getUncachableStripeClient();
     return await stripe.billingPortal.sessions.create({

@@ -55,6 +55,9 @@ export interface IStorage {
     subscriptionTier?: string;
     subscriptionStatus?: string | null;
   }): Promise<User | undefined>;
+  getUserByActivationToken(tokenHash: string): Promise<User | undefined>;
+  activateUser(userId: string, passwordHash: string): Promise<User | undefined>;
+  updateActivationToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void>;
   
   // Property operations
   getProperty(id: string): Promise<Property | undefined>;
@@ -174,6 +177,40 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updatedUser;
+  }
+
+  async getUserByActivationToken(tokenHash: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.activationTokenHash, tokenHash));
+    return user;
+  }
+
+  async activateUser(userId: string, passwordHash: string): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        passwordHash,
+        status: 'active',
+        activationTokenHash: null,
+        activationTokenExpiresAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updatedUser;
+  }
+
+  async updateActivationToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        activationTokenHash: tokenHash,
+        activationTokenExpiresAt: expiresAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
   }
 
   // Property operations

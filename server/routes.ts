@@ -3,14 +3,14 @@ import { type Server } from "http";
 import passport from "passport";
 import { z } from "zod";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, optionalAuth, hashPassword } from "./auth";
+import { setupAuth, isAuthenticated, optionalAuth, hashPassword, hashActivationToken, generateActivationToken } from "./auth";
 import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, type ScenarioInputs } from "./openai";
 import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema, type ScreenerFilters } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
-import { sendWelcomeEmail, sendNewUserNotificationToAdmin } from "./emailService";
+import { sendWelcomeEmail, sendNewUserNotificationToAdmin, sendActivationEmail } from "./emailService";
 import { usageService, ActionType } from "./usageService";
 
 const FREE_TIER_LIMITS = {
@@ -1597,6 +1597,148 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error creating checkout session:", error);
       res.status(500).json({ message: "Unable to process checkout request" });
+    }
+  });
+
+  // Guest checkout - no account required, payment-first flow
+  app.post("/api/checkout/guest", async (req: any, res) => {
+    try {
+      const { priceId } = req.body;
+
+      if (!priceId || typeof priceId !== 'string' || !priceId.startsWith('price_')) {
+        return res.status(400).json({ message: "Invalid price ID format" });
+      }
+
+      // Validate that the price is for Pro or Premium plan
+      const priceValidation = await stripeService.isValidSubscriptionPrice(priceId);
+      if (!priceValidation.valid) {
+        return res.status(400).json({ message: "Invalid subscription plan" });
+      }
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const session = await stripeService.createGuestCheckoutSession(
+        priceId,
+        `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        `${baseUrl}/pricing`
+      );
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating guest checkout session:", error);
+      res.status(500).json({ message: "Unable to process checkout request" });
+    }
+  });
+
+  // Activate account - set password after payment
+  app.post("/api/auth/activate", async (req: any, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ message: "Invalid activation token" });
+      }
+
+      if (!password || typeof password !== 'string' || password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+
+      // Hash the token to compare with stored hash
+      const tokenHash = hashActivationToken(token);
+
+      // Find user by activation token hash
+      const result = await storage.getUserByActivationToken(tokenHash);
+      
+      if (!result) {
+        return res.status(400).json({ message: "Invalid or expired activation link" });
+      }
+
+      // Check if token is expired
+      if (result.activationTokenExpiresAt && new Date() > new Date(result.activationTokenExpiresAt)) {
+        return res.status(410).json({ 
+          message: "Activation link has expired. Please request a new one.",
+          expired: true 
+        });
+      }
+
+      // Hash password and activate user
+      const passwordHash = await hashPassword(password);
+      await storage.activateUser(result.id, passwordHash);
+
+      // Log the user in automatically
+      const user = await storage.getUser(result.id);
+      if (user) {
+        req.login({
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+        }, (err: any) => {
+          if (err) {
+            console.error("Error logging in after activation:", err);
+            return res.json({ 
+              success: true, 
+              message: "Account activated! Please log in.",
+              requiresLogin: true 
+            });
+          }
+          res.json({ 
+            success: true, 
+            message: "Account activated!",
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role,
+            }
+          });
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: "Account activated! Please log in.",
+          requiresLogin: true 
+        });
+      }
+    } catch (error) {
+      console.error("Error activating account:", error);
+      res.status(500).json({ message: "Failed to activate account" });
+    }
+  });
+
+  // Resend activation email
+  app.post("/api/auth/resend-activation", async (req: any, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        // Don't reveal if email exists
+        return res.json({ message: "If an account exists with that email, a new activation link has been sent." });
+      }
+
+      if (user.status !== 'pending_activation') {
+        return res.json({ message: "This account is already activated. Please log in." });
+      }
+
+      // Generate new activation token
+      const { token, hash, expiresAt } = generateActivationToken();
+      await storage.updateActivationToken(user.id, hash, expiresAt);
+
+      // Determine tier for email
+      const tier = user.subscriptionTier === 'premium' ? 'premium' : 'pro';
+      await sendActivationEmail(email, token, tier as 'pro' | 'premium');
+
+      res.json({ message: "If an account exists with that email, a new activation link has been sent." });
+    } catch (error) {
+      console.error("Error resending activation:", error);
+      res.status(500).json({ message: "Failed to resend activation email" });
     }
   });
 
