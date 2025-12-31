@@ -134,6 +134,8 @@ export const properties = pgTable(
     neighborhood: varchar("neighborhood"),
     latitude: real("latitude"),
     longitude: real("longitude"),
+    gridLat: integer("grid_lat"), // floor(lat * 1000) for fast spatial lookup (~100m precision)
+    gridLng: integer("grid_lng"), // floor(lng * 1000) for fast spatial lookup
     propertyType: varchar("property_type").notNull(),
     beds: integer("beds"),
     baths: real("baths"),
@@ -156,6 +158,7 @@ export const properties = pgTable(
     index("idx_properties_zip").on(table.zipCode),
     index("idx_properties_city").on(table.city),
     index("idx_properties_state").on(table.state),
+    index("idx_properties_grid").on(table.gridLat, table.gridLng),
   ]
 );
 
@@ -586,6 +589,285 @@ export const hpdRaw = pgTable(
 );
 
 export type HpdRaw = typeof hpdRaw.$inferSelect;
+
+// DOB Permits Raw - Building permits from NYC DOB
+export const dobPermitsRaw = pgTable(
+  "dob_permits_raw",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    jobNumber: varchar("job_number").notNull(),
+    bbl: varchar("bbl"),
+    bin: varchar("bin"),
+    borough: varchar("borough"),
+    block: varchar("block"),
+    lot: varchar("lot"),
+    houseNumber: varchar("house_number"),
+    streetName: text("street_name"),
+    zipCode: varchar("zip_code"),
+    jobType: varchar("job_type"), // NB (New Building), A1 (Alteration), DM (Demolition), etc.
+    jobDescription: text("job_description"),
+    workType: varchar("work_type"),
+    permitStatus: varchar("permit_status"), // Filed, Approved, In Process, Complete
+    filingDate: timestamp("filing_date"),
+    issuanceDate: timestamp("issuance_date"),
+    expirationDate: timestamp("expiration_date"),
+    estimatedCost: integer("estimated_cost"),
+    ownerBusinessName: text("owner_business_name"),
+    ownerName: text("owner_name"),
+    applicantName: text("applicant_name"),
+    professionalCert: boolean("professional_cert"),
+    existingStories: integer("existing_stories"),
+    proposedStories: integer("proposed_stories"),
+    existingDwellingUnits: integer("existing_dwelling_units"),
+    proposedDwellingUnits: integer("proposed_dwelling_units"),
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_dob_permits_bbl").on(table.bbl),
+    index("idx_dob_permits_job").on(table.jobNumber),
+    index("idx_dob_permits_filing").on(table.filingDate),
+  ]
+);
+
+export type DobPermitRaw = typeof dobPermitsRaw.$inferSelect;
+
+// DOB Complaints Raw - Building complaints from NYC DOB
+export const dobComplaintsRaw = pgTable(
+  "dob_complaints_raw",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    complaintNumber: varchar("complaint_number").notNull(),
+    bbl: varchar("bbl"),
+    bin: varchar("bin"),
+    borough: varchar("borough"),
+    block: varchar("block"),
+    lot: varchar("lot"),
+    houseNumber: varchar("house_number"),
+    streetName: text("street_name"),
+    zipCode: varchar("zip_code"),
+    complaintCategory: varchar("complaint_category"), // Construction, Plumbing, Electrical, etc.
+    complaintCategoryDescription: text("complaint_category_description"),
+    unitOrApartment: varchar("unit_or_apartment"),
+    status: varchar("status"), // Active, Closed
+    dispositionCode: varchar("disposition_code"),
+    dispositionDate: timestamp("disposition_date"),
+    dateEntered: timestamp("date_entered"),
+    inspectionDate: timestamp("inspection_date"),
+    dobRunDate: timestamp("dob_run_date"),
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_dob_complaints_bbl").on(table.bbl),
+    index("idx_dob_complaints_number").on(table.complaintNumber),
+    index("idx_dob_complaints_date").on(table.dateEntered),
+  ]
+);
+
+export type DobComplaintRaw = typeof dobComplaintsRaw.$inferSelect;
+
+// 311 Service Requests Raw - NYC 311 complaints
+export const complaints311Raw = pgTable(
+  "complaints_311_raw",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    uniqueKey: varchar("unique_key").notNull(),
+    bbl: varchar("bbl"),
+    latitude: real("latitude"),
+    longitude: real("longitude"),
+    address: text("address"),
+    city: varchar("city"),
+    borough: varchar("borough"),
+    zipCode: varchar("zip_code"),
+    complaintType: varchar("complaint_type"), // Noise, Heat/Hot Water, Illegal Parking, etc.
+    descriptor: text("descriptor"),
+    locationType: varchar("location_type"),
+    status: varchar("status"), // Open, Closed, Pending
+    resolutionDescription: text("resolution_description"),
+    createdDate: timestamp("created_date"),
+    closedDate: timestamp("closed_date"),
+    agency: varchar("agency"),
+    agencyName: varchar("agency_name"),
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_311_bbl").on(table.bbl),
+    index("idx_311_unique_key").on(table.uniqueKey),
+    index("idx_311_created").on(table.createdDate),
+    index("idx_311_type").on(table.complaintType),
+  ]
+);
+
+export type Complaint311Raw = typeof complaints311Raw.$inferSelect;
+
+// Subway Entrances - MTA subway station entrances for transit accessibility
+export const subwayEntrances = pgTable(
+  "subway_entrances",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    stationName: varchar("station_name").notNull(),
+    lineName: varchar("line_name"), // e.g., "A-C-E", "1-2-3"
+    division: varchar("division"), // BMT, IND, IRT
+    routesServed: text("routes_served").array(), // Array of routes: ["A", "C", "E"]
+    entranceType: varchar("entrance_type"), // Stair, Escalator, Elevator, etc.
+    isAccessible: boolean("is_accessible").default(false), // ADA accessible
+    latitude: real("latitude").notNull(),
+    longitude: real("longitude").notNull(),
+    gridLat: integer("grid_lat"), // floor(lat * 1000) for fast spatial lookup
+    gridLng: integer("grid_lng"), // floor(lng * 1000) for fast spatial lookup
+    corner: varchar("corner"), // NE, NW, SE, SW
+    northSouthStreet: text("north_south_street"),
+    eastWestStreet: text("east_west_street"),
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_subway_station").on(table.stationName),
+    index("idx_subway_grid").on(table.gridLat, table.gridLng),
+    index("idx_subway_accessible").on(table.isAccessible),
+  ]
+);
+
+export type SubwayEntrance = typeof subwayEntrances.$inferSelect;
+
+// Flood Zones - FEMA flood zone data mapped to BBL/area
+export const floodZones = pgTable(
+  "flood_zones",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    bbl: varchar("bbl"),
+    zipCode: varchar("zip_code"),
+    floodZone: varchar("flood_zone").notNull(), // X, A, AE, V, VE, AO, etc.
+    floodZoneSubtype: varchar("flood_zone_subtype"), // 0.2 PCT, 1 PCT, etc.
+    femaFirmPanelId: varchar("fema_firm_panel_id"),
+    effectiveDate: timestamp("effective_date"),
+    isHighRisk: boolean("is_high_risk").default(false), // Zone A or V
+    isModerateRisk: boolean("is_moderate_risk").default(false), // Zone X shaded
+    baseFloodElevation: real("base_flood_elevation"),
+    specialFloodHazardArea: boolean("special_flood_hazard_area").default(false),
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_flood_bbl").on(table.bbl),
+    index("idx_flood_zip").on(table.zipCode),
+    index("idx_flood_zone").on(table.floodZone),
+  ]
+);
+
+export type FloodZone = typeof floodZones.$inferSelect;
+
+// Amenities - Parks, restaurants, retail for walkability scoring
+export const amenities = pgTable(
+  "amenities",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    name: text("name").notNull(),
+    category: varchar("category").notNull(), // park, restaurant, grocery, retail, cafe, gym, etc.
+    subcategory: varchar("subcategory"),
+    address: text("address"),
+    city: varchar("city"),
+    borough: varchar("borough"),
+    zipCode: varchar("zip_code"),
+    latitude: real("latitude").notNull(),
+    longitude: real("longitude").notNull(),
+    gridLat: integer("grid_lat"), // floor(lat * 1000) for fast spatial lookup
+    gridLng: integer("grid_lng"), // floor(lng * 1000) for fast spatial lookup
+    sourceId: varchar("source_id"), // ID from source dataset
+    sourceType: varchar("source_type"), // nyc_parks, yelp, google, etc.
+    rawData: jsonb("raw_data"),
+    importedAt: timestamp("imported_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_amenities_category").on(table.category),
+    index("idx_amenities_grid").on(table.gridLat, table.gridLng),
+    index("idx_amenities_zip").on(table.zipCode),
+  ]
+);
+
+export type Amenity = typeof amenities.$inferSelect;
+
+// ============================================
+// PROPERTY SIGNAL SUMMARY - Precomputed NYC deep data per property
+// ============================================
+
+export const propertySignalSummary = pgTable(
+  "property_signal_summary",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    propertyId: varchar("property_id").references(() => properties.id).notNull(),
+    bbl: varchar("bbl"),
+    
+    // Building permits (construction momentum)
+    permitCount12m: integer("permit_count_12m").default(0),
+    permitCount24m: integer("permit_count_24m").default(0),
+    activePermits: integer("active_permits").default(0),
+    majorAlteration: boolean("major_alteration").default(false), // A1 permit in last 24m
+    newConstruction: boolean("new_construction").default(false), // NB permit
+    estimatedPermitValue: integer("estimated_permit_value"), // Sum of estimated costs
+    
+    // HPD violations & complaints (building health)
+    openHpdViolations: integer("open_hpd_violations").default(0),
+    totalHpdViolations12m: integer("total_hpd_violations_12m").default(0),
+    hazardousViolations: integer("hazardous_violations").default(0),
+    openHpdComplaints: integer("open_hpd_complaints").default(0),
+    totalHpdComplaints12m: integer("total_hpd_complaints_12m").default(0),
+    
+    // DOB complaints
+    dobComplaints12m: integer("dob_complaints_12m").default(0),
+    activeDobComplaints: integer("active_dob_complaints").default(0),
+    
+    // 311 complaints (neighborhood quality)
+    complaints311_12m: integer("complaints_311_12m").default(0),
+    noiseComplaints12m: integer("noise_complaints_12m").default(0),
+    
+    // Building health score (0-100, higher is better)
+    buildingHealthScore: integer("building_health_score"),
+    healthRiskLevel: varchar("health_risk_level"), // low, medium, high, critical
+    
+    // Transit accessibility
+    nearestSubwayMeters: integer("nearest_subway_meters"),
+    nearestSubwayStation: varchar("nearest_subway_station"),
+    nearestSubwayLines: text("nearest_subway_lines").array(),
+    hasAccessibleTransit: boolean("has_accessible_transit").default(false),
+    transitScore: integer("transit_score"), // 0-100
+    
+    // Flood risk
+    floodZone: varchar("flood_zone"),
+    isFloodHighRisk: boolean("is_flood_high_risk").default(false),
+    isFloodModerateRisk: boolean("is_flood_moderate_risk").default(false),
+    floodRiskLevel: varchar("flood_risk_level"), // minimal, moderate, high, severe
+    
+    // Amenity density
+    amenities400m: integer("amenities_400m").default(0), // ~5 min walk
+    amenities800m: integer("amenities_800m").default(0), // ~10 min walk
+    restaurants400m: integer("restaurants_400m").default(0),
+    parks400m: integer("parks_400m").default(0),
+    groceries800m: integer("groceries_800m").default(0),
+    amenityScore: integer("amenity_score"), // 0-100
+    
+    // NYC deep coverage indicator
+    hasDeepCoverage: boolean("has_deep_coverage").default(false),
+    signalDataSources: text("signal_data_sources").array(), // Which datasets contributed
+    
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_signal_property").on(table.propertyId),
+    index("idx_signal_bbl").on(table.bbl),
+    index("idx_signal_health").on(table.buildingHealthScore),
+    index("idx_signal_transit").on(table.transitScore),
+  ]
+);
+
+export const insertPropertySignalSummarySchema = createInsertSchema(propertySignalSummary).omit({
+  id: true,
+  updatedAt: true,
+});
+export type InsertPropertySignalSummary = z.infer<typeof insertPropertySignalSummarySchema>;
+export type PropertySignalSummary = typeof propertySignalSummary.$inferSelect;
 
 // ============================================
 // NORMALIZED TABLES - Processed and linked data
