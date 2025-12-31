@@ -35,12 +35,15 @@ export default function MarketExplorer() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGeo, setSelectedGeo] = useState<{ type: string; id: string; name: string } | null>(null);
 
+  const [autoSelectFromUrl, setAutoSelectFromUrl] = useState(false);
+
   // Read initial search query from URL
   useEffect(() => {
     const params = new URLSearchParams(searchString);
     const q = params.get("q");
     if (q) {
       setSearchQuery(q);
+      setAutoSelectFromUrl(true);
     }
   }, []);
   const [propertyType, setPropertyType] = useState<string>("all");
@@ -111,6 +114,14 @@ export default function MarketExplorer() {
     },
     enabled: searchQuery.length >= 2,
   });
+
+  // Auto-select first result when coming from URL query
+  useEffect(() => {
+    if (autoSelectFromUrl && searchResults && searchResults.length > 0 && !selectedGeo) {
+      setSelectedGeo(searchResults[0]);
+      setAutoSelectFromUrl(false);
+    }
+  }, [autoSelectFromUrl, searchResults, selectedGeo]);
 
   const { data: recentSales, isLoading: loadingSales } = useQuery<(Sale & { property: Property })[]>({
     queryKey: ["/api/market/recent-sales", selectedGeo?.type, selectedGeo?.id],
