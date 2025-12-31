@@ -37,9 +37,13 @@ export default function Landing() {
     queryKey: ["/api/stats/platform"],
   });
 
-  const { data: productsData } = useQuery<{ data: Product[] }>({
+  const { data: productsData, isLoading: isProductsLoading } = useQuery<{ data: Product[] }>({
     queryKey: ["/api/products"],
   });
+
+  const proProduct = productsData?.data?.find(p => p.metadata?.tier === "pro" || p.name === "Pro Plan");
+  const proMonthlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "month");
+  const isCheckoutReady = !isProductsLoading && !!proMonthlyPrice?.id;
 
   const guestCheckoutMutation = useMutation({
     mutationFn: async (priceId: string) => {
@@ -61,16 +65,8 @@ export default function Landing() {
   });
 
   const handleGetPro = () => {
-    const proProduct = productsData?.data?.find(p => p.metadata?.tier === "pro" || p.name === "Pro Plan");
-    const proMonthlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "month");
-    
     if (proMonthlyPrice?.id) {
       guestCheckoutMutation.mutate(proMonthlyPrice.id);
-    } else {
-      toast({
-        title: "Loading",
-        description: "Please wait while we prepare checkout...",
-      });
     }
   };
 
@@ -190,9 +186,9 @@ export default function Landing() {
                   className="h-14 px-8 text-lg" 
                   data-testid="button-hero-get-pro"
                   onClick={handleGetPro}
-                  disabled={guestCheckoutMutation.isPending}
+                  disabled={!isCheckoutReady || guestCheckoutMutation.isPending}
                 >
-                  {guestCheckoutMutation.isPending ? (
+                  {isProductsLoading || guestCheckoutMutation.isPending ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : null}
                   Get Pro - $29/mo
@@ -422,9 +418,9 @@ export default function Landing() {
               className="h-12 px-8 text-lg" 
               data-testid="button-cta"
               onClick={handleGetPro}
-              disabled={guestCheckoutMutation.isPending}
+              disabled={!isCheckoutReady || guestCheckoutMutation.isPending}
             >
-              {guestCheckoutMutation.isPending ? (
+              {isProductsLoading || guestCheckoutMutation.isPending ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : null}
               Get Pro - $29/mo

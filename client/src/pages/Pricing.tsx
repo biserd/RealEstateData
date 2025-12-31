@@ -253,14 +253,15 @@ export default function Pricing() {
           </Button>
         );
       }
+      const isCheckoutPending = checkoutMutation.isPending || guestCheckoutMutation.isPending || isProductsLoading;
       return (
         <Button
           className="w-full"
           onClick={() => handleUpgrade("pro")}
-          disabled={checkoutMutation.isPending || isAuthLoading}
+          disabled={isCheckoutPending || isAuthLoading}
           data-testid="button-upgrade-pro"
         >
-          {checkoutMutation.isPending ? (
+          {isCheckoutPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Loading...
@@ -293,14 +294,15 @@ export default function Pricing() {
           </Button>
         );
       }
+      const isPremiumCheckoutPending = checkoutMutation.isPending || guestCheckoutMutation.isPending || isProductsLoading;
       return (
         <Button
           className="w-full"
           onClick={() => handleUpgrade("premium")}
-          disabled={checkoutMutation.isPending || isAuthLoading}
+          disabled={isPremiumCheckoutPending || isAuthLoading}
           data-testid="button-upgrade-premium"
         >
-          {checkoutMutation.isPending ? (
+          {isPremiumCheckoutPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Loading...
