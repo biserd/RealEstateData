@@ -1,0 +1,193 @@
+Perfect — with Neon Postgres + Drizzle + lat/lng already stored, you can ship serious NYC “deep data” without PostGIS. The trick is: join everything by BBL when possible, and when you need “within X meters”, use plain math + pre-aggregation so queries stay fast.
+
+Here’s what I’d do with your stack.
+
+⸻
+
+1) Core principle: BBL-first, lat/lng-second
+
+A) BBL-first (best for NYC government data)
+
+Most NYC datasets already include BBL (Borough-Block-Lot) or can be mapped to it. So you want:
+	•	property.bbl stored on your listing record whenever possible
+	•	fallback mapping: address → BBL via NYC address/parcel reference tables
+
+B) lat/lng-second (for “distance” features)
+
+Use your existing property.lat / property.lng for:
+	•	transit distance
+	•	amenity density
+	•	neighborhood heat maps
+
+No PostGIS needed if you precompute and avoid heavy runtime “find nearest 50k points” queries.
+
+⸻
+
+2) Data pipeline you can run on Neon (simple + robust)
+
+Ingest → Normalize → Aggregate → Serve
+
+Ingest (raw tables)
+
+Keep raw “source” tables per dataset (DOB permits, HPD violations, 311, subway entrances, etc.).
+
+Normalize (join keys + cleaning)
+	•	Normalize to BBL (preferred) and/or lat/lng
+	•	Maintain a property_key mapping table: bbl, normalized_address, bin (if you add it later)
+
+Aggregate (the secret sauce)
+
+Create small “product-ready” tables so your app queries are cheap:
+	•	property_signal_summary (1 row per property)
+	•	property_signal_timeseries (daily/weekly buckets)
+	•	area_signal_summary (by NTA / ZIP / census tract if you want neighborhood rollups)
+
+This is how you keep performance good on serverless Postgres.
+
+⸻
+
+3) Schema that fits Drizzle + plain Postgres
+
+A) Your properties table
+
+Add these fields (if not present):
+	•	bbl (text or bigint; I prefer text to preserve leading zeros safely)
+	•	borough_code (optional)
+	•	updated_at
+
+B) Lookup tables (to map addresses → BBL)
+	•	nyc_bbl_lookup
+Columns: bbl, house_number, street_name, zip, bin?, lat, lng, source, confidence
+
+This lets you resolve BBL for listings even if you don’t actively geocode.
+
+C) Signal tables (raw)
+
+Examples:
+	•	dob_permits_raw
+	•	hpd_violations_raw
+	•	dob_complaints_raw
+	•	subway_entrances_raw
+	•	flood_zone_raw (often categorical per area/parcel mapping)
+
+All of these should have: bbl (nullable), occurred_at, source_id, plus the source fields you care about.
+
+D) Product tables (aggregated)
+	•	property_signal_summary
+	•	property_id
+	•	permit_count_12m
+	•	open_hpd_violations
+	•	dob_complaints_12m
+	•	flood_zone
+	•	nearest_subway_m
+	•	accessible_transit_score
+	•	amenities_10min_walk
+	•	updated_at
+	•	property_signal_timeseries
+	•	property_id, bucket_date, signal_type, value
+
+This is what your UI queries.
+
+⸻
+
+4) Doing distance queries without PostGIS (fast enough if you do it right)
+
+Option 1 (recommended): precompute nearest features
+
+Nightly/weekly job:
+	•	for each property, compute:
+	•	nearest subway entrance distance
+	•	count of amenities within 400m / 800m
+Store results in property_signal_summary.
+
+Option 2: runtime distance math + bounding box filter
+
+If you must do runtime:
+	1.	First filter candidates by a bounding box (cheap)
+	2.	Then compute haversine distance (more expensive)
+
+Example SQL (plain Postgres):
+
+-- bounding box first, then haversine
+WITH candidates AS (
+  SELECT id, lat, lng
+  FROM subway_entrances_raw
+  WHERE lat BETWEEN $1 - $3 AND $1 + $3
+    AND lng BETWEEN $2 - $4 AND $2 + $4
+)
+SELECT id,
+  6371000 * 2 * asin(
+    sqrt(
+      power(sin(radians(lat - $1)/2), 2) +
+      cos(radians($1)) * cos(radians(lat)) *
+      power(sin(radians(lng - $2)/2), 2)
+    )
+  ) AS meters
+FROM candidates
+ORDER BY meters
+LIMIT 1;
+
+$1/$2 = property lat/lng. $3/$4 = lat/lng deltas that approximate your radius.
+
+Performance trick (no PostGIS): grid key
+
+Add a computed grid/geohash column (or simple “tile id”):
+	•	grid_lat = floor(lat * 100) and grid_lng = floor(lng * 100) (≈1km-ish, tune multiplier)
+Index (grid_lat, grid_lng)
+Then your candidate search becomes “check my tile and adjacent tiles” → very fast.
+
+⸻
+
+5) Address matching without running a full geocoder
+
+Since you already use Google Places for autocomplete, you can:
+	•	store place_id
+	•	store Google-normalized formatted address
+	•	on save: resolve BBL by matching against your nyc_bbl_lookup using:
+	•	exact match on house # + street + zip (best)
+	•	fallback: fuzzy match with trigram search (if you enable pg_trgm)
+
+This avoids calling paid geocoding for every record.
+
+⸻
+
+6) What you can ship first (NYC “wow” features)
+
+Given your stack, here’s the best “impact per dev hour” set:
+	1.	Building Health (HPD violations + complaints + DOB complaints)
+	2.	Renovation / Construction Momentum (DOB permits last 12–24 months)
+	3.	Flood Risk Flag (categorical display + explanation)
+	4.	Transit Distance + Accessibility (nearest entrance + accessibility indicator)
+	5.	Amenity Density (parks/restaurants/etc. within 10-min walk)
+
+All of these can be property-level summaries that load instantly.
+
+⸻
+
+7) Suggested rollout plan (fast and realistic)
+
+Week 1
+	•	Add bbl to properties + build nyc_bbl_lookup
+	•	Ingest 1–2 datasets (permits + HPD violations)
+	•	Build property_signal_summary for those
+
+Week 2
+	•	Add DOB complaints + 311 (aggregated to property or small area)
+	•	Ship Building Health + Momentum UI widgets
+
+Week 3
+	•	Add subway entrances + nearest distance precompute
+	•	Add amenity density (start with parks + restaurants)
+
+Week 4
+	•	Add flood flag + “NYC Deep Data” report export
+
+⸻
+
+One key question (but I’ll still keep moving without it)
+
+Do you already have BBL on each property today, or just lat/lng + address?
+	•	If you already have BBL → you can ship NYC deep data very fast.
+	•	If not → the first milestone is building that nyc_bbl_lookup mapping so everything joins cleanly.
+
+If you tell me which two datasets you want to launch first (permits + violations? transit + flood?), I’ll give you a concrete Drizzle schema + a job spec (tables, indexes, refresh cadence, and the exact aggregation queries).
