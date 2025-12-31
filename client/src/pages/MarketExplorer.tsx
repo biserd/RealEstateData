@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { Search, MapPin, TrendingUp, TrendingDown, DollarSign, Home, Activity, Download, Filter, Map } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,18 @@ import { Link } from "wouter";
 
 export default function MarketExplorer() {
   const { toast } = useToast();
+  const searchString = useSearch();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGeo, setSelectedGeo] = useState<{ type: string; id: string; name: string } | null>(null);
+
+  // Read initial search query from URL
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const q = params.get("q");
+    if (q) {
+      setSearchQuery(q);
+    }
+  }, []);
   const [propertyType, setPropertyType] = useState<string>("all");
   const [bedsBand, setBedsBand] = useState<string>("all");
   const [yearBuiltBand, setYearBuiltBand] = useState<string>("all");

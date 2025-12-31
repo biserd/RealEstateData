@@ -70,7 +70,7 @@ export default function Landing() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      setLocation(`/market-explorer?q=${encodeURIComponent(searchQuery.trim())}`);
+      setLocation(`/market-intelligence?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
 
