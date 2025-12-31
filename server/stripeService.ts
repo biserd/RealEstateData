@@ -34,10 +34,8 @@ export class StripeService {
       mode: 'subscription',
       success_url: successUrl,
       cancel_url: cancelUrl,
-      // Let Stripe collect email - no customer pre-created
-      customer_creation: 'always',
-      // Expand customer details in webhook
-      expand: ['customer'],
+      // For subscription mode, Stripe automatically creates/requires customers
+      // Customer email is collected during checkout
     });
   }
 
