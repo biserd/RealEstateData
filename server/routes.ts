@@ -673,6 +673,117 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // NYC Deep Coverage - Property Signals
+  app.get("/api/properties/:id/signals", async (req, res) => {
+    try {
+      const property = await storage.getProperty(req.params.id);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      // Check if this is a NYC property
+      const nycBoroughs = ["Manhattan", "Brooklyn", "Bronx", "Queens", "Staten Island"];
+      const isNYC = property.state === "NY" && nycBoroughs.includes(property.city);
+      
+      if (!isNYC) {
+        return res.json({
+          hasDeepCoverage: false,
+          message: "Deep coverage is currently available for NYC properties only",
+          property: { id: property.id, city: property.city, state: property.state },
+        });
+      }
+      
+      const signals = await storage.getPropertySignals(req.params.id);
+      
+      if (!signals) {
+        // Return empty signals structure if no data yet
+        return res.json({
+          hasDeepCoverage: true,
+          signalsAvailable: false,
+          message: "Deep coverage data is being processed for this property",
+          property: { id: property.id, bbl: property.bbl, city: property.city },
+        });
+      }
+      
+      res.json({
+        hasDeepCoverage: true,
+        signalsAvailable: true,
+        signals,
+      });
+    } catch (error) {
+      console.error("Error fetching property signals:", error);
+      res.status(500).json({ message: "Failed to fetch property signals" });
+    }
+  });
+
+  // NYC Deep Coverage - Area signals summary
+  app.get("/api/nyc/coverage/:geoType/:geoId", async (req, res) => {
+    try {
+      const { geoType, geoId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      // Get accurate coverage counts from full population (not limited)
+      const coverageCounts = await storage.getDeepCoverageCounts(geoType, geoId);
+      
+      // Get sample of properties for aggregates calculation
+      const propertiesWithSignals = await storage.getPropertiesWithDeepCoverage(geoType, geoId, limit);
+      
+      // Calculate area-level signal aggregates from sample
+      const signalsData = propertiesWithSignals.filter(p => p.signals);
+      
+      // Aggregate metrics
+      const avgBuildingHealth = signalsData.length > 0
+        ? Math.round(signalsData.reduce((sum, p) => sum + (p.signals?.buildingHealthScore || 0), 0) / signalsData.length)
+        : null;
+      
+      const avgTransitScore = signalsData.length > 0
+        ? Math.round(signalsData.reduce((sum, p) => sum + (p.signals?.transitScore || 0), 0) / signalsData.length)
+        : null;
+      
+      const avgAmenityScore = signalsData.length > 0
+        ? Math.round(signalsData.reduce((sum, p) => sum + (p.signals?.amenityScore || 0), 0) / signalsData.length)
+        : null;
+      
+      const highRiskFlood = signalsData.filter(p => p.signals?.isFloodHighRisk).length;
+      const moderateRiskFlood = signalsData.filter(p => p.signals?.isFloodModerateRisk).length;
+      
+      const totalActivePermits = signalsData.reduce((sum, p) => sum + (p.signals?.activePermits || 0), 0);
+      const totalOpenViolations = signalsData.reduce((sum, p) => sum + (p.signals?.openHpdViolations || 0), 0);
+      
+      res.json({
+        geoType,
+        geoId,
+        coverage: {
+          totalProperties: coverageCounts.totalProperties,
+          withDeepCoverage: coverageCounts.withSignals,
+          coveragePercent: coverageCounts.totalProperties > 0 
+            ? Math.round((coverageCounts.withSignals / coverageCounts.totalProperties) * 100) 
+            : 0,
+        },
+        aggregates: {
+          avgBuildingHealthScore: avgBuildingHealth,
+          avgTransitScore,
+          avgAmenityScore,
+          floodRisk: {
+            highRisk: highRiskFlood,
+            moderateRisk: moderateRiskFlood,
+            lowRisk: withSignals - highRiskFlood - moderateRiskFlood,
+          },
+          constructionActivity: {
+            totalActivePermits,
+          },
+          compliance: {
+            totalOpenViolations,
+          },
+        },
+        properties: propertiesWithSignals.slice(0, 20), // Return sample of properties
+      });
+    } catch (error) {
+      console.error("Error fetching NYC coverage:", error);
+      res.status(500).json({ message: "Failed to fetch NYC coverage data" });
+    }
+  });
+
   // Market routes - public read access
   app.get("/api/market/overview", async (req, res) => {
     try {

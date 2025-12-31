@@ -14,6 +14,7 @@ import {
   dataSources,
   aiChats,
   apiKeys,
+  propertySignalSummary,
   type User,
   type InsertUser,
   type Property,
@@ -42,6 +43,8 @@ import {
   type InsertApiKey,
   type ScreenerFilters,
   type UpAndComingZip,
+  type PropertySignalSummary,
+  type InsertPropertySignalSummary,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -123,6 +126,13 @@ export interface IStorage {
   
   // Up and coming ZIP codes
   getUpAndComingZips(state?: string, limit?: number): Promise<UpAndComingZip[]>;
+  
+  // NYC Deep Coverage - Property Signals
+  getPropertySignals(propertyId: string): Promise<PropertySignalSummary | undefined>;
+  getPropertySignalsByBbl(bbl: string): Promise<PropertySignalSummary | undefined>;
+  createOrUpdatePropertySignals(signals: InsertPropertySignalSummary): Promise<PropertySignalSummary>;
+  getPropertiesWithDeepCoverage(geoType: string, geoId: string, limit?: number): Promise<(Property & { signals?: PropertySignalSummary })[]>;
+  getDeepCoverageCounts(geoType: string, geoId: string): Promise<{ totalProperties: number; withSignals: number }>;
   
   // Platform statistics
   getPlatformStats(): Promise<{
@@ -807,6 +817,122 @@ export class DatabaseStorage implements IStorage {
     results.sort((a, b) => b.trendScore - a.trendScore);
 
     return results.slice(0, limit);
+  }
+
+  // NYC Deep Coverage - Property Signals
+  async getPropertySignals(propertyId: string): Promise<PropertySignalSummary | undefined> {
+    const [signals] = await db
+      .select()
+      .from(propertySignalSummary)
+      .where(eq(propertySignalSummary.propertyId, propertyId));
+    return signals;
+  }
+
+  async getPropertySignalsByBbl(bbl: string): Promise<PropertySignalSummary | undefined> {
+    const [signals] = await db
+      .select()
+      .from(propertySignalSummary)
+      .where(eq(propertySignalSummary.bbl, bbl));
+    return signals;
+  }
+
+  async createOrUpdatePropertySignals(signals: InsertPropertySignalSummary): Promise<PropertySignalSummary> {
+    const existing = await this.getPropertySignals(signals.propertyId);
+    if (existing) {
+      const [updated] = await db
+        .update(propertySignalSummary)
+        .set({ ...signals, updatedAt: new Date() })
+        .where(eq(propertySignalSummary.propertyId, signals.propertyId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(propertySignalSummary).values(signals).returning();
+    return created;
+  }
+
+  async getPropertiesWithDeepCoverage(geoType: string, geoId: string, limit = 50): Promise<(Property & { signals?: PropertySignalSummary })[]> {
+    const conditions = [];
+    
+    if (geoType === "zip") {
+      conditions.push(eq(properties.zipCode, geoId));
+    } else if (geoType === "city") {
+      conditions.push(eq(properties.city, geoId));
+    } else if (geoType === "county") {
+      conditions.push(eq(properties.county, geoId));
+    } else if (geoType === "neighborhood") {
+      conditions.push(eq(properties.neighborhood, geoId));
+    }
+    
+    // Only NYC properties with state = 'NY' and borough cities
+    conditions.push(eq(properties.state, "NY"));
+    conditions.push(
+      or(
+        eq(properties.city, "Manhattan"),
+        eq(properties.city, "Brooklyn"),
+        eq(properties.city, "Bronx"),
+        eq(properties.city, "Queens"),
+        eq(properties.city, "Staten Island")
+      )
+    );
+    
+    const result = await db
+      .select({
+        property: properties,
+        signals: propertySignalSummary,
+      })
+      .from(properties)
+      .leftJoin(propertySignalSummary, eq(properties.id, propertySignalSummary.propertyId))
+      .where(and(...conditions))
+      .limit(limit);
+    
+    return result.map((r) => ({
+      ...r.property,
+      signals: r.signals || undefined,
+    }));
+  }
+
+  async getDeepCoverageCounts(geoType: string, geoId: string): Promise<{ totalProperties: number; withSignals: number }> {
+    const conditions = [];
+    
+    if (geoType === "zip") {
+      conditions.push(eq(properties.zipCode, geoId));
+    } else if (geoType === "city") {
+      conditions.push(eq(properties.city, geoId));
+    } else if (geoType === "county") {
+      conditions.push(eq(properties.county, geoId));
+    } else if (geoType === "neighborhood") {
+      conditions.push(eq(properties.neighborhood, geoId));
+    }
+    
+    // Only NYC properties with state = 'NY' and borough cities
+    conditions.push(eq(properties.state, "NY"));
+    conditions.push(
+      or(
+        eq(properties.city, "Manhattan"),
+        eq(properties.city, "Brooklyn"),
+        eq(properties.city, "Bronx"),
+        eq(properties.city, "Queens"),
+        eq(properties.city, "Staten Island")
+      )
+    );
+    
+    // Count total properties in the geography
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(properties)
+      .where(and(...conditions));
+    
+    // Count properties with signal summaries
+    const [withSignalsResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(properties)
+      .innerJoin(propertySignalSummary, eq(properties.id, propertySignalSummary.propertyId))
+      .where(and(...conditions));
+    
+    return {
+      totalProperties: totalResult?.count || 0,
+      withSignals: withSignalsResult?.count || 0,
+    };
   }
 
   async getPlatformStats(): Promise<{

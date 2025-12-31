@@ -46,6 +46,7 @@ import { DealMemo } from "@/components/DealMemo";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { UpgradeModal, BlurredContent, ProBadge } from "@/components/UpgradePrompt";
 import { PropertyStickyCTA } from "@/components/PropertyStickyCTA";
+import { NycDeepInsights } from "@/components/NycDeepInsights";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -858,50 +859,11 @@ export default function PropertyDetail() {
           </TabsContent>
 
           <TabsContent value="signals">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Permit Activity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    No recent permit data available for this property.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Violations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span className="text-sm font-medium">No active violations</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Transit Access</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Transit data not available for this location.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Flood Risk</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span className="text-sm font-medium">Minimal flood risk</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <NycDeepInsights 
+              propertyId={id!} 
+              city={property.city} 
+              state={property.state} 
+            />
           </TabsContent>
 
           <TabsContent value="ai">

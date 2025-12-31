@@ -33,7 +33,7 @@ export default function MarketExplorer() {
   const { toast } = useToast();
   const searchString = useSearch();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedGeo, setSelectedGeo] = useState<{ type: string; id: string; name: string } | null>(null);
+  const [selectedGeo, setSelectedGeo] = useState<{ type: string; id: string; name: string; state?: string } | null>(null);
 
   const [autoSelectFromUrl, setAutoSelectFromUrl] = useState(false);
 
@@ -271,6 +271,12 @@ export default function MarketExplorer() {
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{selectedGeo.type}</Badge>
                     <CoverageBadge level="Comps" />
+                    {selectedGeo.state === "NY" && 
+                     ["Manhattan", "Brooklyn", "Bronx", "Queens", "Staten Island"].some(
+                       borough => selectedGeo.name.includes(borough) || selectedGeo.id.startsWith("10") || selectedGeo.id.startsWith("11")
+                     ) && (
+                      <CoverageBadge level="AltSignals" />
+                    )}
                   </div>
                 </div>
               </div>
