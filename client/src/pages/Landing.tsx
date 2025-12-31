@@ -1,4 +1,5 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useState } from "react";
 import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,8 @@ interface PlatformStats {
 
 export default function Landing() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [searchQuery, setSearchQuery] = useState("");
   
   const { data: platformStats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/stats/platform"],
@@ -63,6 +66,13 @@ export default function Landing() {
       });
     },
   });
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setLocation(`/market-explorer?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   const handleGetPro = () => {
     if (proMonthlyPrice?.id) {
@@ -202,7 +212,7 @@ export default function Landing() {
                 </Link>
               </div>
 
-              <div className="mx-auto mb-8 max-w-xl">
+              <form onSubmit={handleSearch} className="mx-auto mb-8 max-w-xl">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -210,9 +220,11 @@ export default function Landing() {
                     placeholder="Search by ZIP code, city, or address..."
                     className="h-12 pl-12 pr-4 text-base"
                     data-testid="input-hero-search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-              </div>
+              </form>
 
               <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
                 {coverageAreas.map((area) => (
