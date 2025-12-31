@@ -4,6 +4,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
 
@@ -70,6 +71,16 @@ export async function setupAuth(app: Express) {
             return done(null, false, { message: "Invalid email or password" });
           }
 
+          // Reject pending_activation users - they need to complete activation first
+          if (user.status === "pending_activation") {
+            return done(null, false, { message: "Please complete your account activation first. Check your email for the activation link." });
+          }
+
+          // Users without a password can't log in with password
+          if (!user.passwordHash) {
+            return done(null, false, { message: "Invalid email or password" });
+          }
+
           const isValid = await verifyPassword(password, user.passwordHash);
           if (!isValid) {
             return done(null, false, { message: "Invalid email or password" });
@@ -124,3 +135,21 @@ export const optionalAuth: RequestHandler = (req, res, next) => {
     next();
   })(req, res, next);
 };
+
+// Activation token utilities
+const ACTIVATION_TOKEN_EXPIRY_MINUTES = 60; // 1 hour
+
+export function generateActivationToken(): { token: string; hash: string; expiresAt: Date } {
+  // Generate a secure random token
+  const token = crypto.randomBytes(32).toString("hex");
+  // Hash the token for storage (SHA-256)
+  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  // Set expiry
+  const expiresAt = new Date(Date.now() + ACTIVATION_TOKEN_EXPIRY_MINUTES * 60 * 1000);
+  
+  return { token, hash, expiresAt };
+}
+
+export function hashActivationToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}

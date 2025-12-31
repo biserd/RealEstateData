@@ -28,16 +28,23 @@ export const sessions = pgTable(
 export const subscriptionTiers = ["free", "pro", "premium"] as const;
 export type SubscriptionTier = typeof subscriptionTiers[number];
 
+// User account status
+export const userStatuses = ["active", "pending_activation"] as const;
+export type UserStatus = typeof userStatuses[number];
+
 // User storage table for username/password authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique().notNull(),
-  passwordHash: varchar("password_hash").notNull(),
+  passwordHash: varchar("password_hash"), // Nullable for pending_activation users
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").default("user"), // user, admin
-  subscriptionTier: varchar("subscription_tier").default("free"), // free, pro
+  status: varchar("status").default("active"), // active, pending_activation
+  activationTokenHash: varchar("activation_token_hash"), // Hashed activation token
+  activationTokenExpiresAt: timestamp("activation_token_expires_at"), // Token expiry
+  subscriptionTier: varchar("subscription_tier").default("free"), // free, pro, premium
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionStatus: varchar("subscription_status"), // active, canceled, past_due, etc.
