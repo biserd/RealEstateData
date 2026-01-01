@@ -1129,7 +1129,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // AI Property Insights - Pro only (includes What Now feature)
-  app.get("/api/ai/insights/:propertyId", isAuthenticated, requirePro, async (req: any, res) => {
+  app.get("/api/ai/insights/:propertyId", optionalAuth, async (req: any, res) => {
     try {
       const { propertyId } = req.params;
       const userId = req.user?.id;
@@ -1140,15 +1140,16 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(404).json({ message: "Property not found" });
       }
       
+      // Get user tier
+      const user = userId ? await storage.getUser(userId) : null;
+      const userTier = (user?.subscriptionTier as "free" | "pro" | "premium") || "free";
+      const isPro = userTier === "pro" || userTier === "premium";
+      
       // Get property signals
       const signals = await storage.getPropertySignals(propertyId);
       
       // Get market data for this property's ZIP
       const marketData = await storage.getMarketAggregates("zip", property.zipCode, {});
-      
-      // Get user tier
-      const user = userId ? await storage.getUser(userId) : null;
-      const userTier = (user?.subscriptionTier as "free" | "pro" | "premium") || "free";
       
       const insights = await generatePropertyInsights(
         property,
@@ -1168,7 +1169,28 @@ Sitemap: ${baseUrl}/sitemap.xml
         userTier
       );
       
-      res.json(insights);
+      // For free users, return a preview (headline insights only, blur rest)
+      if (!isPro) {
+        res.json({
+          investmentSummary: insights.investmentSummary,
+          headlineInsights: insights.headlineInsights,
+          riskAssessment: {
+            level: insights.riskAssessment.level,
+            factors: [], // Hidden for free users
+          },
+          valueDrivers: [], // Hidden for free users
+          concerns: [], // Hidden for free users
+          neighborhoodTrends: "", // Hidden for free users
+          neighborhoodEvidence: [],
+          buyerProfile: "", // Hidden for free users
+          whatNow: [], // Hidden for free users
+          generatedAt: insights.generatedAt,
+          isPreview: true,
+        });
+        return;
+      }
+      
+      res.json({ ...insights, isPreview: false });
     } catch (error) {
       console.error("Error generating property insights:", error);
       res.status(500).json({ message: "Failed to generate insights" });

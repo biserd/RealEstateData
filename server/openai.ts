@@ -562,18 +562,26 @@ CALCULATED RESULTS:
 }
 
 // AI Property Insights Types
+export interface CitedClaim {
+  claim: string;
+  evidence: string[];
+}
+
 export interface PropertyInsights {
   investmentSummary: string;
+  headlineInsights: string[];
   riskAssessment: {
     level: "Low" | "Medium" | "High";
-    factors: string[];
+    factors: CitedClaim[];
   };
-  valueDrivers: string[];
-  concerns: string[];
+  valueDrivers: CitedClaim[];
+  concerns: CitedClaim[];
   neighborhoodTrends: string;
+  neighborhoodEvidence: string[];
   buyerProfile: string;
   whatNow: WhatNowAction[];
   generatedAt: string;
+  isPreview?: boolean;
 }
 
 export interface WhatNowAction {
@@ -607,8 +615,8 @@ export async function generatePropertyInsights(
 Your role is to synthesize property data, alternative signals, and market context into actionable insights.
 
 CRITICAL RULES:
-1. Be specific and data-driven - cite actual numbers
-2. Tailor advice to realistic next steps
+1. Be specific and data-driven - cite actual numbers from the data provided
+2. For EVERY claim you make, include the exact data point(s) that support it
 3. Highlight both opportunities and risks
 4. Consider building health, transit, flood risk when available
 5. Make "What Now" actions concrete and actionable
@@ -616,16 +624,31 @@ CRITICAL RULES:
 RESPONSE FORMAT (JSON):
 {
   "investmentSummary": "2-3 sentence assessment of this property as an investment/purchase opportunity",
+  "headlineInsights": ["One impactful insight", "Another key finding", "Third takeaway"],
   "riskLevel": "Low|Medium|High",
-  "riskFactors": ["specific risk 1", "specific risk 2", "specific risk 3"],
-  "valueDrivers": ["positive factor 1", "positive factor 2", "positive factor 3"],
-  "concerns": ["concern 1", "concern 2"],
+  "riskFactors": [
+    {"claim": "specific risk description", "evidence": ["data point 1", "data point 2"]}
+  ],
+  "valueDrivers": [
+    {"claim": "positive factor description", "evidence": ["supporting data"]}
+  ],
+  "concerns": [
+    {"claim": "concern description", "evidence": ["relevant data"]}
+  ],
   "neighborhoodTrends": "1-2 sentence market trend assessment",
+  "neighborhoodEvidence": ["12-month trend data", "transaction volume"],
   "buyerProfile": "Who is this property best suited for (1 sentence)",
   "whatNow": [
     {"title": "Action title", "description": "Specific action description", "priority": "high|medium|low", "type": "action|research|contact"}
   ]
 }
+
+EVIDENCE EXAMPLES:
+- "Building health: 12 open HPD violations"
+- "Transit score: 87/100 (3-min walk to F train)"
+- "Flood zone: AE (high risk)"
+- "12-month price trend: +8.2%"
+- "Active permits: 3 (last issued 21 days ago)"
 
 WHAT NOW PRIORITIES:
 - high: Must do before making offer
@@ -697,15 +720,31 @@ Recent Transactions: ${marketData.transactionCount || "N/A"}
         }))
       : getDefaultWhatNow(property, signals, userTier);
 
+    // Parse cited claims (handle both old string[] format and new object format)
+    const parseCitedClaims = (items: any[]): CitedClaim[] => {
+      if (!Array.isArray(items)) return [];
+      return items.slice(0, 5).map((item: any) => {
+        if (typeof item === "string") {
+          return { claim: item, evidence: [] };
+        }
+        return {
+          claim: item.claim || item.toString(),
+          evidence: Array.isArray(item.evidence) ? item.evidence : [],
+        };
+      });
+    };
+
     return {
       investmentSummary: parsed.investmentSummary || "Unable to generate analysis. Please review property details manually.",
+      headlineInsights: Array.isArray(parsed.headlineInsights) ? parsed.headlineInsights.slice(0, 3) : [],
       riskAssessment: {
         level: validRiskLevels.includes(parsed.riskLevel) ? parsed.riskLevel : "Medium",
-        factors: Array.isArray(parsed.riskFactors) ? parsed.riskFactors.slice(0, 5) : [],
+        factors: parseCitedClaims(parsed.riskFactors),
       },
-      valueDrivers: Array.isArray(parsed.valueDrivers) ? parsed.valueDrivers.slice(0, 5) : [],
-      concerns: Array.isArray(parsed.concerns) ? parsed.concerns.slice(0, 5) : [],
+      valueDrivers: parseCitedClaims(parsed.valueDrivers),
+      concerns: parseCitedClaims(parsed.concerns),
       neighborhoodTrends: parsed.neighborhoodTrends || "Market data limited.",
+      neighborhoodEvidence: Array.isArray(parsed.neighborhoodEvidence) ? parsed.neighborhoodEvidence : [],
       buyerProfile: parsed.buyerProfile || "Property suitable for various buyer types.",
       whatNow: whatNowActions,
       generatedAt: new Date().toISOString(),
@@ -714,10 +753,12 @@ Recent Transactions: ${marketData.transactionCount || "N/A"}
     console.error("Property insights error:", error);
     return {
       investmentSummary: "Unable to generate AI insights. Please review the property data manually.",
-      riskAssessment: { level: "Medium", factors: ["AI analysis unavailable"] },
+      headlineInsights: [],
+      riskAssessment: { level: "Medium", factors: [{ claim: "AI analysis unavailable", evidence: [] }] },
       valueDrivers: [],
       concerns: [],
       neighborhoodTrends: "Market analysis unavailable.",
+      neighborhoodEvidence: [],
       buyerProfile: "Review property details to determine fit.",
       whatNow: getDefaultWhatNow(property, signals, userTier),
       generatedAt: new Date().toISOString(),

@@ -13,13 +13,24 @@ import {
   Search,
   Phone,
   Bookmark,
-  FileText
+  FileText,
+  Info
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+
+interface CitedClaim {
+  claim: string;
+  evidence: string[];
+}
 
 interface WhatNowAction {
   title: string;
@@ -31,16 +42,19 @@ interface WhatNowAction {
 
 interface PropertyInsights {
   investmentSummary: string;
+  headlineInsights: string[];
   riskAssessment: {
     level: "Low" | "Medium" | "High";
-    factors: string[];
+    factors: CitedClaim[];
   };
-  valueDrivers: string[];
-  concerns: string[];
+  valueDrivers: CitedClaim[];
+  concerns: CitedClaim[];
   neighborhoodTrends: string;
+  neighborhoodEvidence: string[];
   buyerProfile: string;
   whatNow: WhatNowAction[];
   generatedAt: string;
+  isPreview?: boolean;
 }
 
 interface PropertyAIInsightsProps {
@@ -102,6 +116,61 @@ function RiskLevelIndicator({ level }: { level: string }) {
   );
 }
 
+function EvidenceBadges({ evidence }: { evidence: string[] }) {
+  if (!evidence || evidence.length === 0) return null;
+  
+  return (
+    <div className="flex flex-wrap gap-1 mt-1">
+      {evidence.map((item, i) => (
+        <Badge 
+          key={i} 
+          variant="outline" 
+          className="text-xs font-normal bg-muted/30 border-muted-foreground/20"
+        >
+          <Info className="h-3 w-3 mr-1 opacity-50" />
+          {item}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function CitedClaimItem({ 
+  claim, 
+  icon, 
+  iconColor 
+}: { 
+  claim: CitedClaim; 
+  icon: string;
+  iconColor: string;
+}) {
+  return (
+    <li className="space-y-1">
+      <div className="flex items-start gap-2">
+        <span className={iconColor}>{icon}</span>
+        <span>{claim.claim}</span>
+      </div>
+      <EvidenceBadges evidence={claim.evidence} />
+    </li>
+  );
+}
+
+function BlurredSection({ children, label }: { children: React.ReactNode; label: string }) {
+  return (
+    <div className="relative">
+      <div className="blur-sm pointer-events-none select-none opacity-50">
+        {children}
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Lock className="h-4 w-4" />
+          <span>{label}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PropertyAIInsights({ propertyId, onUpgrade }: PropertyAIInsightsProps) {
   const { user } = useAuth();
   const isPro = user?.subscriptionTier === "pro" || user?.subscriptionTier === "premium";
@@ -113,35 +182,13 @@ export function PropertyAIInsights({ propertyId, onUpgrade }: PropertyAIInsights
         credentials: "include",
       });
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          throw new Error("Pro subscription required");
-        }
         throw new Error("Failed to fetch insights");
       }
       return res.json();
     },
-    enabled: isPro,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-
-  if (!isPro) {
-    return (
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="py-8 text-center">
-          <Lock className="mx-auto mb-4 h-12 w-12 text-primary" />
-          <h3 className="mb-2 text-lg font-semibold">AI Property Insights</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-            Get personalized investment analysis, risk assessment, and actionable next steps powered by AI.
-          </p>
-          <Button onClick={onUpgrade} data-testid="button-upgrade-insights">
-            <Sparkles className="mr-2 h-4 w-4" />
-            Upgrade to Pro
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -176,13 +223,20 @@ export function PropertyAIInsights({ propertyId, onUpgrade }: PropertyAIInsights
     );
   }
 
+  const isPreview = insights.isPreview;
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Sparkles className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">AI Property Insights</CardTitle>
+            {isPreview && (
+              <Badge variant="secondary" className="bg-primary/10 text-primary">
+                Preview
+              </Badge>
+            )}
           </div>
           <CardDescription>
             Generated {new Date(insights.generatedAt).toLocaleString()}
@@ -193,124 +247,245 @@ export function PropertyAIInsights({ propertyId, onUpgrade }: PropertyAIInsights
             <p className="text-sm leading-relaxed">{insights.investmentSummary}</p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
+          {insights.headlineInsights && insights.headlineInsights.length > 0 ? (
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Target className="h-4 w-4 text-primary" />
-                Risk Assessment
+                Key Takeaways
               </div>
-              <RiskLevelIndicator level={insights.riskAssessment.level} />
-              {insights.riskAssessment.factors.length > 0 && (
-                <ul className="text-sm text-muted-foreground space-y-1 pl-4">
-                  {insights.riskAssessment.factors.map((factor, i) => (
-                    <li key={i} className="list-disc list-outside">{factor}</li>
-                  ))}
-                </ul>
-              )}
+              <ul className="space-y-2">
+                {insights.headlineInsights.map((insight, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                    <span>{insight}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-
-            <div className="space-y-3">
+          ) : isPreview && (
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <User className="h-4 w-4 text-primary" />
-                Best Suited For
+                <Target className="h-4 w-4 text-primary" />
+                Quick Analysis
               </div>
-              <p className="text-sm text-muted-foreground">{insights.buyerProfile}</p>
+              <p className="text-sm text-muted-foreground">
+                Risk Level: <span className="font-medium">{insights.riskAssessment.level}</span>
+              </p>
             </div>
-          </div>
+          )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {insights.valueDrivers.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Value Drivers
-                </div>
-                <ul className="text-sm space-y-1">
-                  {insights.valueDrivers.map((driver, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-emerald-500">+</span>
-                      <span>{driver}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {insights.concerns.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-orange-600 dark:text-orange-400">
-                  <AlertTriangle className="h-4 w-4" />
-                  Concerns
-                </div>
-                <ul className="text-sm space-y-1">
-                  {insights.concerns.map((concern, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-orange-500">-</span>
-                      <span>{concern}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-4 border-t">
-            <div className="flex items-center gap-2 text-sm font-medium mb-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              Neighborhood Trends
-            </div>
-            <p className="text-sm text-muted-foreground">{insights.neighborhoodTrends}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <FileText className="h-5 w-5 text-primary" />
-            What Now?
-          </CardTitle>
-          <CardDescription>Recommended next steps for this property</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {insights.whatNow.map((action, i) => (
-              <div 
-                key={i} 
-                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover-elevate"
-                data-testid={`action-item-${i}`}
-              >
-                <div className="mt-0.5 p-2 rounded-md bg-primary/10 text-primary">
-                  <ActionIcon type={action.type} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="font-medium text-sm">{action.title}</span>
-                    <PriorityBadge priority={action.priority} />
+          {isPreview ? (
+            <>
+              <BlurredSection label="Upgrade to Pro to see full risk analysis">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Target className="h-4 w-4 text-primary" />
+                      Risk Assessment
+                    </div>
+                    <RiskLevelIndicator level={insights.riskAssessment.level} />
+                    <ul className="text-sm space-y-2 pl-4">
+                      <li className="list-disc">Sample risk factor 1</li>
+                      <li className="list-disc">Sample risk factor 2</li>
+                    </ul>
                   </div>
-                  <p className="text-sm text-muted-foreground">{action.description}</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <User className="h-4 w-4 text-primary" />
+                      Best Suited For
+                    </div>
+                    <p className="text-sm text-muted-foreground">First-time investor profile...</p>
+                  </div>
                 </div>
-                {action.type === "action" && (
-                  <Button variant="ghost" size="icon" className="shrink-0">
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
+              </BlurredSection>
+
+              <BlurredSection label="Upgrade to Pro to see value drivers & concerns">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-emerald-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Value Drivers
+                    </div>
+                    <ul className="text-sm space-y-2">
+                      <li>+ Good transit access</li>
+                      <li>+ Market appreciation</li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-orange-600">
+                      <AlertTriangle className="h-4 w-4" />
+                      Concerns
+                    </div>
+                    <ul className="text-sm space-y-2">
+                      <li>- Building issues</li>
+                      <li>- Flood risk</li>
+                    </ul>
+                  </div>
+                </div>
+              </BlurredSection>
+
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg text-center">
+                <h4 className="font-medium mb-2">Unlock Full AI Analysis</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Get detailed risk factors, value drivers, neighborhood trends, and personalized action plan.
+                </p>
+                <Button onClick={onUpgrade} data-testid="button-upgrade-insights">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Upgrade to Pro
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Target className="h-4 w-4 text-primary" />
+                    Risk Assessment
+                  </div>
+                  <RiskLevelIndicator level={insights.riskAssessment.level} />
+                  {insights.riskAssessment.factors.length > 0 && (
+                    <ul className="text-sm text-muted-foreground space-y-2 pl-4">
+                      {insights.riskAssessment.factors.map((factor, i) => (
+                        <li key={i} className="space-y-1">
+                          <span className="list-disc list-outside">{factor.claim}</span>
+                          <EvidenceBadges evidence={factor.evidence} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <User className="h-4 w-4 text-primary" />
+                    Best Suited For
+                  </div>
+                  <p className="text-sm text-muted-foreground">{insights.buyerProfile}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                {insights.valueDrivers.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Value Drivers
+                    </div>
+                    <ul className="text-sm space-y-2">
+                      {insights.valueDrivers.map((driver, i) => (
+                        <CitedClaimItem 
+                          key={i} 
+                          claim={driver} 
+                          icon="+" 
+                          iconColor="text-emerald-500" 
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {insights.concerns.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-orange-600 dark:text-orange-400">
+                      <AlertTriangle className="h-4 w-4" />
+                      Concerns
+                    </div>
+                    <ul className="text-sm space-y-2">
+                      {insights.concerns.map((concern, i) => (
+                        <CitedClaimItem 
+                          key={i} 
+                          claim={concern} 
+                          icon="-" 
+                          iconColor="text-orange-500" 
+                        />
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
 
-          <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" data-testid="button-add-watchlist">
-              <Bookmark className="mr-2 h-4 w-4" />
-              Add to Watchlist
-            </Button>
-            <Button variant="outline" size="sm" data-testid="button-get-comps">
-              <Search className="mr-2 h-4 w-4" />
-              View Comps
-            </Button>
-          </div>
+              <div className="pt-4 border-t">
+                <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Neighborhood Trends
+                </div>
+                <p className="text-sm text-muted-foreground">{insights.neighborhoodTrends}</p>
+                {insights.neighborhoodEvidence && insights.neighborhoodEvidence.length > 0 && (
+                  <div className="mt-2">
+                    <EvidenceBadges evidence={insights.neighborhoodEvidence} />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {!isPreview && insights.whatNow && insights.whatNow.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 text-primary" />
+              What Now?
+            </CardTitle>
+            <CardDescription>Recommended next steps for this property</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {insights.whatNow.map((action, i) => (
+                <div 
+                  key={i} 
+                  className="flex items-start gap-3 p-3 rounded-lg border bg-card hover-elevate"
+                  data-testid={`action-item-${i}`}
+                >
+                  <div className="mt-0.5 p-2 rounded-md bg-primary/10 text-primary">
+                    <ActionIcon type={action.type} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-medium text-sm">{action.title}</span>
+                      <PriorityBadge priority={action.priority} />
+                    </div>
+                    <p className="text-sm text-muted-foreground">{action.description}</p>
+                  </div>
+                  {action.type === "action" && (
+                    <Button variant="ghost" size="icon" className="shrink-0">
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" data-testid="button-add-watchlist">
+                <Bookmark className="mr-2 h-4 w-4" />
+                Add to Watchlist
+              </Button>
+              <Button variant="outline" size="sm" data-testid="button-get-comps">
+                <Search className="mr-2 h-4 w-4" />
+                View Comps
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isPreview && (
+        <Card className="border-dashed border-muted-foreground/30">
+          <CardContent className="py-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <span className="font-medium text-muted-foreground">Action Plan</span>
+              <Lock className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Pro subscribers get a personalized action plan with prioritized next steps.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
