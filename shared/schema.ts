@@ -9,6 +9,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -859,7 +860,7 @@ export const propertySignalSummary = pgTable(
     updatedAt: timestamp("updated_at").defaultNow(),
   },
   (table) => [
-    index("idx_signal_property").on(table.propertyId),
+    uniqueIndex("idx_signal_property_unique").on(table.propertyId),
     index("idx_signal_bbl").on(table.bbl),
     index("idx_signal_health").on(table.buildingHealthScore),
     index("idx_signal_transit").on(table.transitScore),
