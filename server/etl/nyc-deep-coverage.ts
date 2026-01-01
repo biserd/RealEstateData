@@ -69,35 +69,35 @@ async function importDobPermits() {
   const maxRecords = 50000;
 
   while (totalImported < maxRecords) {
-    const url = `${NYC_DATASETS.dobPermits}?$where=issuance_date>='${dateFilter}'&$limit=${limit}&$offset=${offset}&$order=issuance_date DESC`;
+    const url = `${NYC_DATASETS.dobPermits}?$where=issued_date>='${dateFilter}'&$limit=${limit}&$offset=${offset}&$order=issued_date DESC`;
 
     try {
       const records = await fetchWithRetry(url);
       if (!records || records.length === 0) break;
 
       const permitBatch = records
-        .filter((r: any) => r.job__)
-        .map((r: any) => ({
-          id: `permit-${r.job__}-${r.work_type || "NA"}-${offset}`,
-          jobNumber: r.job__ || "",
+        .filter((r: any) => r.job_filing_number)
+        .map((r: any, idx: number) => ({
+          id: `permit-${r.job_filing_number}-${r.work_type || "NA"}-${offset + idx}`,
+          jobNumber: r.job_filing_number || "",
           bbl: r.bbl || null,
           bin: r.bin || null,
-          borough: BOROUGH_MAP[r.borough] || r.borough || null,
+          borough: BOROUGH_MAP[r.borough?.toUpperCase()] || r.borough || null,
           block: r.block || null,
           lot: r.lot || null,
-          houseNumber: r.house__ || null,
+          houseNumber: r.house_no || null,
           streetName: r.street_name || null,
           zipCode: r.zip_code || null,
-          jobType: r.job_type || null,
+          jobType: r.filing_reason || null,
           jobDescription: r.job_description?.substring(0, 500) || null,
           workType: r.work_type || null,
-          permitStatus: r.filing_status || null,
-          filingDate: r.filing_date ? new Date(r.filing_date) : null,
-          issuanceDate: r.issuance_date ? new Date(r.issuance_date) : null,
-          expirationDate: r.expiration_date ? new Date(r.expiration_date) : null,
-          estimatedCost: r.initial_cost ? parseInt(r.initial_cost) : null,
-          ownerName: r.owner_s_business_name || null,
-          applicantName: r.applicant_s_name || null,
+          permitStatus: r.permit_status || null,
+          filingDate: r.approved_date ? new Date(r.approved_date) : null,
+          issuanceDate: r.issued_date ? new Date(r.issued_date) : null,
+          expirationDate: r.expired_date ? new Date(r.expired_date) : null,
+          estimatedCost: r.estimated_job_costs ? parseInt(r.estimated_job_costs) : null,
+          ownerName: r.owner_business_name || r.owner_name || null,
+          applicantName: r.applicant_business_name || `${r.applicant_first_name || ''} ${r.applicant_last_name || ''}`.trim() || null,
           rawData: r,
         }));
 
@@ -119,61 +119,77 @@ async function importDobPermits() {
   return totalImported;
 }
 
-async function importHpdBuildings() {
-  console.log("\n=== Importing HPD Building Data ===");
+async function importHpdViolations() {
+  console.log("\n=== Importing HPD Violations ===");
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const dateFilter = sixMonthsAgo.toISOString().split("T")[0];
 
   let offset = 0;
   const limit = 5000;
   let totalImported = 0;
   const maxRecords = 50000;
 
+  const violationsByBuilding = new Map<string, { total: number; open: number; bbl: string | null; data: any }>();
+
   while (totalImported < maxRecords) {
-    const url = `${NYC_DATASETS.hpdBuildings}?$limit=${limit}&$offset=${offset}`;
+    const url = `${NYC_DATASETS.hpdViolations}?$where=inspectiondate>='${dateFilter}'&$limit=${limit}&$offset=${offset}&$order=inspectiondate DESC`;
 
     try {
       const records = await fetchWithRetry(url);
       if (!records || records.length === 0) break;
 
-      const buildingBatch = records
-        .filter((r: any) => r.buildingid)
-        .map((r: any) => ({
-          id: `hpd-${r.buildingid}`,
-          buildingId: r.buildingid,
-          bbl: r.bbl || null,
-          boroId: r.boroid || null,
-          borough: BOROUGH_MAP[r.boroname?.toUpperCase()] || r.boroname || null,
-          block: r.block || null,
-          lot: r.lot || null,
-          houseNumber: r.housenumber || null,
-          lowHouseNumber: r.lowhousenumber || null,
-          highHouseNumber: r.highhousenumber || null,
-          streetName: r.streetname || null,
-          zipCode: r.zip || null,
-          registrationStatus: r.registrationstatus || null,
-          buildingOwnerName: r.ownername || null,
-          buildingOwnerPhone: r.ownerphone || null,
-          numFloors: r.stories ? parseInt(r.stories) : null,
-          numApartments: r.unitsres ? parseInt(r.unitsres) : null,
-          totalViolations: r.totalviolations ? parseInt(r.totalviolations) : null,
-          openViolations: r.openviolations ? parseInt(r.openviolations) : null,
-          rawData: r,
-        }));
+      for (const r of records) {
+        const buildingId = r.buildingid;
+        if (!buildingId) continue;
 
-      if (buildingBatch.length > 0) {
-        await db.insert(hpdRaw).values(buildingBatch).onConflictDoNothing();
-        totalImported += buildingBatch.length;
-        console.log(`Imported ${buildingBatch.length} HPD buildings (total: ${totalImported})`);
+        const existing = violationsByBuilding.get(buildingId) || {
+          total: 0,
+          open: 0,
+          bbl: r.bbl || null,
+          data: r,
+        };
+        existing.total++;
+        if (r.violationstatus === "Open" || r.currentstatus === "VIOLATION OPEN") {
+          existing.open++;
+        }
+        violationsByBuilding.set(buildingId, existing);
       }
+
+      totalImported += records.length;
+      console.log(`Processed ${records.length} violations (total: ${totalImported})`);
 
       if (records.length < limit) break;
       offset += limit;
     } catch (error) {
-      console.error("Error importing HPD buildings:", error);
+      console.error("Error importing HPD violations:", error);
       break;
     }
   }
 
-  console.log(`HPD Buildings import complete: ${totalImported} records`);
+  let buildingsUpserted = 0;
+  for (const [buildingId, info] of violationsByBuilding) {
+    const r = info.data;
+    await db.insert(hpdRaw).values({
+      id: `hpd-${buildingId}`,
+      buildingId: buildingId,
+      bbl: info.bbl,
+      boroId: r.boroid || null,
+      borough: BOROUGH_MAP[r.boro?.toUpperCase()] || r.boro || null,
+      block: r.block || null,
+      lot: r.lot || null,
+      houseNumber: r.housenumber || null,
+      streetName: r.streetname || null,
+      zipCode: r.zip || null,
+      totalViolations: info.total,
+      openViolations: info.open,
+      rawData: { violationSample: r, importType: "violations" },
+    }).onConflictDoNothing();
+    buildingsUpserted++;
+  }
+
+  console.log(`HPD Violations import complete: ${totalImported} violations for ${buildingsUpserted} buildings`);
   return totalImported;
 }
 
@@ -662,7 +678,7 @@ export async function runFullNycDeepCoverageImport() {
     floodZones: 0,
     amenities: 0,
     dobPermits: 0,
-    hpdBuildings: 0,
+    hpdViolations: 0,
     dobComplaints: 0,
     complaints311: 0,
     propertySignals: 0,
@@ -673,7 +689,7 @@ export async function runFullNycDeepCoverageImport() {
   results.amenities = await importAmenities();
 
   results.dobPermits = await importDobPermits();
-  results.hpdBuildings = await importHpdBuildings();
+  results.hpdViolations = await importHpdViolations();
   results.dobComplaints = await importDobComplaints();
   results.complaints311 = await import311Complaints();
 
