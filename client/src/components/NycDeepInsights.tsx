@@ -43,6 +43,12 @@ interface SignalResponse {
   message?: string;
   signals?: PropertySignalSummary;
   property?: { id: string; bbl?: string; city?: string; state?: string };
+  coverage?: {
+    city: string;
+    percent: number;
+    totalProperties: number;
+    withSignals: number;
+  };
 }
 
 interface NycDeepInsightsProps {
@@ -433,6 +439,7 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
   }
 
   if (!data.signalsAvailable || !data.signals) {
+    const coverage = data.coverage;
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -441,9 +448,24 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
             <Badge variant="secondary" className="bg-primary/10 text-primary">NYC Deep Coverage</Badge>
           </div>
           <h3 className="mb-2 text-lg font-semibold">Signal Data Not Available</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {data.message || "Deep coverage signals (transit, building health, flood risk) are not yet available for this property. We're continuously expanding our coverage."}
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+            Deep coverage signals (transit, building health, flood risk) are not yet available for this property.
           </p>
+          {coverage && coverage.percent > 0 && (
+            <div className="bg-muted/50 rounded-lg p-4 max-w-sm mx-auto space-y-2">
+              <p className="text-sm font-medium">
+                We currently cover <span className="text-primary font-semibold">{coverage.percent}%</span> of properties in <span className="font-semibold">{coverage.city}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Data refreshes weekly. Check back soon as we expand coverage.
+              </p>
+            </div>
+          )}
+          {(!coverage || coverage.percent === 0) && (
+            <p className="text-xs text-muted-foreground">
+              We're continuously expanding our coverage. Data refreshes weekly.
+            </p>
+          )}
         </CardContent>
       </Card>
     );

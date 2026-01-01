@@ -712,12 +712,23 @@ Sitemap: ${baseUrl}/sitemap.xml
       const signals = await storage.getPropertySignals(req.params.id);
       
       if (!signals) {
-        // Return empty signals structure if no data yet
+        // Get coverage stats for this city
+        const coverageStats = await storage.getDeepCoverageCounts("city", property.city);
+        const coveragePercent = coverageStats.totalProperties > 0 
+          ? Math.round((coverageStats.withSignals / coverageStats.totalProperties) * 100) 
+          : 0;
+        
         return res.json({
           hasDeepCoverage: true,
           signalsAvailable: false,
-          message: "Deep coverage data is being processed for this property",
+          message: "Signal data not yet available for this property",
           property: { id: property.id, bbl: property.bbl, city: property.city },
+          coverage: {
+            city: property.city,
+            percent: coveragePercent,
+            totalProperties: coverageStats.totalProperties,
+            withSignals: coverageStats.withSignals,
+          },
         });
       }
       
