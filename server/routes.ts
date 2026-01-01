@@ -1192,9 +1192,9 @@ Sitemap: ${baseUrl}/sitemap.xml
         results,
         aiAssessment,
       });
-    } catch (error) {
-      console.error("Error calculating scenario:", error);
-      res.status(500).json({ message: "Failed to calculate scenario" });
+    } catch (error: any) {
+      console.error("Error in AI scenario analysis:", error?.message || error);
+      res.status(500).json({ message: error?.message || "Failed to analyze scenario" });
     }
   });
 

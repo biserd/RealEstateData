@@ -436,13 +436,13 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <Activity className="mx-auto mb-4 h-12 w-12 text-primary" />
+          <Activity className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
           <div className="mb-2 flex items-center justify-center gap-2">
             <Badge variant="secondary" className="bg-primary/10 text-primary">NYC Deep Coverage</Badge>
           </div>
-          <h3 className="mb-2 text-lg font-semibold">Data Processing</h3>
+          <h3 className="mb-2 text-lg font-semibold">Signal Data Not Available</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {data.message || "Alternative data signals are being processed for this property. Check back soon for building permits, violations, transit scores, and flood risk data."}
+            {data.message || "Deep coverage signals (transit, building health, flood risk) are not yet available for this property. We're continuously expanding our coverage."}
           </p>
         </CardContent>
       </Card>

@@ -119,6 +119,10 @@ export function ScenarioSimulator({ propertyId, estimatedValue, estimatedRent }:
   const analyzeWithAI = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", `/api/ai/scenario/${propertyId}`, inputs);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Request failed with status ${response.status}`);
+      }
       const data = await response.json();
       return data as { inputs: ScenarioInputs; results: ScenarioResults; aiAssessment: AIAssessment };
     },
@@ -130,10 +134,15 @@ export function ScenarioSimulator({ propertyId, estimatedValue, estimatedRent }:
         description: "AI has evaluated your investment scenario.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      const message = error.message.includes("401") || error.message.includes("Unauthorized")
+        ? "Please sign in to use AI analysis."
+        : error.message.includes("403") || error.message.includes("Pro")
+        ? "AI analysis requires a Pro subscription."
+        : "Unable to get AI assessment. Please try again.";
       toast({
         title: "Analysis failed",
-        description: "Unable to get AI assessment. Please try again.",
+        description: message,
         variant: "destructive",
       });
     },
