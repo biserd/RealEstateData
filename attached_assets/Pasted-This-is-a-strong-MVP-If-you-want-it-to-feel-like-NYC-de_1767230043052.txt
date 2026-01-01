@@ -1,0 +1,101 @@
+This is a strong MVP. If you want it to feel like “NYC deep coverage” (and not just a few badges), the next step is: make the signals explainable, trend-based, and decision-oriented—and tighten data quality/refresh so users trust it.
+
+Here’s what I’d do next, in priority order.
+
+⸻
+
+1) Make every score explain itself (trust + conversion)
+
+Right now you have: Transit Score, Building Health Score, Flood Zone, Construction Activity.
+
+Add “Why this score?” details with 3–5 bullets:
+	•	Transit: “0.18 mi to 125 St (A/C/B/D). Top 10% for Manhattan.”
+	•	Health: “12 HPD open violations (3 Class C). 2 DOB complaints in 90d. 8 noise 311s in 90d.”
+	•	Construction: “3 active permits (ALT2), last issued 21 days ago.”
+	•	Flood: “FEMA zone AE → 1% annual chance floodplain. Insurance likely required (if mortgaged).”
+
+This is the #1 upgrade for credibility.
+
+⸻
+
+2) Add trends and recency weighting (the score becomes useful)
+
+Static counts are less actionable than “what’s changing”.
+	•	Build 30/90/365-day buckets for:
+	•	DOB complaints
+	•	311 complaints
+	•	permits issued
+	•	violations opened/closed (if you can infer closed)
+	•	Show a tiny trend label: Improving / Stable / Worsening
+	•	Weight recent events more heavily in the score (e.g., last 90 days = 2x)
+
+⸻
+
+3) Improve building-level precision: BBL vs “neighborhood”
+
+If your 311 is neighborhood-level (lat/lng around property), be explicit:
+	•	Building-linked vs Area-linked signals
+	•	For area-linked: show it as “Within 0.25 miles” with a radius note
+
+This avoids “your building has 30 complaints” misunderstandings.
+
+⸻
+
+4) Add the missing anchor dataset that makes everything cleaner: DOB Complaints (you mention it in score)
+
+You listed imports for permits/HPD/311/subway, but your health score includes DOB complaints. If those aren’t imported yet, that’s your next “must”.
+
+Then add:
+	•	DOB complaint categories
+	•	disposition status (open/closed) where available
+	•	90-day + 1-year counts
+
+⸻
+
+5) Ship “NYC Deep Coverage Report” export (instant wow)
+
+One-click PDF (or shareable web report) per property with:
+	•	Scores + explanations
+	•	Trend charts (spark lines)
+	•	Top 5 risks
+	•	Top 5 positives
+	•	Comparable context (“better than X% of nearby buildings”)
+
+This becomes a lead magnet for agents: “send this to clients”.
+
+⸻
+
+6) Quality / sanity checks (so you don’t get roasted)
+
+Add guardrails:
+	•	If a property lacks BBL → hide building-linked signals, show only area signals.
+	•	Outlier protection:
+	•	cap extreme 311 spikes
+	•	treat duplicate reports (same day/category) as 1 in scoring
+	•	Confidence label:
+	•	High / Medium / Low based on match quality + data completeness
+
+⸻
+
+7) Next datasets that multiply value (fast wins)
+
+If you want 2–3 more “killer” layers:
+	1.	ACRIS ownership & mortgages (ownership timeline + “recent refi” signal)
+	2.	DOF Rolling Sales (comps + last sale)
+	3.	Amenities via Facilities DB (schools, libraries, clinics) + Parks proximity
+
+These turn it into a real “agent dashboard”, not just risk scoring.
+
+⸻
+
+8) Suggested marketing positioning (how to say it)
+
+Your summary is great, but the pitch that lands is:
+	•	“NYC Deep Coverage: permits + violations + complaints + flood + transit—turned into clear, explainable scores on 52,691 properties.”
+
+Then add one proof line:
+	•	“Backed by NYC DOB/HPD/311 + FEMA flood zones.”
+
+⸻
+
+If you paste your current scoring formulas (even rough), I’ll tighten them into something consistent (weighting, caps, thresholds) and give you copy for the UI tooltips + an example “Deep Coverage Report” layout.
