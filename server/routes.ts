@@ -65,6 +65,16 @@ async function checkUsageLimit(req: any, res: any, actionType: ActionType, prope
     return true;
   }
   
+  // For unauthenticated users, check if property already viewed
+  if (actionType === 'property_unlock' && propertyId) {
+    if (!req.session.viewedProperties) {
+      req.session.viewedProperties = [];
+    }
+    if (req.session.viewedProperties.includes(propertyId)) {
+      return true; // Already unlocked, allow access without counting
+    }
+  }
+  
   const usage = getSessionUsage(req, actionType);
   const limit = actionType === 'search' 
     ? FREE_TIER_LIMITS.search.daily 
@@ -84,6 +94,12 @@ async function checkUsageLimit(req: any, res: any, actionType: ActionType, prope
   }
   
   trackSessionUsage(req, actionType);
+  
+  // Track viewed properties for unauthenticated users
+  if (actionType === 'property_unlock' && propertyId) {
+    req.session.viewedProperties.push(propertyId);
+  }
+  
   return true;
 }
 
