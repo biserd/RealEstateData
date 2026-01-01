@@ -12,6 +12,39 @@ function getResendClient() {
   return new Resend(apiKey);
 }
 
+interface SendEmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  from?: string;
+}
+
+export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
+  try {
+    const client = getResendClient();
+    
+    console.log(`[Resend] Sending email to ${options.to}: ${options.subject}`);
+    
+    const result = await client.emails.send({
+      from: options.from || FROM_EMAIL,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+    });
+    
+    if (result.error) {
+      console.error(`[Resend] Error sending email:`, result.error);
+      return false;
+    }
+    
+    console.log(`[Resend] Email sent successfully, id: ${result.data?.id}`);
+    return true;
+  } catch (error) {
+    console.error('[Resend] Failed to send email:', error);
+    return false;
+  }
+}
+
 export async function sendWelcomeEmail(userEmail: string, firstName?: string | null) {
   try {
     const client = getResendClient();

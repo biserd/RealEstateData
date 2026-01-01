@@ -12,6 +12,7 @@ import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
 import { sendWelcomeEmail, sendNewUserNotificationToAdmin, sendActivationEmail } from "./emailService";
 import { usageService, ActionType } from "./usageService";
+import { processDailyDigest, processInstantAlerts, recordPropertyChange } from "./savedSearchService";
 
 const FREE_TIER_LIMITS = {
   search: { daily: 5 },
@@ -2075,6 +2076,180 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error: any) {
       console.error("Error revoking API key:", error);
       res.status(400).json({ message: error.message || "Failed to revoke API key" });
+    }
+  });
+
+  // ============================================
+  // SAVED SEARCH ROUTES
+  // ============================================
+
+  // Get all saved searches for user
+  app.get("/api/saved-searches", isAuthenticated, async (req: any, res) => {
+    try {
+      const searches = await storage.getSavedSearches(req.user.id);
+      res.json(searches);
+    } catch (error) {
+      console.error("Error fetching saved searches:", error);
+      res.status(500).json({ message: "Failed to fetch saved searches" });
+    }
+  });
+
+  // Get single saved search
+  app.get("/api/saved-searches/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const search = await storage.getSavedSearch(req.params.id);
+      if (!search || search.userId !== req.user.id) {
+        return res.status(404).json({ message: "Saved search not found" });
+      }
+      res.json(search);
+    } catch (error) {
+      console.error("Error fetching saved search:", error);
+      res.status(500).json({ message: "Failed to fetch saved search" });
+    }
+  });
+
+  // Create saved search
+  app.post("/api/saved-searches", isAuthenticated, async (req: any, res) => {
+    try {
+      const { name, filters, frequency, emailEnabled, pushEnabled } = req.body;
+      
+      if (!name || !filters) {
+        return res.status(400).json({ message: "Name and filters are required" });
+      }
+
+      // Extract normalized fields from filters for indexing
+      const normalizedData: any = {
+        userId: req.user.id,
+        name,
+        filters,
+        frequency: frequency || "daily",
+        emailEnabled: emailEnabled !== false,
+        pushEnabled: pushEnabled || false,
+        isActive: true,
+      };
+
+      // Denormalize filter fields for efficient queries
+      if (filters.state) normalizedData.state = filters.state;
+      if (filters.cities?.length) normalizedData.cities = filters.cities;
+      if (filters.zipCodes?.length) normalizedData.zipCodes = filters.zipCodes;
+      if (filters.priceMin) normalizedData.priceMin = filters.priceMin;
+      if (filters.priceMax) normalizedData.priceMax = filters.priceMax;
+      if (filters.opportunityScoreMin) normalizedData.opportunityScoreMin = filters.opportunityScoreMin;
+      
+      // NYC signal thresholds
+      if (filters.transitScoreMin) normalizedData.transitScoreMin = filters.transitScoreMin;
+      if (filters.buildingHealthMin) normalizedData.buildingHealthMin = filters.buildingHealthMin;
+      if (filters.floodRiskMax) normalizedData.floodRiskMax = filters.floodRiskMax;
+
+      const search = await storage.createSavedSearch(normalizedData);
+      res.status(201).json(search);
+    } catch (error) {
+      console.error("Error creating saved search:", error);
+      res.status(500).json({ message: "Failed to create saved search" });
+    }
+  });
+
+  // Update saved search
+  app.patch("/api/saved-searches/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { name, filters, frequency, emailEnabled, pushEnabled, isActive } = req.body;
+      
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (frequency !== undefined) updateData.frequency = frequency;
+      if (emailEnabled !== undefined) updateData.emailEnabled = emailEnabled;
+      if (pushEnabled !== undefined) updateData.pushEnabled = pushEnabled;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      
+      if (filters !== undefined) {
+        updateData.filters = filters;
+        // Update normalized fields
+        updateData.state = filters.state || null;
+        updateData.cities = filters.cities?.length ? filters.cities : null;
+        updateData.zipCodes = filters.zipCodes?.length ? filters.zipCodes : null;
+        updateData.priceMin = filters.priceMin || null;
+        updateData.priceMax = filters.priceMax || null;
+        updateData.opportunityScoreMin = filters.opportunityScoreMin || null;
+        updateData.transitScoreMin = filters.transitScoreMin || null;
+        updateData.buildingHealthMin = filters.buildingHealthMin || null;
+        updateData.floodRiskMax = filters.floodRiskMax || null;
+      }
+
+      const updated = await storage.updateSavedSearch(req.params.id, req.user.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ message: "Saved search not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating saved search:", error);
+      res.status(500).json({ message: "Failed to update saved search" });
+    }
+  });
+
+  // Delete saved search
+  app.delete("/api/saved-searches/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteSavedSearch(req.params.id, req.user.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting saved search:", error);
+      res.status(500).json({ message: "Failed to delete saved search" });
+    }
+  });
+
+  // Get matching properties count for a saved search
+  app.post("/api/saved-searches/preview", isAuthenticated, async (req: any, res) => {
+    try {
+      const { filters } = req.body;
+      if (!filters) {
+        return res.status(400).json({ message: "Filters are required" });
+      }
+
+      const properties = await storage.getProperties(filters, 100, 0);
+      res.json({ matchCount: properties.length, preview: properties.slice(0, 5) });
+    } catch (error) {
+      console.error("Error previewing saved search:", error);
+      res.status(500).json({ message: "Failed to preview saved search" });
+    }
+  });
+
+  // ============================================
+  // NOTIFICATION JOB ENDPOINTS (Admin/Cron)
+  // ============================================
+
+  // Trigger daily digest job (can be called by external cron or admin)
+  app.post("/api/notifications/daily-digest", async (req, res) => {
+    try {
+      const cronSecret = req.headers["x-cron-secret"];
+      if (cronSecret !== process.env.CRON_SECRET && process.env.NODE_ENV !== "development") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      console.log("[Cron] Starting daily digest job...");
+      await processDailyDigest();
+      console.log("[Cron] Daily digest job completed");
+      res.json({ success: true, message: "Daily digest processed" });
+    } catch (error) {
+      console.error("[Cron] Error processing daily digest:", error);
+      res.status(500).json({ message: "Failed to process daily digest" });
+    }
+  });
+
+  // Trigger instant alerts job (can be called frequently)
+  app.post("/api/notifications/instant-alerts", async (req, res) => {
+    try {
+      const cronSecret = req.headers["x-cron-secret"];
+      if (cronSecret !== process.env.CRON_SECRET && process.env.NODE_ENV !== "development") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      console.log("[Cron] Starting instant alerts job...");
+      await processInstantAlerts();
+      console.log("[Cron] Instant alerts job completed");
+      res.json({ success: true, message: "Instant alerts processed" });
+    } catch (error) {
+      console.error("[Cron] Error processing instant alerts:", error);
+      res.status(500).json({ message: "Failed to process instant alerts" });
     }
   });
 

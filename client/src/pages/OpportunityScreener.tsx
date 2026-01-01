@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map, Crown, Bell, Lock } from "lucide-react";
+import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map, Crown, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,6 +25,7 @@ import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { UpgradeModal, ProBadge, PremiumBadge } from "@/components/UpgradePrompt";
+import { SaveSearchDialog } from "@/components/SaveSearchDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -265,6 +266,13 @@ export default function OpportunityScreener() {
                   <Download className="mr-2 h-4 w-4" />
                   {isExporting ? "Exporting..." : "Export"}
                 </Button>
+
+                {isAuthenticated && (
+                  <SaveSearchDialog 
+                    filters={filters} 
+                    matchCount={properties?.length}
+                  />
+                )}
               </div>
             </div>
 

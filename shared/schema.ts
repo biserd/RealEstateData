@@ -1060,6 +1060,153 @@ export const propertyDataLinks = pgTable(
 
 export type PropertyDataLink = typeof propertyDataLinks.$inferSelect;
 
+// Saved Searches - User saved search filters for notifications
+export const savedSearchFrequencies = ["instant", "daily", "weekly"] as const;
+export type SavedSearchFrequency = typeof savedSearchFrequencies[number];
+
+export const savedSearches = pgTable(
+  "saved_searches",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id").notNull().references(() => users.id),
+    name: varchar("name").notNull(),
+    
+    // Filters stored as JSON for flexibility
+    filters: jsonb("filters").notNull(), // ScreenerFilters compatible
+    
+    // Indexed columns for efficient querying (denormalized from filters)
+    state: varchar("state"),
+    cities: text("cities").array(),
+    zipCodes: text("zip_codes").array(),
+    priceMin: integer("price_min"),
+    priceMax: integer("price_max"),
+    bedsMin: integer("beds_min"),
+    bedsMax: integer("beds_max"),
+    bathsMin: real("baths_min"),
+    opportunityScoreMin: integer("opportunity_score_min"),
+    
+    // NYC Deep signal thresholds
+    transitScoreMin: integer("transit_score_min"),
+    buildingHealthMin: integer("building_health_min"),
+    floodRiskMax: varchar("flood_risk_max"), // minimal, moderate, high
+    
+    // Notification settings
+    frequency: varchar("frequency").default("daily").notNull(), // instant, daily, weekly
+    emailEnabled: boolean("email_enabled").default(true),
+    pushEnabled: boolean("push_enabled").default(false),
+    isActive: boolean("is_active").default(true),
+    
+    // Tracking
+    matchCount: integer("match_count").default(0), // Current # of matching properties
+    lastRunAt: timestamp("last_run_at"),
+    lastNotifiedAt: timestamp("last_notified_at"),
+    
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_saved_searches_user").on(table.userId),
+    index("idx_saved_searches_frequency").on(table.frequency),
+    index("idx_saved_searches_active").on(table.isActive),
+  ]
+);
+
+export const insertSavedSearchSchema = createInsertSchema(savedSearches).omit({
+  id: true,
+  matchCount: true,
+  lastRunAt: true,
+  lastNotifiedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSavedSearch = z.infer<typeof insertSavedSearchSchema>;
+export type SavedSearch = typeof savedSearches.$inferSelect;
+
+// Property Changes - Track changes for saved search notifications
+export const propertyChangeTypes = [
+  "new_listing",
+  "price_change",
+  "score_change",
+  "status_change",
+  "signal_update",
+  "permits_added",
+  "violations_added",
+  "flood_status_change",
+] as const;
+export type PropertyChangeType = typeof propertyChangeTypes[number];
+
+export const propertyChanges = pgTable(
+  "property_changes",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    propertyId: varchar("property_id").notNull().references(() => properties.id),
+    changeType: varchar("change_type").notNull(), // PropertyChangeType
+    
+    // Change details
+    previousValue: jsonb("previous_value"),
+    newValue: jsonb("new_value"),
+    changeSummary: text("change_summary"), // Human-readable description
+    
+    // For efficient batch processing
+    processedForDigest: boolean("processed_for_digest").default(false),
+    processedForInstant: boolean("processed_for_instant").default(false),
+    
+    changedAt: timestamp("changed_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_property_changes_property").on(table.propertyId),
+    index("idx_property_changes_type").on(table.changeType),
+    index("idx_property_changes_date").on(table.changedAt),
+    index("idx_property_changes_unprocessed_digest").on(table.processedForDigest, table.changedAt),
+    index("idx_property_changes_unprocessed_instant").on(table.processedForInstant, table.changedAt),
+  ]
+);
+
+export const insertPropertyChangeSchema = createInsertSchema(propertyChanges).omit({
+  id: true,
+  changedAt: true,
+});
+export type InsertPropertyChange = z.infer<typeof insertPropertyChangeSchema>;
+export type PropertyChange = typeof propertyChanges.$inferSelect;
+
+// Saved Search Notifications - Track sent notifications
+export const savedSearchNotifications = pgTable(
+  "saved_search_notifications",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    savedSearchId: varchar("saved_search_id").notNull().references(() => savedSearches.id),
+    userId: varchar("user_id").notNull().references(() => users.id),
+    
+    // What was notified
+    matchedPropertyIds: text("matched_property_ids").array(),
+    changeIds: text("change_ids").array(), // Property change IDs that triggered this
+    notificationType: varchar("notification_type").notNull(), // new_matches, score_changed, price_changed
+    
+    // Email details
+    emailSent: boolean("email_sent").default(false),
+    emailSentAt: timestamp("email_sent_at"),
+    emailId: varchar("email_id"), // Resend message ID
+    
+    // Content
+    subject: varchar("subject"),
+    summary: text("summary"),
+    
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_ss_notifications_user").on(table.userId),
+    index("idx_ss_notifications_search").on(table.savedSearchId),
+    index("idx_ss_notifications_date").on(table.createdAt),
+  ]
+);
+
+export const insertSavedSearchNotificationSchema = createInsertSchema(savedSearchNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSavedSearchNotification = z.infer<typeof insertSavedSearchNotificationSchema>;
+export type SavedSearchNotification = typeof savedSearchNotifications.$inferSelect;
+
 // Usage Tracking for Free tier limits
 export const usageTracking = pgTable(
   "usage_tracking",
@@ -1089,6 +1236,21 @@ export const usersRelations = relations(users, ({ many }) => ({
   alerts: many(alerts),
   notifications: many(notifications),
   aiChats: many(aiChats),
+  savedSearches: many(savedSearches),
+}));
+
+export const savedSearchesRelations = relations(savedSearches, ({ one, many }) => ({
+  user: one(users, { fields: [savedSearches.userId], references: [users.id] }),
+  notifications: many(savedSearchNotifications),
+}));
+
+export const savedSearchNotificationsRelations = relations(savedSearchNotifications, ({ one }) => ({
+  savedSearch: one(savedSearches, { fields: [savedSearchNotifications.savedSearchId], references: [savedSearches.id] }),
+  user: one(users, { fields: [savedSearchNotifications.userId], references: [users.id] }),
+}));
+
+export const propertyChangesRelations = relations(propertyChanges, ({ one }) => ({
+  property: one(properties, { fields: [propertyChanges.propertyId], references: [properties.id] }),
 }));
 
 export const propertiesRelations = relations(properties, ({ many }) => ({

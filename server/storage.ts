@@ -15,6 +15,9 @@ import {
   aiChats,
   apiKeys,
   propertySignalSummary,
+  savedSearches,
+  propertyChanges,
+  savedSearchNotifications,
   type User,
   type InsertUser,
   type Property,
@@ -45,6 +48,12 @@ import {
   type UpAndComingZip,
   type PropertySignalSummary,
   type InsertPropertySignalSummary,
+  type SavedSearch,
+  type InsertSavedSearch,
+  type PropertyChange,
+  type InsertPropertyChange,
+  type SavedSearchNotification,
+  type InsertSavedSearchNotification,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -153,6 +162,25 @@ export interface IStorage {
   updateApiKey(id: string, data: Partial<InsertApiKey>): Promise<ApiKey | undefined>;
   revokeApiKey(id: string): Promise<void>;
   incrementApiKeyUsage(id: string): Promise<void>;
+  
+  // Saved Search operations
+  getSavedSearches(userId: string): Promise<SavedSearch[]>;
+  getSavedSearch(id: string): Promise<SavedSearch | undefined>;
+  createSavedSearch(search: InsertSavedSearch): Promise<SavedSearch>;
+  updateSavedSearch(id: string, userId: string, data: Partial<InsertSavedSearch>): Promise<SavedSearch | undefined>;
+  deleteSavedSearch(id: string, userId: string): Promise<void>;
+  getActiveSavedSearchesByFrequency(frequency: string): Promise<SavedSearch[]>;
+  updateSavedSearchMatchCount(id: string, count: number): Promise<void>;
+  
+  // Property Change operations
+  createPropertyChange(change: InsertPropertyChange): Promise<PropertyChange>;
+  getUnprocessedChanges(forDigest: boolean, limit?: number): Promise<PropertyChange[]>;
+  markChangesProcessed(ids: string[], forDigest: boolean): Promise<void>;
+  getRecentChangesForProperty(propertyId: string, since: Date): Promise<PropertyChange[]>;
+  
+  // Saved Search Notification operations
+  createSavedSearchNotification(notification: InsertSavedSearchNotification): Promise<SavedSearchNotification>;
+  getRecentNotificationsForSearch(searchId: string, limit?: number): Promise<SavedSearchNotification[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1036,6 +1064,132 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(apiKeys.id, id));
+  }
+
+  // Saved Search operations
+  async getSavedSearches(userId: string): Promise<SavedSearch[]> {
+    return await db
+      .select()
+      .from(savedSearches)
+      .where(eq(savedSearches.userId, userId))
+      .orderBy(desc(savedSearches.createdAt));
+  }
+
+  async getSavedSearch(id: string): Promise<SavedSearch | undefined> {
+    const [search] = await db
+      .select()
+      .from(savedSearches)
+      .where(eq(savedSearches.id, id));
+    return search;
+  }
+
+  async createSavedSearch(search: InsertSavedSearch): Promise<SavedSearch> {
+    const [newSearch] = await db
+      .insert(savedSearches)
+      .values(search)
+      .returning();
+    return newSearch;
+  }
+
+  async updateSavedSearch(id: string, userId: string, data: Partial<InsertSavedSearch>): Promise<SavedSearch | undefined> {
+    const [updated] = await db
+      .update(savedSearches)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteSavedSearch(id: string, userId: string): Promise<void> {
+    await db
+      .delete(savedSearches)
+      .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId)));
+  }
+
+  async getActiveSavedSearchesByFrequency(frequency: string): Promise<SavedSearch[]> {
+    return await db
+      .select()
+      .from(savedSearches)
+      .where(
+        and(
+          eq(savedSearches.frequency, frequency),
+          eq(savedSearches.isActive, true),
+          eq(savedSearches.emailEnabled, true)
+        )
+      );
+  }
+
+  async updateSavedSearchMatchCount(id: string, count: number): Promise<void> {
+    await db
+      .update(savedSearches)
+      .set({ matchCount: count, lastRunAt: new Date(), updatedAt: new Date() })
+      .where(eq(savedSearches.id, id));
+  }
+
+  // Property Change operations
+  async createPropertyChange(change: InsertPropertyChange): Promise<PropertyChange> {
+    const [newChange] = await db
+      .insert(propertyChanges)
+      .values(change)
+      .returning();
+    return newChange;
+  }
+
+  async getUnprocessedChanges(forDigest: boolean, limit = 1000): Promise<PropertyChange[]> {
+    const processedColumn = forDigest 
+      ? propertyChanges.processedForDigest 
+      : propertyChanges.processedForInstant;
+    
+    return await db
+      .select()
+      .from(propertyChanges)
+      .where(eq(processedColumn, false))
+      .orderBy(desc(propertyChanges.changedAt))
+      .limit(limit);
+  }
+
+  async markChangesProcessed(ids: string[], forDigest: boolean): Promise<void> {
+    if (ids.length === 0) return;
+    
+    const updateData = forDigest 
+      ? { processedForDigest: true }
+      : { processedForInstant: true };
+    
+    await db
+      .update(propertyChanges)
+      .set(updateData)
+      .where(inArray(propertyChanges.id, ids));
+  }
+
+  async getRecentChangesForProperty(propertyId: string, since: Date): Promise<PropertyChange[]> {
+    return await db
+      .select()
+      .from(propertyChanges)
+      .where(
+        and(
+          eq(propertyChanges.propertyId, propertyId),
+          gte(propertyChanges.changedAt, since)
+        )
+      )
+      .orderBy(desc(propertyChanges.changedAt));
+  }
+
+  // Saved Search Notification operations
+  async createSavedSearchNotification(notification: InsertSavedSearchNotification): Promise<SavedSearchNotification> {
+    const [newNotification] = await db
+      .insert(savedSearchNotifications)
+      .values(notification)
+      .returning();
+    return newNotification;
+  }
+
+  async getRecentNotificationsForSearch(searchId: string, limit = 10): Promise<SavedSearchNotification[]> {
+    return await db
+      .select()
+      .from(savedSearchNotifications)
+      .where(eq(savedSearchNotifications.savedSearchId, searchId))
+      .orderBy(desc(savedSearchNotifications.createdAt))
+      .limit(limit);
   }
 }
 

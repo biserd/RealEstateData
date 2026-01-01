@@ -10,7 +10,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSubscription } from "@/hooks/useSubscription";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { Header } from "@/components/Header";
-import { Key, Copy, RefreshCw, Trash2, AlertTriangle, Check, ExternalLink, Crown, CreditCard, Calendar, Zap } from "lucide-react";
+import { Key, Copy, RefreshCw, Trash2, AlertTriangle, Check, ExternalLink, Crown, CreditCard, Calendar, Zap, Bell, Clock, Mail, Pause, Play, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +41,18 @@ interface GenerateKeyResponse {
   apiKey: ApiKeyData;
   rawKey: string;
   warning: string;
+}
+
+interface SavedSearchData {
+  id: string;
+  name: string;
+  filters: Record<string, unknown>;
+  frequency: string;
+  emailEnabled: boolean;
+  isActive: boolean;
+  matchCount: number;
+  lastRunAt: string | null;
+  createdAt: string;
 }
 
 export default function Settings() {
@@ -95,6 +107,37 @@ export default function Settings() {
   const { data: apiKeyData, isLoading } = useQuery<ApiKeyResponse>({
     queryKey: ["/api/api-keys"],
     enabled: isPro,
+  });
+
+  const { data: savedSearches, isLoading: savedSearchesLoading } = useQuery<SavedSearchData[]>({
+    queryKey: ["/api/saved-searches"],
+  });
+
+  const toggleSearchMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/saved-searches/${id}`, { isActive });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-searches"] });
+      toast({ title: "Search updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update search", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteSearchMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/saved-searches/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-searches"] });
+      toast({ title: "Search deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete search", description: error.message, variant: "destructive" });
+    },
   });
 
   const generateMutation = useMutation({
@@ -258,6 +301,89 @@ export default function Settings() {
                       {portalMutation.isPending ? "Loading..." : "Manage Billing"}
                     </Button>
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Saved Searches Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                <CardTitle>Saved Searches & Alerts</CardTitle>
+              </div>
+              <CardDescription>
+                Manage your saved searches and notification preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {savedSearchesLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-16 bg-muted rounded"></div>
+                  <div className="h-16 bg-muted rounded"></div>
+                </div>
+              ) : savedSearches && savedSearches.length > 0 ? (
+                <div className="space-y-3">
+                  {savedSearches.map((search) => (
+                    <div key={search.id} className="flex items-center justify-between p-4 bg-muted rounded-lg" data-testid={`saved-search-${search.id}`}>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium">{search.name}</h4>
+                          <Badge variant={search.isActive ? "default" : "secondary"} className="text-xs">
+                            {search.isActive ? "Active" : "Paused"}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs gap-1">
+                            {search.frequency === "instant" && <Zap className="h-3 w-3" />}
+                            {search.frequency === "daily" && <Clock className="h-3 w-3" />}
+                            {search.frequency === "weekly" && <Calendar className="h-3 w-3" />}
+                            {search.frequency}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {search.matchCount || 0} matching properties
+                          {search.emailEnabled && (
+                            <span className="inline-flex items-center gap-1 ml-2">
+                              <Mail className="h-3 w-3" /> Email on
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleSearchMutation.mutate({ id: search.id, isActive: !search.isActive })}
+                          disabled={toggleSearchMutation.isPending}
+                          data-testid={`button-toggle-search-${search.id}`}
+                        >
+                          {search.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteSearchMutation.mutate(search.id)}
+                          disabled={deleteSearchMutation.isPending}
+                          data-testid={`button-delete-search-${search.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">No saved searches yet</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Save a search from the Opportunity Screener to get alerts when new properties match your criteria.
+                  </p>
+                  <Link href="/screener">
+                    <Button variant="outline" data-testid="link-to-screener">
+                      Go to Screener
+                    </Button>
+                  </Link>
                 </div>
               )}
             </CardContent>
