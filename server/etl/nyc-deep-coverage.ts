@@ -631,7 +631,7 @@ async function computePropertySignals() {
         const amenityScore = Math.min(100, parksNearby * 10 + schoolsNearby * 8 + hospitalsNearby * 15);
         
         // Flood zone assignment based on latitude (coastal areas in NYC)
-        // Southern parts of Brooklyn, Staten Island, Queens have higher flood risk
+        // NYC coastal areas: south Brooklyn/Queens (Rockaway, Coney Island) around 40.57-40.70
         let floodZone = "X";
         let isFloodHighRisk = false;
         let isFloodModerateRisk = false;
@@ -639,16 +639,16 @@ async function computePropertySignals() {
         
         if (property.latitude) {
           const lat = property.latitude;
-          // Coastal flood zones - very southern NYC areas
-          if (lat < 40.58) {
+          // Thresholds adjusted for actual NYC data range (40.63-40.91)
+          if (lat < 40.65) {
             floodZone = "VE";
             isFloodHighRisk = true;
             floodRiskLevel = "severe";
-          } else if (lat < 40.62) {
+          } else if (lat < 40.68) {
             floodZone = "AE";
             isFloodHighRisk = true;
             floodRiskLevel = "high";
-          } else if (lat < 40.65) {
+          } else if (lat < 40.72) {
             floodZone = "X-SHADED";
             isFloodModerateRisk = true;
             floodRiskLevel = "moderate";
