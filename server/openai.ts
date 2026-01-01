@@ -560,3 +560,230 @@ CALCULATED RESULTS:
     };
   }
 }
+
+// AI Property Insights Types
+export interface PropertyInsights {
+  investmentSummary: string;
+  riskAssessment: {
+    level: "Low" | "Medium" | "High";
+    factors: string[];
+  };
+  valueDrivers: string[];
+  concerns: string[];
+  neighborhoodTrends: string;
+  buyerProfile: string;
+  whatNow: WhatNowAction[];
+  generatedAt: string;
+}
+
+export interface WhatNowAction {
+  title: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+  type: "action" | "research" | "contact";
+  link?: string;
+}
+
+export interface PropertySignalsContext {
+  transitScore?: number | null;
+  buildingHealthScore?: number | null;
+  floodZone?: string | null;
+  floodRiskLevel?: string | null;
+  nearestSubwayStation?: string | null;
+  nearestSubwayMeters?: number | null;
+  openHpdViolations?: number | null;
+  dobComplaints12m?: number | null;
+  activePermits?: number | null;
+  signalConfidence?: string | null;
+}
+
+export async function generatePropertyInsights(
+  property: Property,
+  signals: PropertySignalsContext | null,
+  marketData: MarketAggregate | null,
+  userTier: "free" | "pro" | "premium" = "free"
+): Promise<PropertyInsights> {
+  const systemPrompt = `You are an expert real estate advisor helping buyers and investors make informed decisions.
+Your role is to synthesize property data, alternative signals, and market context into actionable insights.
+
+CRITICAL RULES:
+1. Be specific and data-driven - cite actual numbers
+2. Tailor advice to realistic next steps
+3. Highlight both opportunities and risks
+4. Consider building health, transit, flood risk when available
+5. Make "What Now" actions concrete and actionable
+
+RESPONSE FORMAT (JSON):
+{
+  "investmentSummary": "2-3 sentence assessment of this property as an investment/purchase opportunity",
+  "riskLevel": "Low|Medium|High",
+  "riskFactors": ["specific risk 1", "specific risk 2", "specific risk 3"],
+  "valueDrivers": ["positive factor 1", "positive factor 2", "positive factor 3"],
+  "concerns": ["concern 1", "concern 2"],
+  "neighborhoodTrends": "1-2 sentence market trend assessment",
+  "buyerProfile": "Who is this property best suited for (1 sentence)",
+  "whatNow": [
+    {"title": "Action title", "description": "Specific action description", "priority": "high|medium|low", "type": "action|research|contact"}
+  ]
+}
+
+WHAT NOW PRIORITIES:
+- high: Must do before making offer
+- medium: Important for due diligence
+- low: Nice to have for context`;
+
+  let dataSection = `PROPERTY OVERVIEW:
+Address: ${property.address}, ${property.city}, ${property.state} ${property.zipCode}
+Type: ${property.propertyType}
+Specs: ${property.beds || "N/A"} beds, ${property.baths || "N/A"} baths, ${property.sqft?.toLocaleString() || "N/A"} sqft
+Year Built: ${property.yearBuilt || "N/A"}
+Estimated Value: ${property.estimatedValue ? `$${property.estimatedValue.toLocaleString()}` : "N/A"}
+Price/sqft: ${property.pricePerSqft ? `$${property.pricePerSqft.toFixed(0)}` : "N/A"}
+Opportunity Score: ${property.opportunityScore || "N/A"}/100
+
+`;
+
+  if (signals) {
+    dataSection += `NYC DEEP COVERAGE SIGNALS:
+Transit Score: ${signals.transitScore || "N/A"}/100
+- Nearest Subway: ${signals.nearestSubwayStation || "N/A"} (${signals.nearestSubwayMeters ? `${signals.nearestSubwayMeters}m` : "N/A"})
+Building Health Score: ${signals.buildingHealthScore || "N/A"}/100
+- Open HPD Violations: ${signals.openHpdViolations || 0}
+- DOB Complaints (12m): ${signals.dobComplaints12m || 0}
+- Active Permits: ${signals.activePermits || 0}
+Flood Zone: ${signals.floodZone || "N/A"} (${signals.floodRiskLevel || "Unknown"} risk)
+Data Confidence: ${signals.signalConfidence || "Unknown"}
+
+`;
+  }
+
+  if (marketData) {
+    dataSection += `MARKET CONTEXT (${marketData.geoName}):
+Median Price: ${marketData.medianPrice ? `$${marketData.medianPrice.toLocaleString()}` : "N/A"}
+Price Range: ${marketData.p25Price ? `$${marketData.p25Price.toLocaleString()}` : "N/A"} - ${marketData.p75Price ? `$${marketData.p75Price.toLocaleString()}` : "N/A"}
+3-Month Trend: ${marketData.trend3m !== null ? `${marketData.trend3m >= 0 ? '+' : ''}${marketData.trend3m.toFixed(1)}%` : "N/A"}
+12-Month Trend: ${marketData.trend12m !== null ? `${marketData.trend12m >= 0 ? '+' : ''}${marketData.trend12m.toFixed(1)}%` : "N/A"}
+Recent Transactions: ${marketData.transactionCount || "N/A"}
+
+`;
+  }
+
+  dataSection += `USER TIER: ${userTier} (tailor recommendations accordingly)`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: dataSection + "\n\nGenerate comprehensive property insights and actionable next steps." }
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 4096,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    const parsed = content ? JSON.parse(content) : {};
+
+    const validRiskLevels = ["Low", "Medium", "High"];
+    
+    // Transform whatNow actions
+    const whatNowActions: WhatNowAction[] = Array.isArray(parsed.whatNow) 
+      ? parsed.whatNow.slice(0, 5).map((action: any) => ({
+          title: action.title || "Action",
+          description: action.description || "",
+          priority: ["high", "medium", "low"].includes(action.priority) ? action.priority : "medium",
+          type: ["action", "research", "contact"].includes(action.type) ? action.type : "action",
+          link: action.link,
+        }))
+      : getDefaultWhatNow(property, signals, userTier);
+
+    return {
+      investmentSummary: parsed.investmentSummary || "Unable to generate analysis. Please review property details manually.",
+      riskAssessment: {
+        level: validRiskLevels.includes(parsed.riskLevel) ? parsed.riskLevel : "Medium",
+        factors: Array.isArray(parsed.riskFactors) ? parsed.riskFactors.slice(0, 5) : [],
+      },
+      valueDrivers: Array.isArray(parsed.valueDrivers) ? parsed.valueDrivers.slice(0, 5) : [],
+      concerns: Array.isArray(parsed.concerns) ? parsed.concerns.slice(0, 5) : [],
+      neighborhoodTrends: parsed.neighborhoodTrends || "Market data limited.",
+      buyerProfile: parsed.buyerProfile || "Property suitable for various buyer types.",
+      whatNow: whatNowActions,
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Property insights error:", error);
+    return {
+      investmentSummary: "Unable to generate AI insights. Please review the property data manually.",
+      riskAssessment: { level: "Medium", factors: ["AI analysis unavailable"] },
+      valueDrivers: [],
+      concerns: [],
+      neighborhoodTrends: "Market analysis unavailable.",
+      buyerProfile: "Review property details to determine fit.",
+      whatNow: getDefaultWhatNow(property, signals, userTier),
+      generatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+function getDefaultWhatNow(
+  property: Property, 
+  signals: PropertySignalsContext | null,
+  userTier: string
+): WhatNowAction[] {
+  const actions: WhatNowAction[] = [];
+
+  // High priority actions
+  if (signals?.openHpdViolations && signals.openHpdViolations > 0) {
+    actions.push({
+      title: "Review HPD Violations",
+      description: `This building has ${signals.openHpdViolations} open violations. Request full violation history before making an offer.`,
+      priority: "high",
+      type: "research",
+    });
+  }
+
+  if (signals?.floodRiskLevel === "high" || signals?.floodRiskLevel === "severe") {
+    actions.push({
+      title: "Get Flood Insurance Quote",
+      description: "Property is in a high-risk flood zone. Flood insurance will be required if mortgaged.",
+      priority: "high",
+      type: "action",
+    });
+  }
+
+  // Medium priority
+  actions.push({
+    title: "Schedule Property Viewing",
+    description: "Visit the property in person to assess condition and neighborhood.",
+    priority: "high",
+    type: "action",
+  });
+
+  if (userTier === "free" || userTier === "pro") {
+    actions.push({
+      title: "Request Comparable Sales Report",
+      description: "Review recent sales of similar properties to validate pricing.",
+      priority: "medium",
+      type: "research",
+    });
+  }
+
+  actions.push({
+    title: "Add to Watchlist",
+    description: "Save this property to monitor price changes and market updates.",
+    priority: "medium",
+    type: "action",
+  });
+
+  // Low priority
+  if (property.yearBuilt && property.yearBuilt < 1980) {
+    actions.push({
+      title: "Request Lead Paint Disclosure",
+      description: "Properties built before 1978 may contain lead-based paint.",
+      priority: "low",
+      type: "research",
+    });
+  }
+
+  return actions.slice(0, 5);
+}

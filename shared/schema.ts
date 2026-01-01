@@ -848,6 +848,10 @@ export const propertySignalSummary = pgTable(
     groceries800m: integer("groceries_800m").default(0),
     amenityScore: integer("amenity_score"), // 0-100
     
+    // Data quality and confidence
+    signalConfidence: varchar("signal_confidence"), // high, medium, low based on data completeness
+    dataCompleteness: integer("data_completeness"), // 0-100 percentage of available data points
+    
     // NYC deep coverage indicator
     hasDeepCoverage: boolean("has_deep_coverage").default(false),
     signalDataSources: text("signal_data_sources").array(), // Which datasets contributed

@@ -152,6 +152,28 @@ async function computePropertySignals() {
 
         const amenityScore = Math.min(100, parksNearby * 10 + schoolsNearby * 8 + hospitalsNearby * 15);
         
+        // Calculate data completeness score (0-100)
+        // Each data category contributes to completeness
+        let dataPoints = 0;
+        let totalDataPoints = 5; // BBL match, transit, flood, health, amenities
+        
+        if (bbl) dataPoints++; // BBL-linked data available
+        if (nearestSubwayMeters !== null) dataPoints++; // Transit data available
+        dataPoints++; // Flood data always available (derived from location)
+        if (bbl && (openHpdViolations > 0 || openDobComplaints > 0 || activePermits > 0)) {
+          dataPoints++; // Building-specific health data
+        } else if (bbl) {
+          dataPoints += 0.5; // BBL exists but no violations (could be clean building)
+        }
+        if (parksNearby > 0 || schoolsNearby > 0 || hospitalsNearby > 0) {
+          dataPoints++; // Amenity data available
+        }
+        
+        const dataCompleteness = Math.round((dataPoints / totalDataPoints) * 100);
+        const signalConfidence = dataCompleteness >= 80 ? "high" 
+          : dataCompleteness >= 50 ? "medium" 
+          : "low";
+        
         // Flood zone assignment based on latitude (coastal areas in NYC)
         // NYC coastal areas: south Brooklyn/Queens (Rockaway, Coney Island) around 40.57-40.70
         let floodZone = "X";
@@ -204,6 +226,8 @@ async function computePropertySignals() {
           parks400m: parksNearby,
           groceries800m: 0,
           amenityScore,
+          signalConfidence,
+          dataCompleteness,
           hasDeepCoverage: true,
           signalDataSources: ["dob", "hpd", "311", "subway", "fema"],
           updatedAt: new Date(),

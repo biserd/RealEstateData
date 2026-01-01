@@ -4,7 +4,7 @@ import passport from "passport";
 import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, optionalAuth, hashPassword, hashActivationToken, generateActivationToken } from "./auth";
-import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, type ScenarioInputs } from "./openai";
+import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, generatePropertyInsights, type ScenarioInputs, type PropertyInsights } from "./openai";
 import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema, type ScreenerFilters } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
@@ -783,7 +783,7 @@ Sitemap: ${baseUrl}/sitemap.xml
           floodRisk: {
             highRisk: highRiskFlood,
             moderateRisk: moderateRiskFlood,
-            lowRisk: withSignals - highRiskFlood - moderateRiskFlood,
+            lowRisk: coverageCounts.withSignals - highRiskFlood - moderateRiskFlood,
           },
           constructionActivity: {
             totalActivePermits,
@@ -1114,6 +1114,53 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error generating deal memo:", error);
       res.status(500).json({ message: "Failed to generate deal memo" });
+    }
+  });
+
+  // AI Property Insights - Pro only (includes What Now feature)
+  app.get("/api/ai/insights/:propertyId", isAuthenticated, requirePro, async (req: any, res) => {
+    try {
+      const { propertyId } = req.params;
+      const userId = req.user?.id;
+      
+      // Get property data
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      // Get property signals
+      const signals = await storage.getPropertySignals(propertyId);
+      
+      // Get market data for this property's ZIP
+      const marketData = await storage.getMarketAggregates("zip", property.zipCode, {});
+      
+      // Get user tier
+      const user = userId ? await storage.getUser(userId) : null;
+      const userTier = (user?.subscriptionTier as "free" | "pro" | "premium") || "free";
+      
+      const insights = await generatePropertyInsights(
+        property,
+        signals ? {
+          transitScore: signals.transitScore,
+          buildingHealthScore: signals.buildingHealthScore,
+          floodZone: signals.floodZone,
+          floodRiskLevel: signals.floodRiskLevel,
+          nearestSubwayStation: signals.nearestSubwayStation,
+          nearestSubwayMeters: signals.nearestSubwayMeters,
+          openHpdViolations: signals.openHpdViolations,
+          dobComplaints12m: signals.dobComplaints12m,
+          activePermits: signals.activePermits,
+          signalConfidence: signals.signalConfidence,
+        } : null,
+        marketData.length > 0 ? marketData[0] : null,
+        userTier
+      );
+      
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating property insights:", error);
+      res.status(500).json({ message: "Failed to generate insights" });
     }
   });
 

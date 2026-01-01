@@ -47,6 +47,7 @@ import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { UpgradeModal, BlurredContent, ProBadge } from "@/components/UpgradePrompt";
 import { PropertyStickyCTA } from "@/components/PropertyStickyCTA";
 import { NycDeepInsights } from "@/components/NycDeepInsights";
+import { PropertyAIInsights } from "@/components/PropertyAIInsights";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -867,53 +868,68 @@ export default function PropertyDetail() {
           </TabsContent>
 
           <TabsContent value="ai">
-            <Card className="h-[600px]">
-              {isAuthenticated && isPro ? (
-                <AIChat
-                  propertyId={id}
-                  contextLabel={`${property.address}, ${property.city}`}
-                  onSendMessage={handleSendAIMessage}
-                />
-              ) : isAuthenticated && isFree ? (
-                <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-                  <div className="mb-4 rounded-full bg-primary/10 p-4">
-                    <Crown className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="mb-2 text-xl font-semibold flex items-center gap-2">
-                    AI Property Analysis
-                    <ProBadge />
-                  </h3>
-                  <p className="mb-6 max-w-md text-sm text-muted-foreground">
-                    Get AI-powered insights about this property, including pricing analysis, 
-                    market comparisons, risk factors, and investment recommendations backed by real data.
-                    Upgrade to Pro to unlock this feature.
-                  </p>
-                  <Link href="/pricing">
-                    <Button data-testid="button-upgrade-ai">
-                      <Crown className="mr-2 h-4 w-4" />
-                      Upgrade to Pro
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-                  <div className="mb-4 rounded-full bg-primary/10 p-4">
-                    <Bot className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="mb-2 text-xl font-semibold">AI Property Analysis</h3>
-                  <p className="mb-6 max-w-md text-sm text-muted-foreground">
-                    Get AI-powered insights about this property, including pricing analysis, 
-                    market comparisons, risk factors, and investment recommendations backed by real data.
-                  </p>
-                  <a href="/api/login">
-                    <Button data-testid="button-login-ai">
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Sign In to Use AI Analysis
-                    </Button>
-                  </a>
-                </div>
-              )}
-            </Card>
+            <div className="space-y-6">
+              <PropertyAIInsights 
+                propertyId={id!}
+                onUpgrade={() => {
+                  setUpgradeFeature("AI Property Insights");
+                  setShowUpgradeModal(true);
+                }}
+              />
+              
+              <Card className="h-[500px]">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Bot className="h-5 w-5" />
+                    Ask Questions About This Property
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-[calc(100%-60px)]">
+                  {isAuthenticated && isPro ? (
+                    <AIChat
+                      propertyId={id}
+                      contextLabel={`${property.address}, ${property.city}`}
+                      onSendMessage={handleSendAIMessage}
+                    />
+                  ) : isAuthenticated && isFree ? (
+                    <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                      <div className="mb-4 rounded-full bg-primary/10 p-4">
+                        <Crown className="h-8 w-8 text-primary" />
+                      </div>
+                      <h3 className="mb-2 text-lg font-semibold flex items-center gap-2">
+                        AI Chat Assistant
+                        <ProBadge />
+                      </h3>
+                      <p className="mb-4 max-w-md text-sm text-muted-foreground">
+                        Ask follow-up questions about this property and get AI-powered answers based on real data.
+                      </p>
+                      <Link href="/pricing">
+                        <Button size="sm" data-testid="button-upgrade-ai">
+                          <Crown className="mr-2 h-4 w-4" />
+                          Upgrade to Pro
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                      <div className="mb-4 rounded-full bg-primary/10 p-4">
+                        <Bot className="h-8 w-8 text-primary" />
+                      </div>
+                      <h3 className="mb-2 text-lg font-semibold">AI Chat Assistant</h3>
+                      <p className="mb-4 max-w-md text-sm text-muted-foreground">
+                        Ask questions about this property and get AI-powered answers.
+                      </p>
+                      <a href="/api/login">
+                        <Button size="sm" data-testid="button-login-ai">
+                          <LogIn className="mr-2 h-4 w-4" />
+                          Sign In to Use AI
+                        </Button>
+                      </a>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

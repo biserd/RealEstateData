@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Building2, 
@@ -11,12 +12,29 @@ import {
   Activity,
   TreePine,
   Store,
-  UtensilsCrossed
+  UtensilsCrossed,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import type { PropertySignalSummary } from "@shared/schema";
 
 interface SignalResponse {
@@ -36,11 +54,15 @@ interface NycDeepInsightsProps {
 function ScoreIndicator({ 
   score, 
   label, 
-  colorClass 
+  colorClass,
+  showTrend,
+  trend
 }: { 
   score: number | null | undefined; 
   label: string;
   colorClass?: string;
+  showTrend?: boolean;
+  trend?: "improving" | "stable" | "worsening";
 }) {
   if (score === null || score === undefined) {
     return (
@@ -58,10 +80,20 @@ function ScoreIndicator({
     if (score >= 40) return "text-orange-600 dark:text-orange-400";
     return "text-red-600 dark:text-red-400";
   };
+
+  const getTrendIcon = () => {
+    if (!showTrend || !trend) return null;
+    if (trend === "improving") return <TrendingUp className="h-3 w-3 text-emerald-500" />;
+    if (trend === "worsening") return <TrendingDown className="h-3 w-3 text-red-500" />;
+    return <Minus className="h-3 w-3 text-muted-foreground" />;
+  };
   
   return (
     <div className="text-center">
-      <div className={`text-2xl font-bold ${getColor()}`}>{score}</div>
+      <div className="flex items-center justify-center gap-1">
+        <span className={`text-2xl font-bold ${getColor()}`}>{score}</span>
+        {getTrendIcon()}
+      </div>
       <div className="text-xs text-muted-foreground">{label}</div>
     </div>
   );
@@ -89,7 +121,256 @@ function RiskBadge({ level }: { level: string | null | undefined }) {
   );
 }
 
+function DataSourceBadge({ type }: { type: "building" | "area" }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="outline" className="text-xs gap-1">
+          <Info className="h-3 w-3" />
+          {type === "building" ? "Building-linked" : "Area (0.25mi)"}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        {type === "building" 
+          ? "This data is directly linked to this building via BBL (tax lot ID)."
+          : "This data is aggregated from a 0.25 mile radius around the property."}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ConfidenceBadge({ 
+  confidence, 
+  completeness 
+}: { 
+  confidence: string | null | undefined;
+  completeness: number | null | undefined;
+}) {
+  if (!confidence) return null;
+  
+  const variants: Record<string, { className: string; label: string }> = {
+    high: { 
+      className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+      label: "High Confidence"
+    },
+    medium: { 
+      className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+      label: "Medium Confidence"
+    },
+    low: { 
+      className: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+      label: "Low Confidence"
+    },
+  };
+  
+  const config = variants[confidence.toLowerCase()] || variants.medium;
+  
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="secondary" className={`text-xs ${config.className}`}>
+          {config.label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        <p className="font-medium mb-1">Data Quality: {completeness || 0}% complete</p>
+        <p className="text-xs">
+          {confidence === "high" 
+            ? "All major data sources available including BBL-linked building records."
+            : confidence === "medium"
+            ? "Most data sources available. Some building-specific data may be limited."
+            : "Limited data available. Results should be verified independently."}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function WhyThisScore({ 
+  title, 
+  bullets,
+  isOpen,
+  onToggle
+}: { 
+  title: string;
+  bullets: string[];
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  if (bullets.length === 0) return null;
+  
+  return (
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <CollapsibleTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="w-full justify-between text-xs text-muted-foreground hover:text-foreground h-7 px-2"
+          data-testid={`button-why-${title.toLowerCase().replace(/\s/g, '-')}`}
+        >
+          <span>Why this score?</span>
+          {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="text-xs text-muted-foreground space-y-1 mt-2 pl-4">
+          {bullets.map((bullet, i) => (
+            <li key={i} className="list-disc list-outside">{bullet}</li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function getTransitScoreExplanation(signals: PropertySignalSummary): string[] {
+  const bullets: string[] = [];
+  
+  if (signals.nearestSubwayMeters && signals.nearestSubwayStation) {
+    const miles = (signals.nearestSubwayMeters / 1609).toFixed(2);
+    const walkMin = Math.round(signals.nearestSubwayMeters / 80);
+    bullets.push(`${miles} mi (${walkMin} min walk) to ${signals.nearestSubwayStation} station`);
+  }
+  
+  if (signals.nearestSubwayLines && signals.nearestSubwayLines.length > 0) {
+    bullets.push(`Access to ${signals.nearestSubwayLines.length} subway line${signals.nearestSubwayLines.length > 1 ? 's' : ''}: ${signals.nearestSubwayLines.join(', ')}`);
+  }
+  
+  if (signals.transitScore !== null && signals.transitScore !== undefined) {
+    if (signals.transitScore >= 90) {
+      bullets.push("Excellent transit access (top 10% for NYC)");
+    } else if (signals.transitScore >= 70) {
+      bullets.push("Good transit access (above average for NYC)");
+    } else if (signals.transitScore >= 50) {
+      bullets.push("Moderate transit access");
+    } else {
+      bullets.push("Limited transit options in immediate area");
+    }
+  }
+  
+  if (signals.hasAccessibleTransit) {
+    bullets.push("Nearest station is wheelchair accessible");
+  }
+  
+  return bullets;
+}
+
+function getBuildingHealthExplanation(signals: PropertySignalSummary): string[] {
+  const bullets: string[] = [];
+  
+  // HPD Violations
+  if (signals.openHpdViolations && signals.openHpdViolations > 0) {
+    let violationText = `${signals.openHpdViolations} open HPD violation${signals.openHpdViolations > 1 ? 's' : ''}`;
+    if (signals.hazardousViolations && signals.hazardousViolations > 0) {
+      violationText += ` (${signals.hazardousViolations} Class C/hazardous)`;
+    }
+    bullets.push(violationText);
+  } else {
+    bullets.push("No open HPD violations");
+  }
+  
+  // DOB Complaints
+  if (signals.dobComplaints12m && signals.dobComplaints12m > 0) {
+    bullets.push(`${signals.dobComplaints12m} DOB complaint${signals.dobComplaints12m > 1 ? 's' : ''} in last 12 months`);
+  }
+  
+  // 311 Complaints
+  if (signals.complaints311_12m && signals.complaints311_12m > 0) {
+    let text = `${signals.complaints311_12m} 311 complaint${signals.complaints311_12m > 1 ? 's' : ''} in last 12 months`;
+    if (signals.noiseComplaints12m && signals.noiseComplaints12m > 0) {
+      text += ` (${signals.noiseComplaints12m} noise-related)`;
+    }
+    bullets.push(text);
+  }
+  
+  // Score interpretation
+  if (signals.buildingHealthScore !== null && signals.buildingHealthScore !== undefined) {
+    if (signals.buildingHealthScore >= 90) {
+      bullets.push("Excellent building condition with minimal issues");
+    } else if (signals.buildingHealthScore >= 70) {
+      bullets.push("Good condition with some minor issues to monitor");
+    } else if (signals.buildingHealthScore >= 50) {
+      bullets.push("Moderate concerns - recommend inspection before purchase");
+    } else {
+      bullets.push("Significant issues flagged - thorough due diligence recommended");
+    }
+  }
+  
+  return bullets;
+}
+
+function getFloodRiskExplanation(signals: PropertySignalSummary): string[] {
+  const bullets: string[] = [];
+  
+  if (signals.floodZone) {
+    const zoneDescriptions: Record<string, string> = {
+      "X": "Zone X: Minimal flood risk (0.2% annual chance or less)",
+      "X-SHADED": "Zone X-SHADED: Moderate risk (0.2% to 1% annual chance)",
+      "AE": "Zone AE: High risk (1% annual chance floodplain)",
+      "VE": "Zone VE: Severe risk (coastal flood zone with wave action)",
+      "AO": "Zone AO: High risk (shallow flooding 1-3 ft)",
+      "A": "Zone A: High risk (no base flood elevations determined)"
+    };
+    
+    bullets.push(zoneDescriptions[signals.floodZone] || `FEMA Zone ${signals.floodZone}`);
+  }
+  
+  if (signals.isFloodHighRisk) {
+    bullets.push("Flood insurance required if mortgaged");
+    bullets.push("May affect resale value and insurance costs");
+  } else if (signals.isFloodModerateRisk) {
+    bullets.push("Flood insurance recommended but not required");
+    bullets.push("Consider future climate projections");
+  } else {
+    bullets.push("Flood insurance optional but available");
+    bullets.push("Low historical flood risk");
+  }
+  
+  return bullets;
+}
+
+function getConstructionExplanation(signals: PropertySignalSummary): string[] {
+  const bullets: string[] = [];
+  
+  if (signals.permitCount12m && signals.permitCount12m > 0) {
+    bullets.push(`${signals.permitCount12m} permit${signals.permitCount12m > 1 ? 's' : ''} filed in last 12 months`);
+  } else {
+    bullets.push("No new permits in last 12 months");
+  }
+  
+  if (signals.activePermits && signals.activePermits > 0) {
+    bullets.push(`${signals.activePermits} active permit${signals.activePermits > 1 ? 's' : ''} (work in progress)`);
+  }
+  
+  if (signals.majorAlteration) {
+    bullets.push("Major alteration (ALT1/ALT2) indicates significant renovation");
+  }
+  
+  if (signals.newConstruction) {
+    bullets.push("New building construction project");
+  }
+  
+  if (signals.estimatedPermitValue && signals.estimatedPermitValue > 0) {
+    const formattedValue = signals.estimatedPermitValue >= 1000000 
+      ? `$${(signals.estimatedPermitValue / 1000000).toFixed(1)}M`
+      : `$${(signals.estimatedPermitValue / 1000).toFixed(0)}K`;
+    bullets.push(`Estimated work value: ${formattedValue}`);
+  }
+  
+  if (!signals.permitCount24m || signals.permitCount24m === 0) {
+    bullets.push("No major work in 24 months - stable building");
+  }
+  
+  return bullets;
+}
+
 export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProps) {
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
   const nycBoroughs = ["Manhattan", "Brooklyn", "Bronx", "Queens", "Staten Island"];
   const isNYC = state === "NY" && nycBoroughs.includes(city);
 
@@ -172,13 +453,22 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Badge variant="secondary" className="bg-primary/10 text-primary">
-          NYC Deep Coverage
-        </Badge>
-        <span className="text-sm text-muted-foreground">
-          Alternative data signals from NYC Open Data
-        </span>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="secondary" className="bg-primary/10 text-primary">
+            NYC Deep Coverage
+          </Badge>
+          <ConfidenceBadge 
+            confidence={signals.signalConfidence} 
+            completeness={signals.dataCompleteness} 
+          />
+          <span className="text-sm text-muted-foreground">
+            Alternative data signals from NYC Open Data
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <DataSourceBadge type="building" />
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -217,10 +507,13 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Construction className="h-5 w-5 text-primary" />
-              Construction Activity
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Construction className="h-5 w-5 text-primary" />
+                Construction Activity
+              </CardTitle>
+              <DataSourceBadge type="building" />
+            </div>
             <CardDescription>Building permits and renovation activity</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -253,19 +546,28 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
                 <span className="text-xs text-muted-foreground">No major work in 24 months</span>
               )}
             </div>
+            <WhyThisScore 
+              title="construction"
+              bullets={getConstructionExplanation(signals)}
+              isOpen={openSections["construction"] || false}
+              onToggle={() => toggleSection("construction")}
+            />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              {signals.healthRiskLevel === "low" || signals.healthRiskLevel === "minimal" ? (
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              ) : (
-                <ShieldAlert className="h-5 w-5 text-orange-600" />
-              )}
-              Building Compliance
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                {signals.healthRiskLevel === "low" || signals.healthRiskLevel === "minimal" ? (
+                  <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                ) : (
+                  <ShieldAlert className="h-5 w-5 text-orange-600" />
+                )}
+                Building Compliance
+              </CardTitle>
+              <DataSourceBadge type="building" />
+            </div>
             <CardDescription>HPD & DOB violations and complaints</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -303,15 +605,24 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
                 <RiskBadge level={signals.healthRiskLevel} />
               </div>
             )}
+            <WhyThisScore 
+              title="health"
+              bullets={getBuildingHealthExplanation(signals)}
+              isOpen={openSections["health"] || false}
+              onToggle={() => toggleSection("health")}
+            />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Train className="h-5 w-5 text-primary" />
-              Transit Accessibility
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Train className="h-5 w-5 text-primary" />
+                Transit Accessibility
+              </CardTitle>
+              <DataSourceBadge type="area" />
+            </div>
             <CardDescription>Subway access and accessibility</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -321,7 +632,7 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
                   <div className="font-medium">{signals.nearestSubwayStation}</div>
                   <div className="text-sm text-muted-foreground">
                     {signals.nearestSubwayMeters 
-                      ? `${signals.nearestSubwayMeters}m away (~${Math.round(signals.nearestSubwayMeters / 80)} min walk)`
+                      ? `${(signals.nearestSubwayMeters / 1609).toFixed(2)} mi away (~${Math.round(signals.nearestSubwayMeters / 80)} min walk)`
                       : "Distance unknown"}
                   </div>
                 </div>
@@ -354,15 +665,24 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
                 <Progress value={signals.transitScore} className="h-2" />
               </div>
             )}
+            <WhyThisScore 
+              title="transit"
+              bullets={getTransitScoreExplanation(signals)}
+              isOpen={openSections["transit"] || false}
+              onToggle={() => toggleSection("transit")}
+            />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Droplets className="h-5 w-5 text-blue-500" />
-              Flood Risk
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Droplets className="h-5 w-5 text-blue-500" />
+                Flood Risk
+              </CardTitle>
+              <DataSourceBadge type="building" />
+            </div>
             <CardDescription>FEMA flood zone classification</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -393,15 +713,24 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
                 </p>
               )}
             </div>
+            <WhyThisScore 
+              title="flood"
+              bullets={getFloodRiskExplanation(signals)}
+              isOpen={openSections["flood"] || false}
+              onToggle={() => toggleSection("flood")}
+            />
           </CardContent>
         </Card>
 
         <Card className="md:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Store className="h-5 w-5 text-primary" />
-              Neighborhood Amenities
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Store className="h-5 w-5 text-primary" />
+                Neighborhood Amenities
+              </CardTitle>
+              <DataSourceBadge type="area" />
+            </div>
             <CardDescription>Walkability and nearby services</CardDescription>
           </CardHeader>
           <CardContent>
@@ -445,7 +774,8 @@ export function NycDeepInsights({ propertyId, city, state }: NycDeepInsightsProp
 
       {signals.signalDataSources && signals.signalDataSources.length > 0 && (
         <div className="text-xs text-muted-foreground text-center pt-4">
-          Data sources: {signals.signalDataSources.join(", ")}
+          Data sources: {signals.signalDataSources.map(s => s.toUpperCase()).join(" + ")} | 
+          Last updated: {signals.updatedAt ? new Date(signals.updatedAt).toLocaleDateString() : "Recently"}
         </div>
       )}
     </div>
