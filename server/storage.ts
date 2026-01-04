@@ -439,10 +439,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPropertyByIdOrSlug(idOrSlug: string): Promise<Property | undefined> {
+    // Properties table uses ID only (no slug column)
     const [property] = await db
       .select()
       .from(properties)
-      .where(or(eq(properties.id, idOrSlug), eq(properties.slug, idOrSlug)));
+      .where(eq(properties.id, idOrSlug));
     return property;
   }
 
@@ -453,6 +454,27 @@ export class DatabaseStorage implements IStorage {
     // Properties must have valid sqft (>= 100) and reasonable pricePerSqft (>= 50 $/sqft for Tri-State area)
     conditions.push(isNotNull(properties.sqft));
     conditions.push(gte(properties.sqft, 100));
+    
+    // CRITICAL: Filter out building-level records from opportunity screener
+    // Condos with sqft > 6000 are almost certainly building-level records, not individual units
+    // This prevents misleading "deals" that are actually entire buildings with estimated prices
+    conditions.push(
+      or(
+        // Non-condo properties can have any sqft
+        sql`${properties.propertyType} != 'Condo'`,
+        // Condos must have sqft <= 6000 to be considered individual units
+        and(
+          sql`${properties.propertyType} = 'Condo'`,
+          lte(properties.sqft, 6000)
+        )
+      )
+    );
+    
+    // CRITICAL: Only show properties with real transaction prices, not estimated values
+    // Estimated prices (sqft * $/sqft) are poison for a "deals" product because they look like real deals
+    conditions.push(isNotNull(properties.lastSalePrice));
+    conditions.push(gte(properties.lastSalePrice, 1000)); // Minimum realistic sale price
+    
     conditions.push(
       or(
         isNotNull(properties.pricePerSqft),

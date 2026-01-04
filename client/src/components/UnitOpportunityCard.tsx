@@ -1,8 +1,39 @@
 import { Link } from "wouter";
-import { Home, MapPin, DollarSign, Target, Calendar } from "lucide-react";
+import { Home, MapPin, DollarSign, Target, Calendar, Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+
+export function EntityTypeBadge({ type }: { type: "unit" | "building" }) {
+  return (
+    <Badge 
+      variant="outline" 
+      className={type === "unit" 
+        ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800" 
+        : "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800"
+      }
+      data-testid={`badge-entity-${type}`}
+    >
+      {type === "unit" ? <Home className="h-3 w-3 mr-1" /> : <Building2 className="h-3 w-3 mr-1" />}
+      {type === "unit" ? "UNIT" : "BUILDING"}
+    </Badge>
+  );
+}
+
+export function PriceTypeBadge({ hasRealSale }: { hasRealSale: boolean }) {
+  return (
+    <Badge 
+      variant="outline" 
+      className={hasRealSale 
+        ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800" 
+        : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800"
+      }
+      data-testid={`badge-price-type-${hasRealSale ? "real" : "estimated"}`}
+    >
+      {hasRealSale ? "Sale Price" : "Estimated"}
+    </Badge>
+  );
+}
 
 interface UnitOpportunity {
   unitBbl: string;
@@ -50,6 +81,9 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
                   <Home className="h-5 w-5 text-primary" />
                 </div>
                 <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <EntityTypeBadge type="unit" />
+                  </div>
                   <h3 className="font-semibold" data-testid="text-unit-title">{unitTitle}</h3>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="h-3 w-3" />
@@ -97,8 +131,11 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
       <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-unit-opportunity-${unit.unitBbl}`}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
-              <Home className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                <Home className="h-5 w-5 text-primary" />
+              </div>
+              <EntityTypeBadge type="unit" />
             </div>
             <Badge 
               variant="secondary" 

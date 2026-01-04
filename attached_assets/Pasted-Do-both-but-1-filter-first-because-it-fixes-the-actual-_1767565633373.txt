@@ -1,0 +1,98 @@
+Do both, but #1 (filter) first because it fixes the actual user pain (bad “deals” that are really whole buildings / fake prices). Then add #2 (indicator) as a transparency layer so users always understand what they’re looking at.
+
+Here’s the concrete spec I’d implement.
+
+Step 1 — Fix Opportunity Screener so it shows real, investable entities
+A) Split the screener into two modes (behind the scenes if you want)
+
+Unit Opportunities (default for condos)
+
+Building Opportunities (for multifamily / 1–4 / true building trades)
+
+B) Hard filters for “Unit Opportunities”
+
+Only include records that meet all of:
+
+entity_type = CONDO_UNIT (or unitBbl present)
+
+unit_type_hint = residential (default)
+
+has_real_sale = true (or sale_count >= 1)
+
+price_source = transaction (not “estimated from $/sqft”)
+
+If a unit doesn’t have a sale yet, it can still appear, but not in “Top Opportunities” unless you label it as “No transaction history.”
+
+C) Kill the “estimated price = sqft * $/sqft” in the Opportunity Screener
+
+That’s fine for a Market Explorer aggregate, but it’s poison for an “opportunity/deals” product because it looks like a real deal.
+
+If you must keep it:
+
+put it behind a toggle: “Include estimated pricing (beta)”
+
+label it explicitly: Estimated, not Sale Price
+
+Step 2 — Add a Building vs Unit indicator everywhere
+
+This prevents confusion and reduces support burden.
+
+UI patterns that work
+
+A pill/badge on every card and detail page:
+
+UNIT / BUILDING
+
+On the screener: a filter pill:
+
+All | Units | Buildings
+
+On the property page: show the parent/child relationship:
+
+Unit page: “In building: 640 Amsterdam Ave (View building)”
+
+Building page: “Contains 212 units (View units)”
+
+Data fields
+
+entity_type
+
+price_type: last_sale | asking | estimate | none
+
+area_type: unit_sqft | building_sqft | unknown
+
+The quick rule that catches your examples automatically
+
+Those huge sqft numbers (11,777 / 37,500) are almost certainly building-level.
+
+Add a sanity gate:
+
+If sqft > 6000 and entity claims to be a unit → flag as suspicious and exclude from unit screener until verified.
+
+What to do next in your app
+
+Change Opportunity Screener default to “Unit Opportunities” in NYC condos
+
+Only compute opportunity score on real transactions
+
+Add the indicator badge in:
+
+Opportunity cards
+
+Search results
+
+Property/Unit/Building detail headers
+
+If you want the cleanest product wording
+
+“Sale price” = only recorded transactions
+
+“Estimated value” = model/heuristic output
+
+“Building area” vs “Unit area” clearly separated
+
+Short answer to your agent prompt
+
+✅ Yes: Filter out building-level records and estimated-price records from Opportunity Screener
+✅ Yes: Add Building vs Unit indicator
+But implement filtering first, otherwise the indicator becomes an apology label on bad results.

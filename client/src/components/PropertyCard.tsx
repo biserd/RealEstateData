@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getPropertyUrl, formatFullAddress } from "@/lib/propertySlug";
 import type { Property, ConfidenceLevel } from "@shared/schema";
+import { EntityTypeBadge, PriceTypeBadge } from "./UnitOpportunityCard";
 
 interface PropertyCardProps {
   property: Property;
@@ -169,6 +170,10 @@ export function PropertyCard({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <EntityTypeBadge 
+                type={property.propertyType === "Condo" && property.sqft && property.sqft <= 6000 ? "unit" : "building"} 
+              />
+              <PriceTypeBadge hasRealSale={!!property.lastSalePrice} />
               <Badge variant="outline" className="text-xs">
                 {property.propertyType}
               </Badge>
