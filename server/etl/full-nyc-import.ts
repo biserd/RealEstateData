@@ -13,6 +13,13 @@ import {
   dataSources,
   comps,
   sales,
+  propertySignalSummary,
+  watchlistProperties,
+  alerts,
+  floodZones,
+  propertyChanges,
+  aiInsights,
+  aiChats,
 } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 
@@ -553,6 +560,154 @@ export async function enrichProperties(): Promise<void> {
 }
 
 // ============================================
+// ENRICH PROPERTY UNITS - Import unit/apartment numbers from sales
+// ============================================
+interface SaleWithUnit {
+  bbl: string;
+  normalizedUnit: string;
+  salePrice: number;
+  saleDate: Date;
+  address: string;
+}
+
+function normalizeUnit(rawUnit: string | null | undefined): string | null {
+  if (!rawUnit) return null;
+  const trimmed = rawUnit.trim().toUpperCase();
+  if (!trimmed || trimmed === "-" || trimmed === "N/A" || trimmed === "0") return null;
+  // Normalize common patterns
+  return trimmed
+    .replace(/^APT\.?\s*/i, "")
+    .replace(/^UNIT\s*/i, "")
+    .replace(/^#\s*/, "")
+    .trim();
+}
+
+export async function importSalesWithUnits(limit: number = 100000): Promise<Map<string, SaleWithUnit>> {
+  console.log("\n📥 Importing sales data with apartment numbers...");
+  
+  const salesByBblUnit = new Map<string, SaleWithUnit>();
+  const batchSize = 5000;
+  let offset = 0;
+  let totalFetched = 0;
+  let salesWithUnits = 0;
+  
+  while (offset < limit) {
+    const url = `${NYC_OPENDATA_URLS.propertySales}?$limit=${batchSize}&$offset=${offset}&$order=sale_date%20DESC`;
+    
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.log(`  HTTP ${response.status} at offset ${offset}, stopping`);
+        break;
+      }
+      
+      const data = await response.json();
+      if (!data.length) break;
+      
+      for (const sale of data) {
+        const normalizedUnit = normalizeUnit(sale.apartment_number);
+        if (!normalizedUnit) continue;
+        
+        const bbl = createBBL(sale.borough, sale.block, sale.lot);
+        const key = `${bbl}|${normalizedUnit}`;
+        
+        const saleDate = sale.sale_date ? new Date(sale.sale_date) : new Date();
+        const salePrice = parseInt(sale.sale_price?.replace(/,/g, "") || "0");
+        
+        // Keep the most recent sale for each BBL+unit combination
+        const existing = salesByBblUnit.get(key);
+        if (!existing || saleDate > existing.saleDate) {
+          salesByBblUnit.set(key, {
+            bbl,
+            normalizedUnit,
+            salePrice,
+            saleDate,
+            address: sale.address || "",
+          });
+          if (!existing) salesWithUnits++;
+        }
+      }
+      
+      totalFetched += data.length;
+      offset += batchSize;
+      console.log(`  Fetched ${totalFetched} sales, found ${salesWithUnits} unique BBL+unit combinations...`);
+    } catch (error) {
+      console.error(`  Error fetching sales at offset ${offset}:`, error);
+      break;
+    }
+  }
+  
+  console.log(`✅ Found ${salesWithUnits} unique apartment sales`);
+  return salesByBblUnit;
+}
+
+function normalizeBbl(bbl: string | null): string | null {
+  if (!bbl) return null;
+  // Remove decimal suffix (e.g., "1000010010.00000000" -> "1000010010")
+  return bbl.split('.')[0];
+}
+
+export async function enrichPropertyUnits(salesByBblUnit: Map<string, SaleWithUnit>): Promise<number> {
+  console.log("\n🏠 Enriching properties with unit numbers...");
+  
+  // Get all properties with their BBL
+  const allProperties = await db.select({ 
+    id: properties.id, 
+    bbl: properties.bbl,
+    unit: properties.unit,
+  }).from(properties);
+  
+  console.log(`  Found ${allProperties.length} properties to check for unit data`);
+  
+  // Group sales by BBL to check for single-unit BBLs
+  const unitsByBbl = new Map<string, string[]>();
+  salesByBblUnit.forEach((sale) => {
+    const existingUnits = unitsByBbl.get(sale.bbl) || [];
+    existingUnits.push(sale.normalizedUnit);
+    unitsByBbl.set(sale.bbl, existingUnits);
+  });
+  
+  console.log(`  Sales data has ${unitsByBbl.size} unique BBLs with units`);
+  
+  let updated = 0;
+  let skippedMultiUnit = 0;
+  let matched = 0;
+  
+  for (const prop of allProperties) {
+    if (!prop.bbl || prop.unit) continue; // Skip if no BBL or already has unit
+    
+    // Normalize the property BBL (remove decimal suffix)
+    const normalizedBbl = normalizeBbl(prop.bbl);
+    if (!normalizedBbl) continue;
+    
+    const unitsForBbl = unitsByBbl.get(normalizedBbl);
+    if (!unitsForBbl || unitsForBbl.length === 0) continue;
+    
+    matched++;
+    
+    // Only update if there's exactly one unit for this BBL (unambiguous)
+    if (unitsForBbl.length === 1) {
+      const unit = unitsForBbl[0];
+      try {
+        await db.update(properties)
+          .set({ unit })
+          .where(eq(properties.id, prop.id));
+        updated++;
+      } catch (e) {
+        // Ignore errors
+      }
+    } else {
+      skippedMultiUnit++;
+    }
+  }
+  
+  console.log(`  Matched ${matched} properties to sales data`);
+  console.log(`✅ Updated ${updated} properties with unit numbers`);
+  console.log(`  Skipped ${skippedMultiUnit} properties with multiple units (ambiguous)`);
+  return updated;
+}
+
+// ============================================
 // CREATE COMPARABLES - Generate comp relationships
 // ============================================
 export async function createComparables(): Promise<number> {
@@ -723,8 +878,18 @@ export async function runFullImport(options: {
   await db.delete(propertyTransactions);
   await db.delete(propertyCompliance);
   
+  // Clear all tables that reference properties first
   await db.delete(comps);
   await db.delete(sales);
+  await db.delete(propertySignalSummary);
+  await db.delete(watchlistProperties);
+  await db.delete(alerts);
+  await db.delete(floodZones);
+  await db.delete(propertyChanges);
+  await db.delete(aiInsights);
+  await db.delete(aiChats);
+  await db.delete(propertyProfiles);
+  await db.delete(propertyDataLinks);
   await db.delete(properties);
   
   console.log("✅ Staging tables cleared\n");
@@ -741,10 +906,14 @@ export async function runFullImport(options: {
   console.log("\nStep 4: Enriching properties with all sources...");
   await enrichProperties();
   
-  console.log("\nStep 5: Creating comparable relationships...");
+  console.log("\nStep 5: Importing sales with unit/apartment numbers...");
+  const salesWithUnits = await importSalesWithUnits(100000);
+  const unitsUpdated = await enrichPropertyUnits(salesWithUnits);
+  
+  console.log("\nStep 6: Creating comparable relationships...");
   const compsCount = await createComparables();
   
-  console.log("\nStep 6: Updating data source records...");
+  console.log("\nStep 7: Updating data source records...");
   await updateDataSources();
   
   const elapsed = Math.round((Date.now() - startTime) / 1000);
@@ -759,6 +928,7 @@ export async function runFullImport(options: {
   console.log(`  - ACRIS records: ${acrisCount.toLocaleString()}`);
   console.log(`  - HPD records: ${hpdCount.toLocaleString()}`);
   console.log(`  - Normalized properties: ${propCount.toLocaleString()}`);
+  console.log(`  - Properties with unit numbers: ${unitsUpdated.toLocaleString()}`);
   console.log(`  - Comparable relationships: ${compsCount.toLocaleString()}`);
   console.log(`  - Time elapsed: ${elapsed}s`);
   console.log("");
