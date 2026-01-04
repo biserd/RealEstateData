@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building, Clock, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import { Building, Clock, DollarSign, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -62,20 +62,24 @@ function extractUnitNumber(rawAddress: string | null, rawAptNumber: string | nul
 }
 
 export function BuildingSalesHistory({ bbl, isCondoUnit = false }: BuildingSalesHistoryProps) {
-  const { data: buildingSales, isLoading: buildingLoading } = useQuery<BuildingSalesResponse>({
+  const { data: buildingSales, isLoading: buildingLoading, error: buildingError } = useQuery<BuildingSalesResponse>({
     queryKey: ["/api/buildings", bbl, "sales"],
     queryFn: async () => {
-      const res = await fetch(`/api/buildings/${bbl}/sales?limit=20`);
+      const res = await fetch(`/api/buildings/${bbl}/sales?limit=20`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch building sales");
       return res.json();
     },
     enabled: !!bbl,
   });
 
-  const { data: unitSales, isLoading: unitLoading } = useQuery<UnitSalesResponse>({
+  const { data: unitSales, isLoading: unitLoading, error: unitError } = useQuery<UnitSalesResponse>({
     queryKey: ["/api/units", bbl, "sales"],
     queryFn: async () => {
-      const res = await fetch(`/api/units/${bbl}/sales`);
+      const res = await fetch(`/api/units/${bbl}/sales`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch unit sales");
       return res.json();
     },
@@ -103,6 +107,21 @@ export function BuildingSalesHistory({ bbl, isCondoUnit = false }: BuildingSales
       <div className="space-y-4">
         <Skeleton className="h-64 w-full" />
       </div>
+    );
+  }
+
+  if (buildingError || unitError) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col items-center text-center">
+            <AlertCircle className="h-8 w-8 text-destructive mb-2" />
+            <p className="text-muted-foreground">
+              Unable to load sales history. Please try again later.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
