@@ -63,20 +63,29 @@ export async function matchTransactions(): Promise<{
     baseBbl: condoUnits.baseBbl,
   }).from(condoUnits);
 
-  const unitBblSet = new Set<string>();
+  const unitBblToBaseBbl = new Map<string, string>();
+  const blockPrefixToBaseBbls = new Map<string, Set<string>>();
   const baseBblToUnits = new Map<string, string[]>();
 
   for (const unit of units) {
-    unitBblSet.add(unit.unitBbl);
     if (unit.baseBbl) {
+      unitBblToBaseBbl.set(unit.unitBbl, unit.baseBbl);
+      
       const existing = baseBblToUnits.get(unit.baseBbl) || [];
       existing.push(unit.unitBbl);
       baseBblToUnits.set(unit.baseBbl, existing);
+      
+      const blockPrefix = unit.unitBbl.substring(0, 6);
+      if (!blockPrefixToBaseBbls.has(blockPrefix)) {
+        blockPrefixToBaseBbls.set(blockPrefix, new Set());
+      }
+      blockPrefixToBaseBbls.get(blockPrefix)!.add(unit.baseBbl);
     }
   }
 
-  console.log(`  Unit BBLs loaded: ${unitBblSet.size}`);
+  console.log(`  Unit BBLs loaded: ${unitBblToBaseBbl.size}`);
   console.log(`  Buildings (base BBLs): ${baseBblToUnits.size}`);
+  console.log(`  Block prefixes indexed: ${blockPrefixToBaseBbls.size}`);
 
   console.log("\n📥 Loading properties with BBL...");
   const propsWithBbl = await db.select({
@@ -114,25 +123,32 @@ export async function matchTransactions(): Promise<{
       ? createBBL(sale.rawBorough, sale.rawBlock, sale.rawLot)
       : null;
 
-    if (rawBbl && unitBblSet.has(rawBbl)) {
+    if (rawBbl && unitBblToBaseBbl.has(rawBbl)) {
       unitBbl = rawBbl;
-      const unit = units.find(u => u.unitBbl === rawBbl);
-      baseBbl = unit?.baseBbl || null;
+      baseBbl = unitBblToBaseBbl.get(rawBbl) || null;
       matchMethod = "unit_bbl";
       stats.unitBblMatch++;
     }
     else if (rawBbl) {
       const blockPrefix = rawBbl.substring(0, 6);
-      const matchingUnits = Array.from(unitBblSet).filter(u => u.startsWith(blockPrefix));
+      const matchingBaseBbls = blockPrefixToBaseBbls.get(blockPrefix);
 
-      if (matchingUnits.length === 1) {
-        unitBbl = matchingUnits[0];
-        const unit = units.find(u => u.unitBbl === unitBbl);
-        baseBbl = unit?.baseBbl || null;
+      if (matchingBaseBbls && matchingBaseBbls.size === 1) {
+        baseBbl = Array.from(matchingBaseBbls)[0];
         matchMethod = "block_lot";
         stats.blockLotMatch++;
-      } else if (matchingUnits.length > 1) {
-        baseBbl = blockPrefix.padEnd(10, "0");
+      } else if (matchingBaseBbls && matchingBaseBbls.size > 1) {
+        const baseBblArray = Array.from(matchingBaseBbls);
+        let bestBaseBbl = baseBblArray[0];
+        let maxUnits = 0;
+        for (const bb of baseBblArray) {
+          const unitCount = baseBblToUnits.get(bb)?.length || 0;
+          if (unitCount > maxUnits) {
+            maxUnits = unitCount;
+            bestBaseBbl = bb;
+          }
+        }
+        baseBbl = bestBaseBbl;
         matchMethod = "block_lot";
         stats.blockLotMatch++;
       } else {
@@ -303,9 +319,13 @@ export async function runFullTransactionMatching(): Promise<void> {
   console.log(`  Unresolved: ${stats.unresolved} sales`);
 }
 
-runFullTransactionMatching()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error("Error:", err);
-    process.exit(1);
-  });
+// Run if executed directly
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
+  runFullTransactionMatching()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("Error:", err);
+      process.exit(1);
+    });
+}

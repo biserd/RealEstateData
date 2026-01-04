@@ -565,6 +565,41 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/buildings/:baseBbl/sales", async (req, res) => {
+    try {
+      const { baseBbl } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      
+      const buildingSales = await storage.getSalesForBuilding(baseBbl, limit);
+      
+      res.json({
+        baseBbl,
+        sales: buildingSales,
+        count: buildingSales.length,
+      });
+    } catch (error) {
+      console.error("Error fetching building sales:", error);
+      res.status(500).json({ message: "Failed to fetch building sales" });
+    }
+  });
+
+  app.get("/api/units/:unitBbl/sales", async (req, res) => {
+    try {
+      const { unitBbl } = req.params;
+      
+      const unitSales = await storage.getSalesForUnit(unitBbl);
+      
+      res.json({
+        unitBbl,
+        sales: unitSales,
+        count: unitSales.length,
+      });
+    } catch (error) {
+      console.error("Error fetching unit sales:", error);
+      res.status(500).json({ message: "Failed to fetch unit sales" });
+    }
+  });
+
   app.get("/api/properties/:id", async (req, res) => {
     try {
       const property = await storage.getProperty(req.params.id);

@@ -203,6 +203,24 @@ export interface IStorage {
     latitude: number | null;
     longitude: number | null;
   }>>;
+  
+  // Building and Unit sales queries
+  getSalesForBuilding(baseBbl: string, limit?: number): Promise<Array<{
+    id: string;
+    unitBbl: string | null;
+    salePrice: number;
+    saleDate: Date;
+    rawAddress: string | null;
+    rawAptNumber: string | null;
+  }>>;
+  
+  getSalesForUnit(unitBbl: string): Promise<Array<{
+    id: string;
+    salePrice: number;
+    saleDate: Date;
+    rawAddress: string | null;
+    rawAptNumber: string | null;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1282,6 +1300,54 @@ export class DatabaseStorage implements IStorage {
       .from(condoUnits)
       .where(whereClause)
       .limit(limit);
+    
+    return results;
+  }
+
+  // Building and Unit sales queries
+  async getSalesForBuilding(baseBbl: string, limit = 50): Promise<Array<{
+    id: string;
+    unitBbl: string | null;
+    salePrice: number;
+    saleDate: Date;
+    rawAddress: string | null;
+    rawAptNumber: string | null;
+  }>> {
+    const results = await db
+      .select({
+        id: sales.id,
+        unitBbl: sales.unitBbl,
+        salePrice: sales.salePrice,
+        saleDate: sales.saleDate,
+        rawAddress: sales.rawAddress,
+        rawAptNumber: sales.rawAptNumber,
+      })
+      .from(sales)
+      .where(eq(sales.baseBbl, baseBbl))
+      .orderBy(desc(sales.saleDate))
+      .limit(limit);
+    
+    return results;
+  }
+
+  async getSalesForUnit(unitBbl: string): Promise<Array<{
+    id: string;
+    salePrice: number;
+    saleDate: Date;
+    rawAddress: string | null;
+    rawAptNumber: string | null;
+  }>> {
+    const results = await db
+      .select({
+        id: sales.id,
+        salePrice: sales.salePrice,
+        saleDate: sales.saleDate,
+        rawAddress: sales.rawAddress,
+        rawAptNumber: sales.rawAptNumber,
+      })
+      .from(sales)
+      .where(eq(sales.unitBbl, unitBbl))
+      .orderBy(desc(sales.saleDate));
     
     return results;
   }
