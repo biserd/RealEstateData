@@ -110,19 +110,23 @@ function OpportunityCard({ opportunity }: { opportunity: TopOpportunity }) {
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
+            <h3 className="text-lg font-bold leading-tight line-clamp-2">
+              {opportunity.address}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              {opportunity.priceType === "verified" ? "Sale Price" : "Estimated Value"}
+              {opportunity.city}, {opportunity.state} {opportunity.zipCode}
             </p>
-            <p className="text-xl font-bold">{formatPrice(opportunity.price)}</p>
-            {opportunity.pricePerSqft && (
-              <p className="text-xs text-muted-foreground">${opportunity.pricePerSqft}/sqft</p>
-            )}
           </div>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <MapPin className="h-3 w-3" />
-            <span className="truncate">{opportunity.address}, {opportunity.city} {opportunity.zipCode}</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold">{formatPrice(opportunity.price)}</span>
+            <span className="text-sm text-muted-foreground">
+              {opportunity.priceType === "verified" ? "Sale Price" : "Est. Value"}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            {opportunity.pricePerSqft && (
+              <span>${opportunity.pricePerSqft}/sqft</span>
+            )}
             {opportunity.sqft && (
               <div className="flex items-center gap-1">
                 <Square className="h-3 w-3" />
@@ -134,14 +138,6 @@ function OpportunityCard({ opportunity }: { opportunity: TopOpportunity }) {
                 <Calendar className="h-3 w-3" />
                 <span>{opportunity.yearBuilt}</span>
               </div>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {opportunity.propertyType && (
-              <Badge variant="secondary" className="text-xs">{opportunity.propertyType}</Badge>
-            )}
-            {opportunity.confidenceLevel && (
-              <Badge variant="outline" className="text-xs">{opportunity.confidenceLevel} Confidence</Badge>
             )}
           </div>
         </CardContent>
