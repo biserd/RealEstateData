@@ -1,4 +1,4 @@
-const NYC_GEOCLIENT_API = "https://api.nyc.gov/geo/geoclient/v2";
+const NYC_GEOCLIENT_API = "https://api.nyc.gov/geoclient/v2";
 
 export interface GeoclientAddressResult {
   success: boolean;
