@@ -183,10 +183,16 @@ export async function normalizeAddress(
 
 export async function batchNormalizeAddresses(
   addresses: Array<{ address: string; boroughOrZip: string }>,
-  options: { delayMs?: number; maxConcurrent?: number } = {}
+  options: { 
+    maxPerSecond?: number;
+    maxConcurrent?: number;
+    onProgress?: (completed: number, total: number) => void;
+  } = {}
 ): Promise<GeoclientAddressResult[]> {
-  const { delayMs = 100, maxConcurrent = 5 } = options;
+  const { maxPerSecond = 40, onProgress } = options;
+  const maxConcurrent = Math.min(options.maxConcurrent ?? 10, maxPerSecond);
   const results: GeoclientAddressResult[] = [];
+  const delayMs = Math.ceil(1000 / maxPerSecond * maxConcurrent);
 
   if (!isGeoclientAvailable()) {
     return addresses.map(() => ({
@@ -196,12 +202,18 @@ export async function batchNormalizeAddresses(
     }));
   }
 
+  console.log(`  Processing ${addresses.length} addresses (${maxPerSecond}/sec, ${maxConcurrent} concurrent)`);
+
   for (let i = 0; i < addresses.length; i += maxConcurrent) {
     const batch = addresses.slice(i, i + maxConcurrent);
     const batchResults = await Promise.all(
       batch.map((a) => normalizeAddress(a.address, a.boroughOrZip))
     );
     results.push(...batchResults);
+
+    if (onProgress) {
+      onProgress(results.length, addresses.length);
+    }
 
     if (i + maxConcurrent < addresses.length && delayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
