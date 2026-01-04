@@ -39,7 +39,7 @@ export default function BuildingDetail() {
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="container max-w-5xl py-6">
+        <div className="container max-w-5xl mx-auto px-4 py-6">
           <LoadingState type="skeleton-details" />
         </div>
       </AppLayout>
@@ -49,7 +49,7 @@ export default function BuildingDetail() {
   if (error || !building) {
     return (
       <AppLayout>
-        <div className="container max-w-5xl py-6">
+        <div className="container max-w-5xl mx-auto px-4 py-6">
           <EmptyState
             icon={<Building2 className="h-12 w-12" />}
             title="Building not found"
@@ -67,7 +67,7 @@ export default function BuildingDetail() {
         description={`View details for ${building.displayAddress}, a condo building with ${building.residentialUnitCount} residential units in ${building.borough || "NYC"}.`}
       />
       
-      <div className="container max-w-5xl py-6 space-y-6">
+      <div className="container max-w-5xl mx-auto px-4 py-6 space-y-6">
         <PropertyBreadcrumbs
           borough={building.borough}
           buildingAddress={building.displayAddress}
