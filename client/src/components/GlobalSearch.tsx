@@ -28,6 +28,12 @@ interface SearchResult {
   }>;
 }
 
+interface RateLimitError {
+  message: string;
+  upgrade: boolean;
+  upgradeUrl: string;
+}
+
 type EntityFilter = "all" | "buildings" | "units";
 
 export function GlobalSearch() {
@@ -37,6 +43,7 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [entityFilter, setEntityFilter] = useState<EntityFilter>("all");
+  const [rateLimitError, setRateLimitError] = useState<RateLimitError | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -58,6 +65,7 @@ export function GlobalSearch() {
 
     const timeoutId = setTimeout(async () => {
       setIsLoading(true);
+      setRateLimitError(null);
       try {
         const res = await fetch(
           `/api/search/unified?q=${encodeURIComponent(query)}&filter=${entityFilter}`,
@@ -65,6 +73,10 @@ export function GlobalSearch() {
         );
         if (res.ok) {
           setResults(await res.json());
+        } else if (res.status === 429) {
+          const errorData = await res.json();
+          setRateLimitError(errorData);
+          setResults(null);
         }
       } catch (error) {
         console.error("Search error:", error);
@@ -170,6 +182,22 @@ export function GlobalSearch() {
             {isLoading ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
                 Searching...
+              </div>
+            ) : rateLimitError ? (
+              <div className="p-4 text-center">
+                <p className="text-sm text-muted-foreground mb-2">{rateLimitError.message}</p>
+                {rateLimitError.upgrade && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setIsOpen(false);
+                      navigate(rateLimitError.upgradeUrl);
+                    }}
+                    data-testid="button-upgrade-search"
+                  >
+                    Upgrade Now
+                  </Button>
+                )}
               </div>
             ) : totalResults === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
