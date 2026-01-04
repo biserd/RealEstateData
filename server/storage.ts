@@ -470,11 +470,6 @@ export class DatabaseStorage implements IStorage {
       )
     );
     
-    // CRITICAL: Only show properties with real transaction prices, not estimated values
-    // Estimated prices (sqft * $/sqft) are poison for a "deals" product because they look like real deals
-    conditions.push(isNotNull(properties.lastSalePrice));
-    conditions.push(gte(properties.lastSalePrice, 1000)); // Minimum realistic sale price
-    
     conditions.push(
       or(
         isNotNull(properties.pricePerSqft),
