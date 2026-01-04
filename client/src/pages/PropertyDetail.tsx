@@ -511,52 +511,57 @@ export default function PropertyDetail() {
           </div>
         </div>
 
-        <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <TrendingUp className="h-6 w-6" />
+        <Card className="mb-6">
+          <CardContent className="p-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Value Gap</p>
+                  <p className="text-lg font-bold">{property.opportunityScore || "N/A"}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Opportunity Score</p>
-                <p className="text-2xl font-bold">{property.opportunityScore || "N/A"}</p>
+              
+              <Separator orientation="vertical" className="hidden h-10 sm:block" />
+              
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  <DollarSign className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">vs Median</p>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">-12%</p>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
-                <DollarSign className="h-6 w-6" />
+              
+              <Separator orientation="vertical" className="hidden h-10 sm:block" />
+              
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Comps</p>
+                  <p className="text-lg font-bold">{comps?.length || 0}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">vs Median</p>
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">-12%</p>
+              
+              <Separator orientation="vertical" className="hidden h-10 sm:block" />
+              
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                  <AlertCircle className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Risk</p>
+                  <p className="text-lg font-bold">Low</p>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                <FileText className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Comps Found</p>
-                <p className="text-2xl font-bold">{comps?.length || 0}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-                <AlertCircle className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Risk Level</p>
-                <p className="text-2xl font-bold">Low</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="pricing" className="space-y-6">
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
