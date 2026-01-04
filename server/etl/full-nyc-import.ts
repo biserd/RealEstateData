@@ -132,6 +132,77 @@ async function fetchWithPagination(
 // ============================================
 // PLUTO IMPORT - Full tax lot data
 // ============================================
+export async function importCondoPluto(limit: number = 150000): Promise<number> {
+  console.log("\n🏢 Importing Condo/Co-op Properties from PLUTO...");
+  
+  // Import condo/co-op building classes (R0-R9, C0-C9) to get properties with apartment units
+  const query = "$where=bldgclass LIKE 'R%' OR bldgclass LIKE 'C%'&$order=bbl";
+  const records = await fetchWithPagination(NYC_OPENDATA_URLS.pluto, query, limit);
+  console.log(`  Downloaded ${records.length} condo/co-op PLUTO records`);
+  
+  const batchSize = 1000;
+  let imported = 0;
+  
+  for (let i = 0; i < records.length; i += batchSize) {
+    const batch = records.slice(i, i + batchSize);
+    const values = batch.map((r: any) => ({
+      bbl: r.bbl || createBBL(r.borough, r.block, r.lot),
+      borough: r.borough,
+      block: r.block,
+      lot: r.lot,
+      address: r.address,
+      zipCode: r.zipcode,
+      bldgClass: r.bldgclass,
+      landUse: r.landuse,
+      ownerName: r.ownername,
+      numFloors: parseFloat(r.numfloors) || null,
+      unitsRes: parseInt(r.unitsres) || null,
+      unitsTotal: parseInt(r.unitstotal) || null,
+      lotArea: parseInt(r.lotarea) || null,
+      bldgArea: parseInt(r.bldgarea) || null,
+      resArea: parseInt(r.resarea) || null,
+      officeArea: parseInt(r.officearea) || null,
+      retailArea: parseInt(r.retailarea) || null,
+      yearBuilt: parseInt(r.yearbuilt) || null,
+      yearAltered1: parseInt(r.yearalter1) || null,
+      yearAltered2: parseInt(r.yearalter2) || null,
+      condoNo: r.condono,
+      xCoord: parseFloat(r.xcoord) || null,
+      yCoord: parseFloat(r.ycoord) || null,
+      latitude: parseFloat(r.latitude) || null,
+      longitude: parseFloat(r.longitude) || null,
+      communityDistrict: r.cd,
+      zoneDist1: r.zonedist1,
+      zoneDist2: r.zonedist2,
+      overlay1: r.overlay1,
+      overlay2: r.overlay2,
+      spdist1: r.spdist1,
+      spdist2: r.spdist2,
+      assessLand: parseInt(r.assessland) || null,
+      assessTot: parseInt(r.assesstot) || null,
+      exemptLand: parseInt(r.exemptland) || null,
+      exemptTot: parseInt(r.exempttot) || null,
+      rawData: r,
+    })).filter(v => v.bbl);
+    
+    if (values.length > 0) {
+      try {
+        await db.insert(plutoRaw).values(values).onConflictDoNothing();
+        imported += values.length;
+      } catch (error) {
+        console.error(`  Error inserting batch at ${i}:`, error);
+      }
+    }
+    
+    if ((i + batchSize) % 10000 === 0) {
+      console.log(`  Imported ${imported} condo records...`);
+    }
+  }
+  
+  console.log(`✅ Imported ${imported} condo/co-op PLUTO records to staging`);
+  return imported;
+}
+
 export async function importFullPluto(limit: number = 500000): Promise<number> {
   console.log("\n📦 Importing Full PLUTO Dataset...");
   
@@ -670,7 +741,7 @@ export async function enrichPropertyUnits(salesByBblUnit: Map<string, SaleWithUn
   console.log(`  Sales data has ${unitsByBbl.size} unique BBLs with units`);
   
   let updated = 0;
-  let skippedMultiUnit = 0;
+  let multiUnitUpdated = 0;
   let matched = 0;
   
   for (const prop of allProperties) {
@@ -685,25 +756,25 @@ export async function enrichPropertyUnits(salesByBblUnit: Map<string, SaleWithUn
     
     matched++;
     
-    // Only update if there's exactly one unit for this BBL (unambiguous)
-    if (unitsForBbl.length === 1) {
-      const unit = unitsForBbl[0];
-      try {
-        await db.update(properties)
-          .set({ unit })
-          .where(eq(properties.id, prop.id));
-        updated++;
-      } catch (e) {
-        // Ignore errors
+    // For single-unit BBLs, it's unambiguous
+    // For multi-unit BBLs, pick the first unit (better than nothing for condo/co-op buildings)
+    const unit = unitsForBbl[0];
+    try {
+      await db.update(properties)
+        .set({ unit })
+        .where(eq(properties.id, prop.id));
+      updated++;
+      if (unitsForBbl.length > 1) {
+        multiUnitUpdated++;
       }
-    } else {
-      skippedMultiUnit++;
+    } catch (e) {
+      // Ignore errors
     }
   }
   
   console.log(`  Matched ${matched} properties to sales data`);
   console.log(`✅ Updated ${updated} properties with unit numbers`);
-  console.log(`  Skipped ${skippedMultiUnit} properties with multiple units (ambiguous)`);
+  console.log(`  (${multiUnitUpdated} were multi-unit buildings, assigned first unit)`);
   return updated;
 }
 
