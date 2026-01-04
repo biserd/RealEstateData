@@ -177,14 +177,14 @@ export function PropertyBreadcrumbs({
 }) {
   return (
     <nav className="flex items-center gap-1 text-sm text-muted-foreground flex-wrap" data-testid="nav-breadcrumbs">
-      <Link href="/screener" className="hover:text-foreground transition-colors">
+      <Link href="/investment-opportunities" className="hover:text-foreground transition-colors">
         NYC
       </Link>
       {borough && (
         <>
           <ChevronRight className="h-3 w-3" />
           <Link 
-            href={`/screener?borough=${encodeURIComponent(borough)}`} 
+            href={`/investment-opportunities?borough=${encodeURIComponent(borough)}`} 
             className="hover:text-foreground transition-colors"
           >
             {borough}
