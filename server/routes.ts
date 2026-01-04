@@ -573,6 +573,90 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Combined top opportunities endpoint - includes both buildings and units
+  app.get("/api/opportunities/top", async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 6, 20);
+      
+      // Fetch both buildings and units
+      const [buildings, unitsData] = await Promise.all([
+        storage.getTopOpportunities(limit),
+        storage.getTopUnitOpportunities({ limit }),
+      ]);
+      
+      // Normalize into a common format
+      type TopOpportunity = {
+        id: string;
+        entityType: "building" | "unit";
+        address: string;
+        city: string;
+        state: string;
+        zipCode: string;
+        borough?: string | null;
+        price: number;
+        priceType: "estimated" | "verified";
+        pricePerSqft?: number | null;
+        sqft?: number | null;
+        yearBuilt?: number | null;
+        propertyType?: string;
+        opportunityScore: number;
+        confidenceLevel?: string | null;
+        // Unit-specific fields
+        unitBbl?: string;
+        unitDesignation?: string | null;
+        baseBbl?: string;
+        lastSaleDate?: string | null;
+        // Building-specific fields
+        propertyId?: string;
+      };
+      
+      const normalizedBuildings: TopOpportunity[] = buildings.map((b) => ({
+        id: b.id,
+        entityType: "building" as const,
+        address: b.address,
+        city: b.city,
+        state: b.state,
+        zipCode: b.zipCode,
+        price: b.estimatedValue || b.lastSalePrice || 0,
+        priceType: "estimated" as const,
+        pricePerSqft: b.pricePerSqft,
+        sqft: b.sqft,
+        yearBuilt: b.yearBuilt,
+        propertyType: b.propertyType,
+        opportunityScore: b.opportunityScore || 0,
+        confidenceLevel: b.confidenceLevel,
+        propertyId: b.id,
+      }));
+      
+      const normalizedUnits: TopOpportunity[] = unitsData.map((u) => ({
+        id: u.unitBbl,
+        entityType: "unit" as const,
+        address: u.unitDisplayAddress || u.buildingDisplayAddress || "",
+        city: u.borough || "NYC",
+        state: "NY",
+        zipCode: u.zipCode || "",
+        borough: u.borough,
+        price: u.lastSalePrice,
+        priceType: "verified" as const,
+        opportunityScore: u.opportunityScore,
+        unitBbl: u.unitBbl,
+        unitDesignation: u.unitDesignation,
+        baseBbl: u.baseBbl,
+        lastSaleDate: u.lastSaleDate?.toISOString() || null,
+      }));
+      
+      // Merge and sort by opportunity score descending
+      const combined = [...normalizedBuildings, ...normalizedUnits]
+        .sort((a, b) => b.opportunityScore - a.opportunityScore)
+        .slice(0, limit);
+      
+      res.json(combined);
+    } catch (error) {
+      console.error("Error fetching combined opportunities:", error);
+      res.status(500).json({ message: "Failed to fetch opportunities" });
+    }
+  });
+
   app.get("/api/properties/screener", optionalAuth, async (req: any, res) => {
     try {
       const stateParam = req.query.state as string | undefined;

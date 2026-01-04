@@ -1,21 +1,165 @@
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, Home as HomeIcon, Bell, ArrowRight, MapPin } from "lucide-react";
+import { BarChart3, TrendingUp, Home as HomeIcon, Bell, ArrowRight, MapPin, Building2, Target, Square, Calendar, CheckCircle, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layouts";
 import { MarketStatsCard } from "@/components/MarketStatsCard";
-import { PropertyCard } from "@/components/PropertyCard";
 import { LoadingState } from "@/components/LoadingState";
 import { useAuth } from "@/hooks/useAuth";
-import type { Property, MarketAggregate, Notification } from "@shared/schema";
+import { cn } from "@/lib/utils";
+import type { MarketAggregate, Notification } from "@shared/schema";
+
+type TopOpportunity = {
+  id: string;
+  entityType: "building" | "unit";
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  borough?: string | null;
+  price: number;
+  priceType: "estimated" | "verified";
+  pricePerSqft?: number | null;
+  sqft?: number | null;
+  yearBuilt?: number | null;
+  propertyType?: string;
+  opportunityScore: number;
+  confidenceLevel?: string | null;
+  unitBbl?: string;
+  unitDesignation?: string | null;
+  baseBbl?: string;
+  lastSaleDate?: string | null;
+  propertyId?: string;
+};
+
+function formatPrice(value: number | null | undefined): string {
+  if (!value) return "N/A";
+  if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+  return `$${value.toLocaleString()}`;
+}
+
+function OpportunityCard({ opportunity }: { opportunity: TopOpportunity }) {
+  const isUnit = opportunity.entityType === "unit";
+  const href = isUnit 
+    ? `/unit/${opportunity.unitBbl}` 
+    : `/properties/${opportunity.address.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')}-${opportunity.city.toLowerCase().replace(/\s+/g, '-')}-${opportunity.zipCode}-${opportunity.propertyId}`;
+  
+  const getScoreColor = (score: number) => {
+    if (score >= 75) return "text-emerald-600 dark:text-emerald-400";
+    if (score >= 50) return "text-amber-600 dark:text-amber-400";
+    return "text-red-600 dark:text-red-400";
+  };
+  
+  const getScoreBg = (score: number) => {
+    if (score >= 75) return "bg-emerald-100 dark:bg-emerald-900/30";
+    if (score >= 50) return "bg-amber-100 dark:bg-amber-900/30";
+    return "bg-red-100 dark:bg-red-900/30";
+  };
+
+  return (
+    <Link href={href}>
+      <Card className="group hover-elevate h-full cursor-pointer" data-testid={`card-opportunity-${opportunity.id}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="outline" 
+                className={isUnit 
+                  ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800" 
+                  : "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800"
+                }
+              >
+                {isUnit ? <HomeIcon className="h-3 w-3 mr-1" /> : <Building2 className="h-3 w-3 mr-1" />}
+                {isUnit ? "UNIT" : "BUILDING"}
+              </Badge>
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className={opportunity.priceType === "verified"
+                      ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800 cursor-help" 
+                      : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 cursor-help"
+                    }
+                  >
+                    {opportunity.priceType === "verified" 
+                      ? <><CheckCircle className="h-3 w-3 mr-1" />VERIFIED</> 
+                      : <><AlertCircle className="h-3 w-3 mr-1" />ESTIMATED</>
+                    }
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px]">
+                  <p className="text-xs">
+                    {opportunity.priceType === "verified" 
+                      ? "Price from recorded sale transaction" 
+                      : "Modeled estimate based on assessments"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Badge variant="secondary" className={cn("cursor-help", getScoreBg(opportunity.opportunityScore))}>
+              <Target className="h-3 w-3 mr-1" />
+              <span className={cn("font-bold", getScoreColor(opportunity.opportunityScore))}>
+                {opportunity.opportunityScore}
+              </span>
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              {opportunity.priceType === "verified" ? "Sale Price" : "Estimated Value"}
+            </p>
+            <p className="text-xl font-bold">{formatPrice(opportunity.price)}</p>
+            {opportunity.pricePerSqft && (
+              <p className="text-xs text-muted-foreground">${opportunity.pricePerSqft}/sqft</p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <MapPin className="h-3 w-3" />
+            <span className="truncate">{opportunity.address}, {opportunity.city} {opportunity.zipCode}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            {opportunity.sqft && (
+              <div className="flex items-center gap-1">
+                <Square className="h-3 w-3" />
+                <span>{opportunity.sqft.toLocaleString()} sqft</span>
+              </div>
+            )}
+            {opportunity.yearBuilt && (
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                <span>{opportunity.yearBuilt}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {opportunity.propertyType && (
+              <Badge variant="secondary" className="text-xs">{opportunity.propertyType}</Badge>
+            )}
+            {opportunity.confidenceLevel && (
+              <Badge variant="outline" className="text-xs">{opportunity.confidenceLevel} Confidence</Badge>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
 
 export default function Home() {
   const { user } = useAuth();
 
-  const { data: topOpportunities, isLoading: loadingOpportunities } = useQuery<Property[]>({
-    queryKey: ["/api/properties/top-opportunities"],
+  const { data: topOpportunities, isLoading: loadingOpportunities } = useQuery<TopOpportunity[]>({
+    queryKey: ["/api/opportunities/top"],
+    queryFn: async () => {
+      const res = await fetch("/api/opportunities/top?limit=6");
+      if (!res.ok) throw new Error("Failed to fetch opportunities");
+      return res.json();
+    },
   });
 
   const { data: marketStats, isLoading: loadingStats } = useQuery<MarketAggregate[]>({
@@ -178,8 +322,8 @@ export default function Home() {
             <LoadingState type="skeleton-cards" count={3} />
           ) : topOpportunities && topOpportunities.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {topOpportunities.slice(0, 6).map((property) => (
-                <PropertyCard key={property.id} property={property} />
+              {topOpportunities.map((opportunity) => (
+                <OpportunityCard key={opportunity.id} opportunity={opportunity} />
               ))}
             </div>
           ) : (
