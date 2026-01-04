@@ -136,6 +136,24 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
                       <span className="ml-1">({unit.borough})</span>
                     )}
                   </div>
+                  {unit.scoreDrivers && unit.scoreDrivers.length > 0 && (
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      {unit.scoreDrivers.slice(0, 2).map((driver, idx) => (
+                        <div key={idx} className="flex items-center gap-1 text-xs" data-testid={`list-driver-${idx}`}>
+                          {driver.impact === "positive" ? (
+                            <TrendingUp className="h-3 w-3 text-green-600" />
+                          ) : driver.impact === "negative" ? (
+                            <TrendingDown className="h-3 w-3 text-red-500" />
+                          ) : (
+                            <Minus className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
+                            {driver.label}: {driver.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -244,7 +262,7 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
                       <Minus className="h-3 w-3 text-muted-foreground shrink-0" />
                     )}
                     <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
-                      {driver.value}
+                      <span className="font-medium">{driver.label}:</span> {driver.value}
                     </span>
                   </div>
                 ))}
