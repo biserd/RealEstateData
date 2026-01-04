@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getUnitUrl } from "@/lib/unitSlug";
 
 interface Building {
   baseBbl: string;
@@ -131,7 +132,7 @@ export function BuildingContext({ baseBbl, currentUnitBbl }: BuildingContextProp
               {otherUnits.slice(0, 8).map((unit) => (
                 <Link 
                   key={unit.unitBbl} 
-                  href={`/unit/${unit.unitBbl}`}
+                  href={getUnitUrl(unit, { displayAddress: building.displayAddress, borough: building.borough || undefined })}
                 >
                   <Badge 
                     variant="outline" 

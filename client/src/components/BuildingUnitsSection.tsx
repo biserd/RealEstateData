@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getUnitUrl } from "@/lib/unitSlug";
 
 interface Building {
   baseBbl: string;
@@ -146,7 +147,7 @@ export function BuildingUnitsSection({ baseBbl, building }: BuildingUnitsSection
               const IconComponent = unitTypeIcons[unit.unitTypeHint || "residential"] || Home;
               
               return (
-                <Link key={unit.unitBbl} href={`/unit/${unit.unitBbl}`}>
+                <Link key={unit.unitBbl} href={getUnitUrl(unit, building ? { displayAddress: building.displayAddress, borough: building.borough || undefined } : undefined)}>
                   <div 
                     className="flex items-center justify-between gap-2 p-3 rounded-md hover-elevate cursor-pointer border"
                     data-testid={`row-unit-${unit.unitBbl}`}

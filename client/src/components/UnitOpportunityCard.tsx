@@ -3,6 +3,7 @@ import { Home, MapPin, DollarSign, Target, Calendar, Building2 } from "lucide-re
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { getUnitUrl } from "@/lib/unitSlug";
 
 export function EntityTypeBadge({ type }: { type: "unit" | "building" }) {
   return (
@@ -72,7 +73,7 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
 
   if (viewMode === "list") {
     return (
-      <Link href={`/unit/${unit.unitBbl}`}>
+      <Link href={getUnitUrl(unit)}>
         <Card className="hover-elevate cursor-pointer" data-testid={`card-unit-opportunity-${unit.unitBbl}`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -127,7 +128,7 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
   }
 
   return (
-    <Link href={`/unit/${unit.unitBbl}`}>
+    <Link href={getUnitUrl(unit)}>
       <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-unit-opportunity-${unit.unitBbl}`}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
