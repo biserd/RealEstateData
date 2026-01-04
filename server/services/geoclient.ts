@@ -223,6 +223,120 @@ export async function batchNormalizeAddresses(
   return results;
 }
 
+export interface GeoclientBblResult {
+  success: boolean;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  zipCode?: string;
+  borough?: string;
+  error?: string;
+}
+
+interface GeoclientBblApiResponse {
+  bbl?: {
+    bbl?: string;
+    firstStreetNameNormalized?: string;
+    houseNumberIn?: string;
+    lowHouseNumber?: string;
+    latitude?: string;
+    longitude?: string;
+    zipCode?: string;
+    uspsPreferredCityName?: string;
+    boroughCode?: string;
+    message?: string;
+    message2?: string;
+    geosupportReturnCode?: string;
+    geosupportReturnCode2?: string;
+  };
+}
+
+export async function geocodeBBL(
+  borough: string,
+  block: string,
+  lot: string
+): Promise<GeoclientBblResult> {
+  const apiKey = getApiKey();
+
+  if (!apiKey) {
+    return {
+      success: false,
+      error: "NYC Geoclient API key not configured",
+    };
+  }
+
+  const boroughNames = ["", "manhattan", "bronx", "brooklyn", "queens", "staten island"];
+  const boroughCode = parseInt(borough);
+  if (boroughCode < 1 || boroughCode > 5) {
+    return {
+      success: false,
+      error: `Invalid borough code: ${borough}`,
+    };
+  }
+
+  const params = new URLSearchParams({
+    borough: boroughNames[boroughCode],
+    block: block,
+    lot: lot,
+  });
+
+  try {
+    const url = `${NYC_GEOCLIENT_API}/bbl.json?${params.toString()}`;
+    const response = await fetch(url, {
+      headers: {
+        "Ocp-Apim-Subscription-Key": apiKey,
+        "Cache-Control": "no-cache",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: `Geoclient API error: ${response.status} - ${errorText.substring(0, 200)}`,
+      };
+    }
+
+    const data: GeoclientBblApiResponse = await response.json();
+
+    if (!data.bbl) {
+      return {
+        success: false,
+        error: "No BBL data in response",
+      };
+    }
+
+    const bblData = data.bbl;
+    const returnCode = bblData.geosupportReturnCode || "";
+    const isSuccess = returnCode === "00" || returnCode === "01";
+
+    if (!isSuccess) {
+      return {
+        success: false,
+        error: bblData.message || bblData.message2 || `Geoclient return code: ${returnCode}`,
+      };
+    }
+
+    const houseNumber = bblData.lowHouseNumber || bblData.houseNumberIn || "";
+    const streetName = bblData.firstStreetNameNormalized || "";
+    const address = houseNumber && streetName ? `${houseNumber} ${streetName}`.toUpperCase().trim() : undefined;
+
+    return {
+      success: true,
+      address,
+      latitude: bblData.latitude ? parseFloat(bblData.latitude) : undefined,
+      longitude: bblData.longitude ? parseFloat(bblData.longitude) : undefined,
+      zipCode: bblData.zipCode,
+      borough: bblData.boroughCode,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: `Geoclient request failed: ${error.message}`,
+    };
+  }
+}
+
 export function simpleAddressNormalize(address: string): string {
   return address
     .toUpperCase()

@@ -190,4 +190,44 @@ The platform uses real data from:
 -   **Zillow Research:** Zillow Home Value Index (ZHVI)
 -   **NYC Open Data PLUTO:** Property Land Use Tax Lot Output
 -   **NYC Open Data Sales:** Rolling property sales records
+-   **NYC Condo Registry:** 304K+ individual condo unit records with BBL and unit designations
+-   **NYC Geoclient API:** Official NYC address normalization and geocoding
+
 The data is processed via ETL scripts (`server/etl/zillow-data.ts`, `server/etl/nyc-opendata.ts`, `server/etl/import-real-data.ts`) to populate the database with comprehensive property and market information.
+
+### Condo Units Data
+
+The `condo_units` table contains 304,429 individual NYC condo unit records, enabling unit-level search and analytics:
+
+**Data Source:** NYC Condo Registry (ACRIS-derived)
+
+**Key Fields:**
+-   `unitBbl`: Unique 10-digit unit BBL (borough + block + unit lot)
+-   `baseBbl`: Parent building's BBL
+-   `unitDesignation`: Unit identifier (e.g., "12A", "PH3")
+-   `buildingDisplayAddress`: Inherited building street address
+-   `unitDisplayAddress`: Full unit address with unit number
+-   `latitude`, `longitude`: Geocoded coordinates
+-   `borough`, `zipCode`: Geographic location
+
+**Coverage:**
+-   304,429 total units across all 5 NYC boroughs
+-   100% have full address and coordinates
+-   Manhattan: 136K, Brooklyn: 82K, Queens: 57K, Bronx: 18K, Staten Island: 11K
+
+**ETL Scripts:**
+1.  `server/etl/populate-condo-units.ts` - Initial population via block-level BBL matching (~92% coverage)
+2.  `server/etl/enrich-condo-units-pluto.ts` - Enriches remaining units from NYC Open Data PLUTO API (100% coverage)
+
+### NYC Geoclient Integration
+
+The platform integrates with NYC Geoclient API for official address normalization:
+
+**Service:** `server/services/geoclient.ts`
+-   `normalizeAddress()`: Geocode address string to BBL, BIN, lat/lng
+-   `geocodeBBL()`: Look up address from BBL components
+-   `batchNormalizeAddresses()`: Rate-limited batch geocoding (40/sec)
+-   `simpleAddressNormalize()`: Local address standardization
+
+**Environment:** `NYC_GEOCLIENT_API_KEY` secret
+**Rate Limits:** 100 requests/second, 2,500/minute, 500,000/day

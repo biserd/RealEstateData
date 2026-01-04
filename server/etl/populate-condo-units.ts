@@ -6,10 +6,9 @@ interface BuildingData {
   id: string;
   bbl: string;
   address: string;
-  bin: string | null;
   latitude: number | null;
   longitude: number | null;
-  borough: string | null;
+  city: string | null;
   zipCode: string | null;
 }
 
@@ -46,31 +45,75 @@ export async function populateCondoUnits(): Promise<{
       id: properties.id,
       bbl: properties.bbl,
       address: properties.address,
-      bin: properties.bin,
       latitude: properties.latitude,
       longitude: properties.longitude,
-      borough: properties.borough,
+      city: properties.city,
       zipCode: properties.zipCode,
     })
     .from(properties)
     .where(isNotNull(properties.bbl));
 
   const propsByBbl = new Map<string, BuildingData>();
+  const propsByBlock = new Map<string, BuildingData>();
+  const blockAddressCounts = new Map<string, Map<string, { count: number; data: BuildingData }>>();
+  
   for (const p of allProperties) {
     if (p.bbl) {
-      propsByBbl.set(p.bbl, {
+      const normalizedBbl = p.bbl.split(".")[0];
+      propsByBbl.set(normalizedBbl, {
         id: p.id,
         bbl: p.bbl,
         address: p.address,
-        bin: p.bin,
         latitude: p.latitude,
         longitude: p.longitude,
-        borough: p.borough,
+        city: p.city,
         zipCode: p.zipCode,
       });
+      
+      const block = normalizedBbl.substring(0, 6);
+      const lot = parseInt(normalizedBbl.substring(6));
+      
+      if (lot >= 7501 && p.address && p.latitude && p.longitude) {
+        if (!blockAddressCounts.has(block)) {
+          blockAddressCounts.set(block, new Map());
+        }
+        const blockMap = blockAddressCounts.get(block)!;
+        const normalizedAddr = p.address.toUpperCase().trim();
+        const existing = blockMap.get(normalizedAddr);
+        if (existing) {
+          existing.count++;
+        } else {
+          blockMap.set(normalizedAddr, {
+            count: 1,
+            data: {
+              id: p.id,
+              bbl: p.bbl,
+              address: p.address,
+              latitude: p.latitude,
+              longitude: p.longitude,
+              city: p.city,
+              zipCode: p.zipCode,
+            }
+          });
+        }
+      }
     }
   }
-  console.log(`  Indexed ${propsByBbl.size} properties by BBL`);
+  
+  for (const [block, addressMap] of blockAddressCounts) {
+    let bestAddress: { count: number; data: BuildingData } | null = null;
+    for (const entry of addressMap.values()) {
+      if (!bestAddress || entry.count > bestAddress.count) {
+        bestAddress = entry;
+      }
+    }
+    if (bestAddress) {
+      propsByBlock.set(block, bestAddress.data);
+    }
+  }
+  
+  console.log(`  Indexed ${propsByBbl.size} properties by normalized BBL`);
+  console.log(`  Indexed ${propsByBlock.size} blocks with condo unit data`);
 
   console.log("\n🗑️  Clearing existing condo_units...");
   await db.delete(condoUnits);
@@ -97,6 +140,14 @@ export async function populateCondoUnits(): Promise<{
   let withAddress = 0;
   let withCoords = 0;
 
+  const BOROUGH_MAP: Record<string, string> = {
+    "1": "Manhattan",
+    "2": "Bronx",
+    "3": "Brooklyn",
+    "4": "Queens",
+    "5": "Staten Island",
+  };
+
   for (const reg of registryRecords) {
     if (!reg.unitBbl || !reg.baseBbl) continue;
 
@@ -106,26 +157,30 @@ export async function populateCondoUnits(): Promise<{
     }
     seenUnitBbls.add(reg.unitBbl);
 
-    const building = propsByBbl.get(reg.baseBbl);
+    const unitProperty = propsByBbl.get(reg.unitBbl);
+    const buildingProperty = propsByBbl.get(reg.baseBbl);
+    
+    const block = reg.baseBbl.substring(0, 6);
+    const blockProperty = propsByBlock.get(block);
+    
+    const matched = unitProperty || buildingProperty || blockProperty;
     
     let buildingDisplayAddress: string | null = null;
     let unitDisplayAddress: string | null = null;
-    let bin: string | null = null;
     let latitude: number | null = null;
     let longitude: number | null = null;
-    let borough: string | null = reg.borough;
+    let borough: string | null = reg.borough ? BOROUGH_MAP[reg.borough] || reg.borough : null;
     let zipCode: string | null = null;
     let buildingPropertyId: string | null = null;
 
-    if (building) {
-      buildingPropertyId = building.id;
-      buildingDisplayAddress = building.address;
-      unitDisplayAddress = formatUnitDisplayAddress(building.address, reg.unitDesignation);
-      bin = building.bin;
-      latitude = building.latitude;
-      longitude = building.longitude;
-      borough = building.borough || reg.borough;
-      zipCode = building.zipCode;
+    if (matched) {
+      buildingPropertyId = matched.id;
+      buildingDisplayAddress = matched.address;
+      unitDisplayAddress = formatUnitDisplayAddress(matched.address, reg.unitDesignation);
+      latitude = matched.latitude;
+      longitude = matched.longitude;
+      borough = matched.city || borough;
+      zipCode = matched.zipCode;
 
       if (buildingDisplayAddress) withAddress++;
       if (latitude && longitude) withCoords++;
@@ -139,7 +194,7 @@ export async function populateCondoUnits(): Promise<{
       buildingPropertyId,
       buildingDisplayAddress,
       unitDisplayAddress,
-      bin,
+      bin: null,
       latitude,
       longitude,
       borough,
@@ -223,6 +278,10 @@ export async function verifyCondoUnits(): Promise<boolean> {
   console.log(`   ≥99% with address: ${addressPass ? '✅ PASS' : '❌ FAIL'} (${addressPct}%)`);
   console.log(`   ≥99% with coords: ${coordsPass ? '✅ PASS' : '❌ FAIL'} (${coordsPct}%)`);
   console.log(`   0 duplicate unit_bbl: ${noDuplicates ? '✅ PASS' : '❌ FAIL'} (${duplicates})`);
+  
+  if (!addressPass || !coordsPass) {
+    console.log(`\n📝 Note: Run enrich-condo-units-pluto.ts to fill gaps from NYC Open Data.`);
+  }
 
   return addressPass && coordsPass && noDuplicates;
 }
