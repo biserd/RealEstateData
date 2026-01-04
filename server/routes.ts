@@ -585,6 +585,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       ]);
       
       // Normalize into a common format
+      type ScoreDriver = { label: string; value: string; impact: "positive" | "neutral" | "negative" };
       type TopOpportunity = {
         id: string;
         entityType: "building" | "unit";
@@ -601,12 +602,15 @@ Sitemap: ${baseUrl}/sitemap.xml
         propertyType?: string;
         opportunityScore: number;
         confidenceLevel?: string | null;
+        scoreDrivers?: ScoreDriver[];
         // Unit-specific fields
         unitBbl?: string;
         unitSlug?: string | null;
         unitDesignation?: string | null;
         baseBbl?: string;
         lastSaleDate?: string | null;
+        buildingMedianPrice?: number | null;
+        buildingSalesCount?: number;
         // Building-specific fields
         propertyId?: string;
       };
@@ -645,6 +649,9 @@ Sitemap: ${baseUrl}/sitemap.xml
         unitDesignation: u.unitDesignation,
         baseBbl: u.baseBbl,
         lastSaleDate: u.lastSaleDate?.toISOString() || null,
+        scoreDrivers: u.scoreDrivers,
+        buildingMedianPrice: u.buildingMedianPrice,
+        buildingSalesCount: u.buildingSalesCount,
       }));
       
       // Merge and sort by opportunity score descending

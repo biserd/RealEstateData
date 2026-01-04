@@ -293,6 +293,9 @@ export interface IStorage {
     lastSalePrice: number;
     lastSaleDate: Date;
     opportunityScore: number;
+    scoreDrivers: Array<{ label: string; value: string; impact: "positive" | "neutral" | "negative" }>;
+    buildingMedianPrice: number | null;
+    buildingSalesCount: number;
   }>>;
 
   // Unit slug operations
@@ -1923,6 +1926,9 @@ export class DatabaseStorage implements IStorage {
     lastSalePrice: number;
     lastSaleDate: Date;
     opportunityScore: number;
+    scoreDrivers: Array<{ label: string; value: string; impact: "positive" | "neutral" | "negative" }>;
+    buildingMedianPrice: number | null;
+    buildingSalesCount: number;
   }>> {
     const { borough, limit = 20 } = params || {};
 
@@ -1976,11 +1982,59 @@ export class DatabaseStorage implements IStorage {
       lastSalePrice: number;
       lastSaleDate: Date;
       opportunityScore: number;
+      scoreDrivers: Array<{ label: string; value: string; impact: "positive" | "neutral" | "negative" }>;
+      buildingMedianPrice: number | null;
+      buildingSalesCount: number;
     }> = [];
 
     for (const unit of unitsWithSales) {
       const oppData = await this.getUnitOpportunityData(unit.unitBbl);
       if (oppData && oppData.opportunityScore !== null && oppData.opportunityScore !== undefined) {
+        const scoreDrivers: Array<{ label: string; value: string; impact: "positive" | "neutral" | "negative" }> = [];
+        
+        if (oppData.buildingMedianPrice && oppData.lastSalePrice) {
+          const pctBelowMedian = ((oppData.buildingMedianPrice - oppData.lastSalePrice) / oppData.buildingMedianPrice) * 100;
+          if (pctBelowMedian > 5) {
+            scoreDrivers.push({
+              label: "Below building median",
+              value: `${Math.round(pctBelowMedian)}% below`,
+              impact: "positive",
+            });
+          } else if (pctBelowMedian < -5) {
+            scoreDrivers.push({
+              label: "Above building median",
+              value: `${Math.abs(Math.round(pctBelowMedian))}% above`,
+              impact: "negative",
+            });
+          }
+        }
+        
+        const buildingSalesCount = oppData.buildingSales.length;
+        if (buildingSalesCount >= 8) {
+          scoreDrivers.push({
+            label: "High liquidity",
+            value: `${buildingSalesCount} sales in building`,
+            impact: "positive",
+          });
+        } else if (buildingSalesCount >= 4) {
+          scoreDrivers.push({
+            label: "Moderate activity",
+            value: `${buildingSalesCount} sales in building`,
+            impact: "neutral",
+          });
+        }
+        
+        if (oppData.lastSaleDate) {
+          const daysSinceSale = (Date.now() - new Date(oppData.lastSaleDate).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceSale < 180) {
+            scoreDrivers.push({
+              label: "Recent sale",
+              value: `${Math.round(daysSinceSale)} days ago`,
+              impact: "positive",
+            });
+          }
+        }
+        
         results.push({
           unitBbl: unit.unitBbl,
           baseBbl: unit.baseBbl,
@@ -1993,6 +2047,9 @@ export class DatabaseStorage implements IStorage {
           lastSalePrice: Number(unit.lastSalePrice),
           lastSaleDate: new Date(unit.lastSaleDate),
           opportunityScore: oppData.opportunityScore,
+          scoreDrivers,
+          buildingMedianPrice: oppData.buildingMedianPrice,
+          buildingSalesCount,
         });
       }
       if (results.length >= limit) break;

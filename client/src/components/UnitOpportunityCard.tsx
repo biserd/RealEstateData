@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Home, MapPin, DollarSign, Target, Calendar, Building2, CheckCircle, AlertCircle } from "lucide-react";
+import { Home, MapPin, DollarSign, Target, Calendar, Building2, CheckCircle, AlertCircle, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -67,6 +67,12 @@ export function PriceTypeBadge({ hasRealSale }: { hasRealSale: boolean }) {
   );
 }
 
+interface ScoreDriver {
+  label: string;
+  value: string;
+  impact: "positive" | "neutral" | "negative";
+}
+
 interface UnitOpportunity {
   unitBbl: string;
   baseBbl: string;
@@ -78,6 +84,9 @@ interface UnitOpportunity {
   lastSalePrice: number;
   lastSaleDate: string;
   opportunityScore: number;
+  scoreDrivers?: ScoreDriver[];
+  buildingMedianPrice?: number | null;
+  buildingSalesCount?: number;
 }
 
 interface UnitOpportunityCardProps {
@@ -195,12 +204,12 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
             </p>
           )}
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="p-2 rounded bg-muted/50">
               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                 <DollarSign className="h-3 w-3" />
-                Last Sale
+                Sale Price
               </div>
               <p className="font-semibold text-green-600 text-sm" data-testid="text-last-sale">
                 ${unit.lastSalePrice.toLocaleString()}
@@ -216,6 +225,32 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
               </p>
             </div>
           </div>
+          
+          {unit.scoreDrivers && unit.scoreDrivers.length > 0 && (
+            <div className="border-t pt-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Why this opportunity:</p>
+              <div className="space-y-1.5">
+                {unit.scoreDrivers.slice(0, 3).map((driver, idx) => (
+                  <div 
+                    key={idx} 
+                    className="flex items-center gap-2 text-xs"
+                    data-testid={`driver-${idx}`}
+                  >
+                    {driver.impact === "positive" ? (
+                      <TrendingUp className="h-3 w-3 text-green-600 shrink-0" />
+                    ) : driver.impact === "negative" ? (
+                      <TrendingDown className="h-3 w-3 text-red-500 shrink-0" />
+                    ) : (
+                      <Minus className="h-3 w-3 text-muted-foreground shrink-0" />
+                    )}
+                    <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
+                      {driver.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </Link>

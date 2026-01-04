@@ -35,6 +35,12 @@ import type { Property, ScreenerFilters } from "@shared/schema";
 
 const defaultFilters: ScreenerFilters = {};
 
+interface ScoreDriver {
+  label: string;
+  value: string;
+  impact: "positive" | "neutral" | "negative";
+}
+
 interface UnitOpportunity {
   unitBbl: string;
   baseBbl: string;
@@ -46,6 +52,9 @@ interface UnitOpportunity {
   lastSalePrice: number;
   lastSaleDate: string;
   opportunityScore: number;
+  scoreDrivers?: ScoreDriver[];
+  buildingMedianPrice?: number | null;
+  buildingSalesCount?: number;
 }
 
 export default function OpportunityScreener() {
