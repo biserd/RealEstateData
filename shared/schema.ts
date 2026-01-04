@@ -1208,6 +1208,75 @@ export const insertSavedSearchNotificationSchema = createInsertSchema(savedSearc
 export type InsertSavedSearchNotification = z.infer<typeof insertSavedSearchNotificationSchema>;
 export type SavedSearchNotification = typeof savedSearchNotifications.$inferSelect;
 
+// NYC Condo Registry - maps unit BBLs to base building BBLs
+// Source: NYC Digital Tax Map Condominium Units (eguu-7ie3)
+export const condoRegistry = pgTable(
+  "condo_registry",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    unitBbl: varchar("unit_bbl").notNull().unique(), // Unit-level BBL (lot 1001+)
+    baseBbl: varchar("base_bbl"), // Base building/tax lot BBL
+    condoNumber: varchar("condo_number"), // Condo declaration number
+    borough: varchar("borough"), // 1=MN, 2=BX, 3=BK, 4=QN, 5=SI
+    block: varchar("block"),
+    lot: varchar("lot"),
+    unitDesignation: varchar("unit_designation"), // Unit label from DOF
+    address: text("address"), // Normalized address from DOF
+    zipCode: varchar("zip_code"),
+    metadata: jsonb("metadata"), // Additional DOF attributes
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_condo_unit_bbl").on(table.unitBbl),
+    index("idx_condo_base_bbl").on(table.baseBbl),
+    index("idx_condo_address").on(table.address),
+  ]
+);
+
+export const insertCondoRegistrySchema = createInsertSchema(condoRegistry).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCondoRegistry = z.infer<typeof insertCondoRegistrySchema>;
+export type CondoRegistry = typeof condoRegistry.$inferSelect;
+
+// Entity Resolution Map - tracks source record mappings to properties
+// Supports multiple match types with confidence scoring
+export const matchTypes = ["bbl_exact", "unit_registry", "address_normalized", "address_fuzzy", "geoclient"] as const;
+export type MatchType = typeof matchTypes[number];
+
+export const entityResolutionMap = pgTable(
+  "entity_resolution_map",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    sourceSystem: varchar("source_system").notNull(), // e.g., "nyc_sales", "pluto", "acris"
+    sourceRecordId: varchar("source_record_id").notNull(), // Original record ID from source
+    sourceBbl: varchar("source_bbl"), // BBL as provided by source
+    matchedPropertyId: varchar("matched_property_id").references(() => properties.id),
+    matchType: varchar("match_type").notNull(), // bbl_exact, unit_registry, address_normalized, address_fuzzy
+    matchConfidence: real("match_confidence").notNull(), // 0.0-1.0
+    matchMetadata: jsonb("match_metadata"), // Details about match (normalized address, etc.)
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_erm_source").on(table.sourceSystem, table.sourceRecordId),
+    index("idx_erm_property").on(table.matchedPropertyId),
+    index("idx_erm_bbl").on(table.sourceBbl),
+    uniqueIndex("idx_erm_unique_match").on(table.sourceSystem, table.sourceRecordId),
+  ]
+);
+
+export const insertEntityResolutionSchema = createInsertSchema(entityResolutionMap).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertEntityResolution = z.infer<typeof insertEntityResolutionSchema>;
+export type EntityResolution = typeof entityResolutionMap.$inferSelect;
+
 // Usage Tracking for Free tier limits
 export const usageTracking = pgTable(
   "usage_tracking",
