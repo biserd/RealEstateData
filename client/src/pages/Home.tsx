@@ -29,6 +29,7 @@ type TopOpportunity = {
   opportunityScore: number;
   confidenceLevel?: string | null;
   unitBbl?: string;
+  unitSlug?: string | null;
   unitDesignation?: string | null;
   baseBbl?: string;
   lastSaleDate?: string | null;
@@ -45,7 +46,7 @@ function formatPrice(value: number | null | undefined): string {
 function OpportunityCard({ opportunity }: { opportunity: TopOpportunity }) {
   const isUnit = opportunity.entityType === "unit";
   const href = isUnit 
-    ? `/unit/${opportunity.unitBbl}` 
+    ? `/unit/${opportunity.unitSlug || opportunity.unitBbl}` 
     : `/properties/${opportunity.address.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')}-${opportunity.city.toLowerCase().replace(/\s+/g, '-')}-${opportunity.zipCode}-${opportunity.propertyId}`;
   
   const getScoreColor = (score: number) => {

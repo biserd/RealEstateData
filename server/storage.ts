@@ -284,6 +284,7 @@ export interface IStorage {
   }): Promise<Array<{
     unitBbl: string;
     baseBbl: string;
+    slug: string | null;
     unitDesignation: string | null;
     unitDisplayAddress: string | null;
     buildingDisplayAddress: string | null;
@@ -1913,6 +1914,7 @@ export class DatabaseStorage implements IStorage {
   }): Promise<Array<{
     unitBbl: string;
     baseBbl: string;
+    slug: string | null;
     unitDesignation: string | null;
     unitDisplayAddress: string | null;
     buildingDisplayAddress: string | null;
@@ -1937,6 +1939,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         unitBbl: condoUnits.unitBbl,
         baseBbl: condoUnits.baseBbl,
+        slug: condoUnits.slug,
         unitDesignation: condoUnits.unitDesignation,
         unitDisplayAddress: condoUnits.unitDisplayAddress,
         buildingDisplayAddress: condoUnits.buildingDisplayAddress,
@@ -1951,6 +1954,7 @@ export class DatabaseStorage implements IStorage {
       .groupBy(
         condoUnits.unitBbl,
         condoUnits.baseBbl,
+        condoUnits.slug,
         condoUnits.unitDesignation,
         condoUnits.unitDisplayAddress,
         condoUnits.buildingDisplayAddress,
@@ -1963,6 +1967,7 @@ export class DatabaseStorage implements IStorage {
     const results: Array<{
       unitBbl: string;
       baseBbl: string;
+      slug: string | null;
       unitDesignation: string | null;
       unitDisplayAddress: string | null;
       buildingDisplayAddress: string | null;
@@ -1979,6 +1984,7 @@ export class DatabaseStorage implements IStorage {
         results.push({
           unitBbl: unit.unitBbl,
           baseBbl: unit.baseBbl,
+          slug: unit.slug,
           unitDesignation: unit.unitDesignation,
           unitDisplayAddress: unit.unitDisplayAddress,
           buildingDisplayAddress: unit.buildingDisplayAddress,

@@ -603,6 +603,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         confidenceLevel?: string | null;
         // Unit-specific fields
         unitBbl?: string;
+        unitSlug?: string | null;
         unitDesignation?: string | null;
         baseBbl?: string;
         lastSaleDate?: string | null;
@@ -640,6 +641,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         priceType: "verified" as const,
         opportunityScore: u.opportunityScore,
         unitBbl: u.unitBbl,
+        unitSlug: u.slug,
         unitDesignation: u.unitDesignation,
         baseBbl: u.baseBbl,
         lastSaleDate: u.lastSaleDate?.toISOString() || null,
