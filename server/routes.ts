@@ -535,6 +535,36 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/condo-units/search", optionalAuth, async (req: any, res) => {
+    try {
+      const { borough, zipCode, baseBbl, query, includeAll, limit } = req.query;
+      
+      const includeAllSublots = includeAll === "true" || includeAll === "1";
+      const unitTypes = includeAllSublots 
+        ? undefined 
+        : ["residential"];
+      
+      const results = await storage.searchCondoUnits({
+        borough: borough as string | undefined,
+        zipCode: zipCode as string | undefined,
+        baseBbl: baseBbl as string | undefined,
+        query: query as string | undefined,
+        unitTypes,
+        limit: Math.min(parseInt(limit as string) || 50, 200),
+      });
+      
+      res.json({
+        units: results,
+        count: results.length,
+        filtered: !includeAllSublots,
+        filterType: includeAllSublots ? "all" : "residential",
+      });
+    } catch (error) {
+      console.error("Error searching condo units:", error);
+      res.status(500).json({ message: "Failed to search condo units" });
+    }
+  });
+
   app.get("/api/properties/:id", async (req, res) => {
     try {
       const property = await storage.getProperty(req.params.id);

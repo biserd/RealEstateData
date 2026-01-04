@@ -100,9 +100,11 @@ export async function populateCondoUnits(): Promise<{
     }
   }
   
-  for (const [block, addressMap] of blockAddressCounts) {
+  const blockEntries = Array.from(blockAddressCounts.entries());
+  for (const [block, addressMap] of blockEntries) {
     let bestAddress: { count: number; data: BuildingData } | null = null;
-    for (const entry of addressMap.values()) {
+    const addressEntries = Array.from(addressMap.values());
+    for (const entry of addressEntries) {
       if (!bestAddress || entry.count > bestAddress.count) {
         bestAddress = entry;
       }
@@ -125,6 +127,7 @@ export async function populateCondoUnits(): Promise<{
     baseBbl: string;
     condoNumber: string | null;
     unitDesignation: string | null;
+    unitTypeHint: string;
     buildingPropertyId: string | null;
     buildingDisplayAddress: string | null;
     unitDisplayAddress: string | null;
@@ -147,6 +150,29 @@ export async function populateCondoUnits(): Promise<{
     "4": "Queens",
     "5": "Staten Island",
   };
+
+  function classifyUnitType(designation: string | null): string {
+    if (!designation) return "residential";
+    const d = designation.toUpperCase();
+    
+    if (/^(P[\-]?[0-9]|GAR|GARA|GARG|GARGE|GARAG|PARK|PRK|SPACE|SP[\-]?[0-9])/.test(d) ||
+        /(PARKING|GARAGE)/.test(d)) {
+      return "parking";
+    }
+    if (/^(STOR|STG|STRG|BIN|CAGE|LOCKER|LOCK|BSMT|BASE)/.test(d) ||
+        /(STORAGE|LOCKER|BASEMENT)/.test(d)) {
+      return "storage";
+    }
+    if (/^(COMM|COM[\-]?[0-9A-Z]|RETAIL|STORE[\-]?[0-9]|OFFICE|OFF[\-]?[0-9])/.test(d) ||
+        /(COMMERCIAL|RETAIL|OFFICE)/.test(d)) {
+      return "commercial";
+    }
+    if (/^(MECH|UTIL|ROOF|SUPER|SUPT|BLDG|EQUIP|ELEV|BOIL)/.test(d) ||
+        /(MECHANICAL|UTILITY|SUPERINTENDENT)/.test(d)) {
+      return "other";
+    }
+    return "residential";
+  }
 
   for (const reg of registryRecords) {
     if (!reg.unitBbl || !reg.baseBbl) continue;
@@ -191,6 +217,7 @@ export async function populateCondoUnits(): Promise<{
       baseBbl: reg.baseBbl,
       condoNumber: reg.condoNumber,
       unitDesignation: reg.unitDesignation,
+      unitTypeHint: classifyUnitType(reg.unitDesignation),
       buildingPropertyId,
       buildingDisplayAddress,
       unitDisplayAddress,

@@ -205,10 +205,20 @@ The `condo_units` table contains 304,429 individual NYC condo unit records, enab
 -   `unitBbl`: Unique 10-digit unit BBL (borough + block + unit lot)
 -   `baseBbl`: Parent building's BBL
 -   `unitDesignation`: Unit identifier (e.g., "12A", "PH3")
+-   `unitTypeHint`: Classification (residential, parking, storage, commercial, other)
 -   `buildingDisplayAddress`: Inherited building street address
 -   `unitDisplayAddress`: Full unit address with unit number
 -   `latitude`, `longitude`: Geocoded coordinates
 -   `borough`, `zipCode`: Geographic location
+
+**Unit Type Classification:**
+-   `residential`: Standard apartments (95% of units) - default for search
+-   `parking`: Garage/parking spaces (4.3%)
+-   `commercial`: Retail/office units (0.5%)
+-   `storage`: Storage/locker units (0.1%)
+-   `other`: Mechanical/utility spaces
+
+**Filtering:** Global search defaults to `residential` units only. Building pages show "All sublots" option.
 
 **Coverage:**
 -   304,429 total units across all 5 NYC boroughs

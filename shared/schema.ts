@@ -1244,6 +1244,9 @@ export type CondoRegistry = typeof condoRegistry.$inferSelect;
 
 // Condo Units - first-class unit entities that can receive sales/signals
 // Populated from condo_registry with inherited building data
+export const unitTypeHints = ["residential", "parking", "storage", "commercial", "other"] as const;
+export type UnitTypeHint = typeof unitTypeHints[number];
+
 export const condoUnits = pgTable(
   "condo_units",
   {
@@ -1252,6 +1255,7 @@ export const condoUnits = pgTable(
     baseBbl: varchar("base_bbl").notNull(),
     condoNumber: varchar("condo_number"),
     unitDesignation: varchar("unit_designation"),
+    unitTypeHint: varchar("unit_type_hint").default("residential"),
     buildingPropertyId: varchar("building_property_id").references(() => properties.id),
     buildingDisplayAddress: text("building_display_address"),
     unitDisplayAddress: text("unit_display_address"),
@@ -1268,6 +1272,7 @@ export const condoUnits = pgTable(
     index("idx_condo_units_base_bbl").on(table.baseBbl),
     index("idx_condo_units_building").on(table.buildingPropertyId),
     index("idx_condo_units_address").on(table.unitDisplayAddress),
+    index("idx_condo_units_type_hint").on(table.unitTypeHint),
   ]
 );
 

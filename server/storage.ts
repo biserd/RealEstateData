@@ -18,6 +18,7 @@ import {
   savedSearches,
   propertyChanges,
   savedSearchNotifications,
+  condoUnits,
   type User,
   type InsertUser,
   type Property,
@@ -181,6 +182,27 @@ export interface IStorage {
   // Saved Search Notification operations
   createSavedSearchNotification(notification: InsertSavedSearchNotification): Promise<SavedSearchNotification>;
   getRecentNotificationsForSearch(searchId: string, limit?: number): Promise<SavedSearchNotification[]>;
+  
+  // Condo Units search
+  searchCondoUnits(params: {
+    borough?: string;
+    zipCode?: string;
+    baseBbl?: string;
+    query?: string;
+    unitTypes?: string[];
+    limit?: number;
+  }): Promise<Array<{
+    unitBbl: string;
+    baseBbl: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1190,6 +1212,78 @@ export class DatabaseStorage implements IStorage {
       .where(eq(savedSearchNotifications.savedSearchId, searchId))
       .orderBy(desc(savedSearchNotifications.createdAt))
       .limit(limit);
+  }
+
+  // Condo Units search
+  async searchCondoUnits(params: {
+    borough?: string;
+    zipCode?: string;
+    baseBbl?: string;
+    query?: string;
+    unitTypes?: string[];
+    limit?: number;
+  }): Promise<Array<{
+    unitBbl: string;
+    baseBbl: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  }>> {
+    const { borough, zipCode, baseBbl, query, unitTypes, limit = 50 } = params;
+    
+    const conditions: any[] = [];
+    
+    if (borough) {
+      conditions.push(eq(condoUnits.borough, borough));
+    }
+    
+    if (zipCode) {
+      conditions.push(eq(condoUnits.zipCode, zipCode));
+    }
+    
+    if (baseBbl) {
+      conditions.push(eq(condoUnits.baseBbl, baseBbl));
+    }
+    
+    if (query) {
+      conditions.push(
+        or(
+          ilike(condoUnits.unitDesignation, `%${query}%`),
+          ilike(condoUnits.buildingDisplayAddress, `%${query}%`),
+          ilike(condoUnits.unitDisplayAddress, `%${query}%`)
+        )
+      );
+    }
+    
+    if (unitTypes && unitTypes.length > 0) {
+      conditions.push(inArray(condoUnits.unitTypeHint, unitTypes));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const results = await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        baseBbl: condoUnits.baseBbl,
+        unitDesignation: condoUnits.unitDesignation,
+        unitTypeHint: condoUnits.unitTypeHint,
+        buildingDisplayAddress: condoUnits.buildingDisplayAddress,
+        unitDisplayAddress: condoUnits.unitDisplayAddress,
+        borough: condoUnits.borough,
+        zipCode: condoUnits.zipCode,
+        latitude: condoUnits.latitude,
+        longitude: condoUnits.longitude,
+      })
+      .from(condoUnits)
+      .where(whereClause)
+      .limit(limit);
+    
+    return results;
   }
 }
 
