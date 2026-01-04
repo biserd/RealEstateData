@@ -190,6 +190,49 @@ function generateSitemapSlug(property: { id: string; address: string | null; cit
   return slugParts.filter(Boolean).join('-');
 }
 
+// Helper function to generate SEO-friendly unit slug
+// Format: "404-east-76-street-unit-15b-manhattan" or "123-broadway-unit-4a-10001"
+function generateUnitSlug(unit: {
+  unitBbl: string;
+  buildingDisplayAddress: string | null;
+  unitDesignation: string | null;
+  borough: string | null;
+}): string {
+  const parts: string[] = [];
+  
+  // Building address
+  if (unit.buildingDisplayAddress) {
+    const addressSlug = unit.buildingDisplayAddress
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 60);
+    parts.push(addressSlug);
+  }
+  
+  // Unit designation
+  if (unit.unitDesignation) {
+    const unitSlug = `unit-${unit.unitDesignation.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+    parts.push(unitSlug);
+  } else {
+    // Fallback: use last 4 chars of unitBbl
+    parts.push(`unit-${unit.unitBbl.slice(-4)}`);
+  }
+  
+  // Borough for uniqueness
+  if (unit.borough) {
+    const boroughSlug = unit.borough.toLowerCase().replace(/[^a-z]/g, '');
+    parts.push(boroughSlug);
+  }
+  
+  // Add full unitBbl for guaranteed uniqueness (since borough is separate, use last 9 digits which excludes borough prefix)
+  // Format: block(5) + lot(4) = 9 digits, provides unique identification within a borough
+  parts.push(unit.unitBbl.slice(-9));
+  
+  return parts.filter(Boolean).join('-');
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -209,7 +252,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // SEO: Sitemap index (main sitemap.xml)
-  const PROPERTIES_PER_SITEMAP = 40000;
+  const ITEMS_PER_SITEMAP = 40000;
   
   app.get("/sitemap.xml", async (req, res) => {
     try {
@@ -217,7 +260,10 @@ Sitemap: ${baseUrl}/sitemap.xml
       const today = new Date().toISOString().split("T")[0];
       
       const propertyCount = await storage.getPropertyCountForSitemap();
-      const propertySitemapCount = Math.ceil(propertyCount / PROPERTIES_PER_SITEMAP);
+      const propertySitemapCount = Math.ceil(propertyCount / ITEMS_PER_SITEMAP);
+      
+      const unitCount = await storage.getUnitCountForSitemap();
+      const unitSitemapCount = Math.ceil(unitCount / ITEMS_PER_SITEMAP);
       
       let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -230,6 +276,14 @@ Sitemap: ${baseUrl}/sitemap.xml
       for (let i = 1; i <= propertySitemapCount; i++) {
         xml += `  <sitemap>
     <loc>${baseUrl}/sitemap-properties-${i}.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+`;
+      }
+      
+      for (let i = 1; i <= unitSitemapCount; i++) {
+        xml += `  <sitemap>
+    <loc>${baseUrl}/sitemap-units-${i}.xml</loc>
     <lastmod>${today}</lastmod>
   </sitemap>
 `;
@@ -295,8 +349,8 @@ Sitemap: ${baseUrl}/sitemap.xml
       const baseUrl = `https://${req.get("host")}`;
       const today = new Date().toISOString().split("T")[0];
       
-      const offset = (page - 1) * PROPERTIES_PER_SITEMAP;
-      const properties = await storage.getPropertiesForSitemapPaginated(PROPERTIES_PER_SITEMAP, offset);
+      const offset = (page - 1) * ITEMS_PER_SITEMAP;
+      const properties = await storage.getPropertiesForSitemapPaginated(ITEMS_PER_SITEMAP, offset);
       
       if (properties.length === 0) {
         return res.status(404).send("Sitemap page not found");
@@ -323,6 +377,49 @@ Sitemap: ${baseUrl}/sitemap.xml
       res.send(xml);
     } catch (error) {
       console.error("Error generating property sitemap:", error);
+      res.status(500).send("Error generating sitemap");
+    }
+  });
+
+  // SEO: Unit pages sitemap (paginated)
+  app.get("/sitemap-units-:page.xml", async (req, res) => {
+    try {
+      const page = parseInt(req.params.page, 10);
+      if (isNaN(page) || page < 1) {
+        return res.status(404).send("Invalid sitemap page");
+      }
+      
+      const baseUrl = `https://${req.get("host")}`;
+      const today = new Date().toISOString().split("T")[0];
+      
+      const offset = (page - 1) * ITEMS_PER_SITEMAP;
+      const units = await storage.getUnitsForSitemapPaginated(ITEMS_PER_SITEMAP, offset);
+      
+      if (units.length === 0) {
+        return res.status(404).send("Sitemap page not found");
+      }
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+`;
+      
+      for (const unit of units) {
+        const slug = unit.slug || generateUnitSlug(unit);
+        xml += `  <url>
+    <loc>${baseUrl}/unit/${slug}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+`;
+      }
+      
+      xml += `</urlset>`;
+      
+      res.type("application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating unit sitemap:", error);
       res.status(500).send("Error generating sitemap");
     }
   });
@@ -743,6 +840,149 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error resolving property:", error);
       res.status(500).json({ message: "Failed to resolve property", redirectTo: "/not-found" });
+    }
+  });
+
+  // Get unit by slug - for SEO-friendly unit pages
+  app.get("/api/units/by-slug/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      
+      const unit = await storage.getCondoUnitBySlug(slug);
+      if (!unit) {
+        return res.status(404).json({ message: "Unit not found" });
+      }
+      
+      res.json(unit);
+    } catch (error) {
+      console.error("Error fetching unit by slug:", error);
+      res.status(500).json({ message: "Failed to fetch unit" });
+    }
+  });
+
+  // Resolve unit - handles both slug and unitBbl lookups
+  app.get("/api/units/resolve/:idOrSlug", async (req, res) => {
+    try {
+      const { idOrSlug } = req.params;
+      
+      // First try to find by slug stored in database
+      let unit = await storage.getCondoUnitBySlug(idOrSlug);
+      
+      // If not found by stored slug, try to extract unitBbl from slug format
+      // Slug format: "{address}-unit-{designation}-{borough}-{9-digit-bbl-suffix}"
+      // The last 9 digits after final hyphen are from unitBbl (block 5 + lot 4)
+      if (!unit && idOrSlug.includes("-")) {
+        const parts = idOrSlug.split("-");
+        const bblSuffix = parts[parts.length - 1];
+        const boroughFromSlug = parts[parts.length - 2];
+        
+        // If it looks like a BBL suffix (9 digits for new format, 6 for legacy)
+        if (/^\d{9}$/.test(bblSuffix)) {
+          // New 9-digit suffix format - more unique
+          const unitBySuffix = await storage.getCondoUnitBySuffix9(bblSuffix, boroughFromSlug);
+          if (unitBySuffix) {
+            unit = unitBySuffix;
+          }
+        } else if (/^\d{6}$/.test(bblSuffix)) {
+          // Legacy 6-digit suffix format
+          const unitBySuffix = await storage.getCondoUnitBySuffix(bblSuffix);
+          if (unitBySuffix) {
+            const unitBorough = unitBySuffix.borough?.toLowerCase().replace(/\s+/g, "");
+            const slugBorough = boroughFromSlug?.toLowerCase();
+            
+            if (!boroughFromSlug || unitBorough === slugBorough) {
+              unit = unitBySuffix;
+            } else {
+              const unitWithBorough = await storage.getCondoUnitBySuffixAndBorough(bblSuffix, boroughFromSlug);
+              if (unitWithBorough) {
+                unit = unitWithBorough;
+              }
+            }
+          }
+        }
+      }
+      
+      // If still not found, try direct unitBbl lookup (legacy support)
+      if (!unit) {
+        const normalizedBbl = idOrSlug.replace(/[-\s]/g, "");
+        const unitByBbl = await storage.getCondoUnit(normalizedBbl);
+        if (unitByBbl) {
+          // Generate slug for redirect
+          const slug = generateUnitSlug({
+            unitBbl: unitByBbl.unitBbl,
+            buildingDisplayAddress: unitByBbl.buildingDisplayAddress,
+            unitDesignation: unitByBbl.unitDesignation,
+            borough: unitByBbl.borough,
+          });
+          
+          // Return redirect info to SEO-friendly URL
+          return res.json({
+            unitBbl: unitByBbl.unitBbl,
+            slug,
+            redirectTo: `/unit/${slug}`,
+            unit: unitByBbl,
+          });
+        }
+      }
+      
+      if (!unit) {
+        return res.status(404).json({ message: "Unit not found" });
+      }
+      
+      // Generate slug if not stored
+      const slug = unit.slug || generateUnitSlug({
+        unitBbl: unit.unitBbl,
+        buildingDisplayAddress: unit.buildingDisplayAddress,
+        unitDesignation: unit.unitDesignation,
+        borough: unit.borough,
+      });
+      
+      res.json({
+        unitBbl: unit.unitBbl,
+        slug,
+        unit,
+      });
+    } catch (error) {
+      console.error("Error resolving unit:", error);
+      res.status(500).json({ message: "Failed to resolve unit" });
+    }
+  });
+
+  // Admin: Generate slugs for units (batch operation)
+  app.post("/api/admin/generate-unit-slugs", isAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin
+      const user = await storage.getUser(req.user.id);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const batchSize = parseInt(req.query.batchSize as string) || 1000;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      // Get units without slugs
+      const units = await storage.getUnitsForSitemapPaginated(batchSize, offset);
+      
+      let generated = 0;
+      for (const unit of units) {
+        if (!unit.slug) {
+          const slug = generateUnitSlug(unit);
+          await storage.updateUnitSlug(unit.unitBbl, slug);
+          generated++;
+        }
+      }
+      
+      res.json({
+        message: `Generated ${generated} slugs`,
+        batchSize,
+        offset,
+        unitsProcessed: units.length,
+        slugsGenerated: generated,
+        nextOffset: offset + batchSize,
+      });
+    } catch (error) {
+      console.error("Error generating unit slugs:", error);
+      res.status(500).json({ message: "Failed to generate unit slugs" });
     }
   });
 

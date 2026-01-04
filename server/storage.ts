@@ -293,6 +293,75 @@ export interface IStorage {
     lastSaleDate: Date;
     opportunityScore: number;
   }>>;
+
+  // Unit slug operations
+  getCondoUnitBySlug(slug: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined>;
+
+  getCondoUnitBySuffix(suffix: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined>;
+
+  getCondoUnitBySuffixAndBorough(suffix: string, borough: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined>;
+
+  getCondoUnitBySuffix9(suffix: string, borough: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined>;
+
+  updateUnitSlug(unitBbl: string, slug: string): Promise<void>;
+  
+  // Unit sitemap operations
+  getUnitCountForSitemap(): Promise<number>;
+  getUnitsForSitemapPaginated(limit: number, offset: number): Promise<Array<{
+    unitBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    buildingDisplayAddress: string | null;
+    borough: string | null;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1907,6 +1976,194 @@ export class DatabaseStorage implements IStorage {
     }
 
     return results.sort((a, b) => b.opportunityScore - a.opportunityScore);
+  }
+
+  // Unit slug operations
+  async getCondoUnitBySlug(slug: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined> {
+    const [unit] = await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        baseBbl: condoUnits.baseBbl,
+        slug: condoUnits.slug,
+        unitDesignation: condoUnits.unitDesignation,
+        unitTypeHint: condoUnits.unitTypeHint,
+        buildingDisplayAddress: condoUnits.buildingDisplayAddress,
+        unitDisplayAddress: condoUnits.unitDisplayAddress,
+        borough: condoUnits.borough,
+        zipCode: condoUnits.zipCode,
+        latitude: condoUnits.latitude,
+        longitude: condoUnits.longitude,
+      })
+      .from(condoUnits)
+      .where(eq(condoUnits.slug, slug))
+      .limit(1);
+    return unit;
+  }
+
+  async getCondoUnitBySuffix(suffix: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined> {
+    // Search for units where the last 6 chars of unitBbl match the suffix
+    const [unit] = await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        baseBbl: condoUnits.baseBbl,
+        slug: condoUnits.slug,
+        unitDesignation: condoUnits.unitDesignation,
+        unitTypeHint: condoUnits.unitTypeHint,
+        buildingDisplayAddress: condoUnits.buildingDisplayAddress,
+        unitDisplayAddress: condoUnits.unitDisplayAddress,
+        borough: condoUnits.borough,
+        zipCode: condoUnits.zipCode,
+        latitude: condoUnits.latitude,
+        longitude: condoUnits.longitude,
+      })
+      .from(condoUnits)
+      .where(sql`RIGHT(${condoUnits.unitBbl}, 6) = ${suffix}`)
+      .limit(1);
+    return unit;
+  }
+
+  async getCondoUnitBySuffixAndBorough(suffix: string, borough: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined> {
+    // Normalize borough: remove spaces for comparison (handles "Staten Island" vs "statenisland")
+    const boroughNormalized = borough.toLowerCase().replace(/\s+/g, '');
+    
+    const [unit] = await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        baseBbl: condoUnits.baseBbl,
+        slug: condoUnits.slug,
+        unitDesignation: condoUnits.unitDesignation,
+        unitTypeHint: condoUnits.unitTypeHint,
+        buildingDisplayAddress: condoUnits.buildingDisplayAddress,
+        unitDisplayAddress: condoUnits.unitDisplayAddress,
+        borough: condoUnits.borough,
+        zipCode: condoUnits.zipCode,
+        latitude: condoUnits.latitude,
+        longitude: condoUnits.longitude,
+      })
+      .from(condoUnits)
+      .where(
+        and(
+          sql`RIGHT(${condoUnits.unitBbl}, 6) = ${suffix}`,
+          sql`LOWER(REPLACE(${condoUnits.borough}, ' ', '')) = ${boroughNormalized}`
+        )
+      )
+      .limit(1);
+    return unit;
+  }
+
+  async getCondoUnitBySuffix9(suffix: string, borough: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined> {
+    // Normalize borough: remove spaces for comparison (handles "Staten Island" vs "statenisland")
+    const boroughNormalized = borough.toLowerCase().replace(/\s+/g, '');
+    
+    const [unit] = await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        baseBbl: condoUnits.baseBbl,
+        slug: condoUnits.slug,
+        unitDesignation: condoUnits.unitDesignation,
+        unitTypeHint: condoUnits.unitTypeHint,
+        buildingDisplayAddress: condoUnits.buildingDisplayAddress,
+        unitDisplayAddress: condoUnits.unitDisplayAddress,
+        borough: condoUnits.borough,
+        zipCode: condoUnits.zipCode,
+        latitude: condoUnits.latitude,
+        longitude: condoUnits.longitude,
+      })
+      .from(condoUnits)
+      .where(
+        and(
+          sql`RIGHT(${condoUnits.unitBbl}, 9) = ${suffix}`,
+          sql`LOWER(REPLACE(${condoUnits.borough}, ' ', '')) = ${boroughNormalized}`
+        )
+      )
+      .limit(1);
+    return unit;
+  }
+
+  async updateUnitSlug(unitBbl: string, slug: string): Promise<void> {
+    await db
+      .update(condoUnits)
+      .set({ slug, updatedAt: new Date() })
+      .where(eq(condoUnits.unitBbl, unitBbl));
+  }
+
+  // Unit sitemap operations
+  async getUnitCountForSitemap(): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(condoUnits)
+      .where(eq(condoUnits.unitTypeHint, "residential"));
+    return Number(result?.count || 0);
+  }
+
+  async getUnitsForSitemapPaginated(limit: number, offset: number): Promise<Array<{
+    unitBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    buildingDisplayAddress: string | null;
+    borough: string | null;
+  }>> {
+    return await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        slug: condoUnits.slug,
+        unitDesignation: condoUnits.unitDesignation,
+        buildingDisplayAddress: condoUnits.buildingDisplayAddress,
+        borough: condoUnits.borough,
+      })
+      .from(condoUnits)
+      .where(eq(condoUnits.unitTypeHint, "residential"))
+      .orderBy(condoUnits.unitBbl)
+      .limit(limit)
+      .offset(offset);
   }
 }
 

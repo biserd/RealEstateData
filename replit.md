@@ -48,6 +48,16 @@ The platform integrates real estate data from Zillow Research, NYC Open Data (PL
 
 The `condo_units` table contains over 300K NYC condo unit records, enabling unit-level search and analytics. It includes unitBbl, baseBbl, unitDesignation, display addresses, and geographic coordinates, with classifications for residential, parking, commercial, and storage units. A multi-tier matching system links sales data to individual condo units.
 
+### SEO & Sitemap System
+
+The platform implements comprehensive SEO optimization:
+- **SEO-Friendly Unit URLs**: Format `/unit/{address}-unit-{designation}-{borough}-{9-digit-bbl}` (e.g., `/unit/1-water-street-unit-suba-manhattan-000041001`)
+- **Paginated Sitemaps**: Unit sitemaps paginated at 40k items per file (8 files for 300k+ units)
+- **Sitemap Index**: `/sitemap.xml` includes static pages, properties, and units
+- **Legacy URL Support**: Old unitBbl URLs redirect to SEO-friendly slugs
+- **Unit Resolver API**: `/api/units/resolve/:idOrSlug` handles both slug and legacy BBL lookups
+- **Admin Slug Generation**: `/api/admin/generate-unit-slugs` for batch slug generation
+
 ## External Dependencies
 
 ### Third-Party Services

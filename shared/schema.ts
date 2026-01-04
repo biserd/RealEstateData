@@ -1275,6 +1275,7 @@ export const condoUnits = pgTable(
     buildingPropertyId: varchar("building_property_id").references(() => properties.id),
     buildingDisplayAddress: text("building_display_address"),
     unitDisplayAddress: text("unit_display_address"),
+    slug: varchar("slug").unique(),
     bin: varchar("bin"),
     latitude: real("latitude"),
     longitude: real("longitude"),
@@ -1289,6 +1290,7 @@ export const condoUnits = pgTable(
     index("idx_condo_units_building").on(table.buildingPropertyId),
     index("idx_condo_units_address").on(table.unitDisplayAddress),
     index("idx_condo_units_type_hint").on(table.unitTypeHint),
+    index("idx_condo_units_slug").on(table.slug),
   ]
 );
 
