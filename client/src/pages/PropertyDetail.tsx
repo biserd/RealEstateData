@@ -366,150 +366,133 @@ export default function PropertyDetail() {
             </Link>
           </div>
 
-        <div className="mb-8">
-          <div className="space-y-6">
-            <div>
-              <div className="mb-2 flex items-start justify-between gap-2">
-                <h1 className="text-xl font-bold md:text-2xl lg:text-3xl break-words min-w-0" data-testid="text-property-address">
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <h1 className="text-xl font-semibold tracking-tight" data-testid="text-property-address">
                   {formatPropertyAddress(property)}
                 </h1>
-                <div className="flex gap-2 flex-shrink-0">
-                  {isAuthenticated ? (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => saveMutation.mutate()}
-                      disabled={saveMutation.isPending}
-                      data-testid="button-save-property"
-                    >
-                      <Heart className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          data-testid="button-save-property"
-                        >
-                          <Heart className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-md">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">
-                            <Heart className="h-5 w-5" />
-                            Save to Watchlist
-                          </DialogTitle>
-                          <DialogDescription>
-                            Sign in to save properties to your watchlist
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="flex flex-col items-center justify-center py-8 text-center">
-                          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                            <LogIn className="h-8 w-8 text-primary" />
-                          </div>
-                          <h3 className="mb-2 text-lg font-semibold">Sign In Required</h3>
-                          <p className="mb-6 text-sm text-muted-foreground max-w-xs">
-                            Create a free account to save properties, set up alerts, and track your favorite opportunities.
-                          </p>
-                          <a href="/api/login" className="w-full">
-                            <Button className="w-full" data-testid="button-login-save">
-                              <LogIn className="mr-2 h-4 w-4" />
-                              Sign In to Continue
-                            </Button>
-                          </a>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
-                  <Button variant="outline" size="icon" data-testid="button-share">
-                    <Share2 className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="h-4 w-4" />
+                  <span>{property.city}, {property.state} {property.zipCode}</span>
                 </div>
               </div>
-              <p className="flex items-center gap-1 text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                {property.city}, {property.state} {property.zipCode}
-              </p>
+              <div className="flex gap-2 flex-shrink-0">
+                {isAuthenticated ? (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending}
+                    data-testid="button-save-property"
+                  >
+                    <Heart className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        data-testid="button-save-property"
+                      >
+                        <Heart className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Heart className="h-5 w-5" />
+                          Save to Watchlist
+                        </DialogTitle>
+                        <DialogDescription>
+                          Sign in to save properties to your watchlist
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                          <LogIn className="h-8 w-8 text-primary" />
+                        </div>
+                        <h3 className="mb-2 text-lg font-semibold">Sign In Required</h3>
+                        <p className="mb-6 text-sm text-muted-foreground max-w-xs">
+                          Create a free account to save properties, set up alerts, and track your favorite opportunities.
+                        </p>
+                        <a href="/api/login" className="w-full">
+                          <Button className="w-full" data-testid="button-login-save">
+                            <LogIn className="mr-2 h-4 w-4" />
+                            Sign In to Continue
+                          </Button>
+                        </a>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                <Button variant="outline" size="icon" data-testid="button-share">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-
-            <div className="flex flex-wrap items-baseline gap-4">
-              <div>
-                <p className="text-4xl font-bold" data-testid="text-property-price">
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-baseline gap-3">
+                <p className="text-2xl font-bold" data-testid="text-property-price">
                   {formatPrice(property.estimatedValue || property.lastSalePrice)}
                 </p>
                 {property.pricePerSqft && (
-                  <p className="text-muted-foreground">
+                  <span className="text-sm text-muted-foreground">
                     ${property.pricePerSqft.toFixed(0)}/sqft
-                  </p>
+                  </span>
+                )}
+                {property.confidenceLevel && (
+                  <Badge variant={getConfidenceBadgeVariant(property.confidenceLevel)}>
+                    {property.confidenceLevel} Confidence
+                  </Badge>
                 )}
               </div>
-              {property.confidenceLevel && (
-                <Badge variant={getConfidenceBadgeVariant(property.confidenceLevel)}>
-                  {property.confidenceLevel} Confidence
-                </Badge>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-6 text-sm">
-              {property.beds !== null && (
-                <div className="flex items-center gap-2">
-                  <Bed className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium">{property.beds}</span> beds
-                </div>
-              )}
-              {property.baths !== null && (
-                <div className="flex items-center gap-2">
-                  <Bath className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium">{property.baths}</span> baths
-                </div>
-              )}
-              {property.sqft && (
-                <div className="flex items-center gap-2">
-                  <Square className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium">{property.sqft.toLocaleString()}</span> sqft
-                </div>
-              )}
-              {property.yearBuilt && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
-                  Built <span className="font-medium">{property.yearBuilt}</span>
-                </div>
-              )}
-            </div>
-
-            {property.lastSaleDate && (
-              <div className="rounded-lg bg-muted/50 p-4">
-                <p className="text-sm text-muted-foreground">Last Sale</p>
-                <p className="font-medium">
-                  {formatPrice(property.lastSalePrice)} on {formatDate(property.lastSaleDate)}
-                </p>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                {property.sqft && (
+                  <div className="flex items-center gap-1">
+                    <Square className="h-4 w-4" />
+                    <span>{property.sqft.toLocaleString()} sqft</span>
+                  </div>
+                )}
+                {property.yearBuilt && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>Built {property.yearBuilt}</span>
+                  </div>
+                )}
               </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <Badge variant="secondary">
-                {property.propertyType}
-              </Badge>
-              <CoverageBadge level="Comps" />
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <DealMemo propertyId={id!} />
-              <Button 
-                variant="outline" 
-                onClick={handleExportReport}
-                disabled={isExportingReport}
-                data-testid="button-download-report"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">{isExportingReport ? "Exporting..." : "Report"}</span>
-                <span className="sm:hidden">{isExportingReport ? "..." : "PDF"}</span>
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{property.propertyType}</Badge>
+                <CoverageBadge level="Comps" />
+                {property.lastSaleDate && (
+                  <span className="text-sm text-muted-foreground">
+                    Last sale: {formatPrice(property.lastSalePrice)} ({formatDate(property.lastSaleDate)})
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <DealMemo propertyId={id!} />
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleExportReport}
+                  disabled={isExportingReport}
+                  data-testid="button-download-report"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Report
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         <Card className="mb-6">
           <CardContent className="p-3">
