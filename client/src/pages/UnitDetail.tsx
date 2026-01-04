@@ -302,36 +302,40 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
 }
 
 export default function UnitDetail() {
-  const { unitBbl } = useParams<{ unitBbl: string }>();
+  const { unitBbl: idOrSlug } = useParams<{ unitBbl: string }>();
 
+  // First resolve the slug/id to get the actual unit data
   const { data: unit, isLoading, error } = useQuery<CondoUnit>({
-    queryKey: ["/api/condo-units", unitBbl],
+    queryKey: ["/api/units/resolve", idOrSlug],
     queryFn: async () => {
-      const res = await fetch(`/api/condo-units/${unitBbl}`);
+      const res = await fetch(`/api/units/resolve/${encodeURIComponent(idOrSlug || "")}`);
       if (!res.ok) throw new Error("Failed to fetch unit");
       return res.json();
     },
-    enabled: !!unitBbl,
+    enabled: !!idOrSlug,
   });
 
+  // Use the resolved unitBbl for subsequent queries
+  const resolvedUnitBbl = unit?.unitBbl;
+
   const { data: salesData } = useQuery<{ sales: UnitSale[]; count: number }>({
-    queryKey: ["/api/units", unitBbl, "sales"],
+    queryKey: ["/api/units", resolvedUnitBbl, "sales"],
     queryFn: async () => {
-      const res = await fetch(`/api/units/${unitBbl}/sales`);
+      const res = await fetch(`/api/units/${resolvedUnitBbl}/sales`);
       if (!res.ok) throw new Error("Failed to fetch sales");
       return res.json();
     },
-    enabled: !!unitBbl,
+    enabled: !!resolvedUnitBbl,
   });
 
   const { data: opportunityData } = useQuery<OpportunityData>({
-    queryKey: ["/api/units", unitBbl, "opportunity"],
+    queryKey: ["/api/units", resolvedUnitBbl, "opportunity"],
     queryFn: async () => {
-      const res = await fetch(`/api/units/${unitBbl}/opportunity`);
+      const res = await fetch(`/api/units/${resolvedUnitBbl}/opportunity`);
       if (!res.ok) throw new Error("Failed to fetch opportunity data");
       return res.json();
     },
-    enabled: !!unitBbl,
+    enabled: !!resolvedUnitBbl,
   });
 
   if (isLoading) {
@@ -566,7 +570,7 @@ export default function UnitDetail() {
               </TabsContent>
 
               <TabsContent value="ai">
-                <AIInsightsSection unitBbl={unitBbl!} />
+                <AIInsightsSection unitBbl={unit.unitBbl} />
               </TabsContent>
             </Tabs>
           </div>
