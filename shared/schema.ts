@@ -127,6 +127,7 @@ export const properties = pgTable(
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     bbl: varchar("bbl"), // Borough-Block-Lot: master key for NYC properties
+    bblNormalized: varchar("bbl_normalized"), // 10-char normalized BBL for joins
     address: text("address").notNull(),
     unit: varchar("unit"), // Apartment/unit number (e.g., "4B", "PH1", "Unit 5")
     city: varchar("city").notNull(),
@@ -1298,6 +1299,37 @@ export const insertCondoUnitSchema = createInsertSchema(condoUnits).omit({
 });
 export type InsertCondoUnit = z.infer<typeof insertCondoUnitSchema>;
 export type CondoUnit = typeof condoUnits.$inferSelect;
+
+// Buildings - authoritative parent inventory for condo units
+// Keyed by baseBbl, populated from distinct baseBbls in condo_units
+export const buildings = pgTable(
+  "buildings",
+  {
+    baseBbl: varchar("base_bbl").primaryKey(),
+    displayAddress: text("display_address"),
+    bin: varchar("bin"),
+    latitude: real("latitude"),
+    longitude: real("longitude"),
+    borough: varchar("borough"),
+    zipCode: varchar("zip_code"),
+    unitCount: integer("unit_count").default(0),
+    residentialUnitCount: integer("residential_unit_count").default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_buildings_address").on(table.displayAddress),
+    index("idx_buildings_borough").on(table.borough),
+    index("idx_buildings_zip").on(table.zipCode),
+  ]
+);
+
+export const insertBuildingSchema = createInsertSchema(buildings).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertBuilding = z.infer<typeof insertBuildingSchema>;
+export type Building = typeof buildings.$inferSelect;
 
 // Entity Resolution Map - tracks source record mappings to properties
 // Supports multiple match types with confidence scoring

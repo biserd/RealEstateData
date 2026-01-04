@@ -600,6 +600,40 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/buildings", async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      const buildingsList = await storage.getBuildingsWithUnits(limit, offset);
+      
+      res.json({
+        buildings: buildingsList,
+        count: buildingsList.length,
+        offset,
+      });
+    } catch (error) {
+      console.error("Error fetching buildings:", error);
+      res.status(500).json({ message: "Failed to fetch buildings" });
+    }
+  });
+
+  app.get("/api/buildings/:baseBbl/details", async (req, res) => {
+    try {
+      const { baseBbl } = req.params;
+      const building = await storage.getBuilding(baseBbl);
+      
+      if (!building) {
+        return res.status(404).json({ message: "Building not found" });
+      }
+      
+      res.json(building);
+    } catch (error) {
+      console.error("Error fetching building:", error);
+      res.status(500).json({ message: "Failed to fetch building" });
+    }
+  });
+
   app.get("/api/properties/:id", async (req, res) => {
     try {
       const property = await storage.getProperty(req.params.id);

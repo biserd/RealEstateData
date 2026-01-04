@@ -19,6 +19,7 @@ import {
   propertyChanges,
   savedSearchNotifications,
   condoUnits,
+  buildings,
   type User,
   type InsertUser,
   type Property,
@@ -55,6 +56,8 @@ import {
   type InsertPropertyChange,
   type SavedSearchNotification,
   type InsertSavedSearchNotification,
+  type Building,
+  type InsertBuilding,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -221,6 +224,11 @@ export interface IStorage {
     rawAddress: string | null;
     rawAptNumber: string | null;
   }>>;
+  
+  // Buildings operations
+  getBuilding(baseBbl: string): Promise<Building | undefined>;
+  getBuildingsWithUnits(limit?: number, offset?: number): Promise<Building[]>;
+  upsertBuilding(building: InsertBuilding): Promise<Building>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1350,6 +1358,47 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sales.saleDate));
     
     return results;
+  }
+
+  // Buildings operations
+  async getBuilding(baseBbl: string): Promise<Building | undefined> {
+    const [building] = await db
+      .select()
+      .from(buildings)
+      .where(eq(buildings.baseBbl, baseBbl));
+    return building;
+  }
+
+  async getBuildingsWithUnits(limit = 50, offset = 0): Promise<Building[]> {
+    return await db
+      .select()
+      .from(buildings)
+      .where(gte(buildings.unitCount, 1))
+      .orderBy(desc(buildings.unitCount))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async upsertBuilding(building: InsertBuilding): Promise<Building> {
+    const [result] = await db
+      .insert(buildings)
+      .values(building)
+      .onConflictDoUpdate({
+        target: buildings.baseBbl,
+        set: {
+          displayAddress: building.displayAddress,
+          bin: building.bin,
+          latitude: building.latitude,
+          longitude: building.longitude,
+          borough: building.borough,
+          zipCode: building.zipCode,
+          unitCount: building.unitCount,
+          residentialUnitCount: building.residentialUnitCount,
+          updatedAt: sql`now()`,
+        },
+      })
+      .returning();
+    return result;
   }
 }
 
