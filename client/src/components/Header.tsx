@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, Search, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3 } from "lucide-react";
+import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { GlobalSearch } from "./GlobalSearch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,15 +133,7 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
 
         {showSearch && (
           <div className="flex flex-1 items-center justify-center px-4">
-            <div className="relative w-full max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search by ZIP, city, or address..."
-                className="pl-10 bg-muted/50"
-                data-testid="input-search"
-              />
-            </div>
+            <GlobalSearch />
           </div>
         )}
 

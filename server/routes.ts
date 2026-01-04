@@ -689,6 +689,63 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Property resolver - detect if ID is a unit, building, or property and redirect
+  app.get("/api/property/resolve/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Normalize ID by removing any dashes or spaces
+      const normalizedId = id.replace(/[-\s]/g, "").trim();
+      
+      // Unit BBLs are typically longer (13-15 chars) than base BBLs (10 chars)
+      // Check unit first if the ID is long enough to be a unit BBL
+      if (normalizedId.length > 10) {
+        const unit = await storage.getCondoUnit(normalizedId);
+        if (unit) {
+          return res.json({
+            type: "unit",
+            redirectTo: `/unit/${unit.unitBbl}`,
+          });
+        }
+      }
+      
+      // Check if it's a building base BBL (10 digits)
+      if (normalizedId.length === 10 && /^\d+$/.test(normalizedId)) {
+        const building = await storage.getBuilding(normalizedId);
+        if (building) {
+          return res.json({
+            type: "building",
+            redirectTo: `/building/${building.baseBbl}`,
+          });
+        }
+      }
+      
+      // Fallback: try unit lookup with original ID
+      const unit = await storage.getCondoUnit(id);
+      if (unit) {
+        return res.json({
+          type: "unit",
+          redirectTo: `/unit/${unit.unitBbl}`,
+        });
+      }
+      
+      // Check if it's a property slug or ID
+      const property = await storage.getPropertyByIdOrSlug(id);
+      if (property) {
+        const slug = property.slug || property.id;
+        return res.json({
+          type: "property",
+          redirectTo: `/properties/${slug}`,
+        });
+      }
+      
+      res.status(404).json({ message: "Property not found", redirectTo: "/not-found" });
+    } catch (error) {
+      console.error("Error resolving property:", error);
+      res.status(500).json({ message: "Failed to resolve property", redirectTo: "/not-found" });
+    }
+  });
+
   app.get("/api/buildings", async (req, res) => {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
@@ -1121,6 +1178,28 @@ Sitemap: ${baseUrl}/sitemap.xml
       res.json(results);
     } catch (error) {
       console.error("Error searching geo:", error);
+      res.status(500).json({ message: "Failed to search" });
+    }
+  });
+
+  // Unified search - buildings, units, and locations
+  app.get("/api/search/unified", optionalAuth, async (req: any, res) => {
+    try {
+      const query = req.query.q as string;
+      const filter = (req.query.filter as string) || "all";
+      
+      if (!query || query.length < 2) {
+        return res.json({ buildings: [], units: [], locations: [] });
+      }
+      
+      if (!(await checkUsageLimit(req, res, "search"))) {
+        return;
+      }
+      
+      const results = await storage.searchUnified(query, filter as "all" | "buildings" | "units");
+      res.json(results);
+    } catch (error) {
+      console.error("Error in unified search:", error);
       res.status(500).json({ message: "Failed to search" });
     }
   });

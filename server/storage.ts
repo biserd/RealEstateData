@@ -77,6 +77,7 @@ export interface IStorage {
   
   // Property operations
   getProperty(id: string): Promise<Property | undefined>;
+  getPropertyByIdOrSlug(idOrSlug: string): Promise<Property | undefined>;
   getProperties(filters: ScreenerFilters, limit?: number, offset?: number): Promise<Property[]>;
   getPropertiesByArea(geoType: string, geoId: string, limit?: number): Promise<Property[]>;
   getTopOpportunities(limit?: number): Promise<Property[]>;
@@ -98,6 +99,11 @@ export interface IStorage {
   
   // Geo search
   searchGeo(query: string): Promise<Array<{ type: string; id: string; name: string; state: string }>>;
+  searchUnified(query: string, entityFilter?: "all" | "buildings" | "units"): Promise<{
+    buildings: Array<{ baseBbl: string; displayAddress: string; borough: string | null; unitCount: number }>;
+    units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null }>;
+    locations: Array<{ type: string; id: string; name: string; state: string }>;
+  }>;
   
   // Coverage matrix operations
   getCoverageMatrix(state?: string): Promise<CoverageMatrix[]>;
@@ -360,6 +366,14 @@ export class DatabaseStorage implements IStorage {
   // Property operations
   async getProperty(id: string): Promise<Property | undefined> {
     const [property] = await db.select().from(properties).where(eq(properties.id, id));
+    return property;
+  }
+
+  async getPropertyByIdOrSlug(idOrSlug: string): Promise<Property | undefined> {
+    const [property] = await db
+      .select()
+      .from(properties)
+      .where(or(eq(properties.id, idOrSlug), eq(properties.slug, idOrSlug)));
     return property;
   }
 
@@ -666,6 +680,64 @@ export class DatabaseStorage implements IStorage {
       ...zipMatches.map((z) => ({ type: "zip", id: z.id, name: z.name, state: z.state })),
       ...cityMatches.map((c) => ({ type: "city", id: c.id, name: c.name, state: c.state })),
     ];
+  }
+
+  async searchUnified(query: string, entityFilter: "all" | "buildings" | "units" = "all"): Promise<{
+    buildings: Array<{ baseBbl: string; displayAddress: string; borough: string | null; unitCount: number }>;
+    units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null }>;
+    locations: Array<{ type: string; id: string; name: string; state: string }>;
+  }> {
+    const searchQuery = `%${query}%`;
+    
+    // Search buildings by address
+    const buildingResults = entityFilter === "units" ? [] : await db
+      .select({
+        baseBbl: buildings.baseBbl,
+        displayAddress: buildings.displayAddress,
+        borough: buildings.borough,
+        unitCount: buildings.unitCount,
+      })
+      .from(buildings)
+      .where(
+        or(
+          ilike(buildings.displayAddress, searchQuery),
+          ilike(buildings.baseBbl, searchQuery)
+        )
+      )
+      .limit(10);
+
+    // Search units by address or unit designation
+    const unitResults = entityFilter === "buildings" ? [] : await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        baseBbl: condoUnits.baseBbl,
+        unitDesignation: condoUnits.unitDesignation,
+        displayAddress: condoUnits.unitDisplayAddress,
+        borough: condoUnits.borough,
+      })
+      .from(condoUnits)
+      .where(
+        or(
+          ilike(condoUnits.unitDisplayAddress, searchQuery),
+          ilike(condoUnits.unitDesignation, `%${query}%`),
+          ilike(condoUnits.unitBbl, searchQuery)
+        )
+      )
+      .limit(10);
+
+    // Get location results only for "all" filter
+    const locations = entityFilter === "all" ? await this.searchGeo(query) : [];
+
+    return {
+      buildings: buildingResults.map(b => ({
+        baseBbl: b.baseBbl,
+        displayAddress: b.displayAddress || "",
+        borough: b.borough,
+        unitCount: b.unitCount || 0,
+      })),
+      units: unitResults,
+      locations,
+    };
   }
 
   // Coverage matrix operations

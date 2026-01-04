@@ -32,6 +32,7 @@ import Portfolio from "@/pages/Portfolio";
 import Activate from "@/pages/Activate";
 import BuildingDetail from "@/pages/BuildingDetail";
 import UnitDetail from "@/pages/UnitDetail";
+import PropertyResolver from "@/pages/PropertyResolver";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/properties/:slug" component={PropertyDetail} />
       <Route path="/building/:baseBbl" component={BuildingDetail} />
       <Route path="/unit/:unitBbl" component={UnitDetail} />
+      <Route path="/property/:id" component={PropertyResolver} />
       <Route path="/saved-properties">
         {isAuthenticated ? <Watchlists /> : <Login />}
       </Route>
