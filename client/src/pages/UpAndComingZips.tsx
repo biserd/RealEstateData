@@ -15,7 +15,9 @@ import {
   Minus,
   Sparkles,
   Info,
-  HelpCircle
+  HelpCircle,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -194,11 +196,23 @@ export default function UpAndComingZips() {
             <>
               <div className="rounded-lg border bg-muted/30 p-3 flex items-start gap-2">
                 <HelpCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">How it works:</span> We analyze price trends, 
-                  transaction volume, and market momentum to identify ZIP codes with strong appreciation potential. 
-                  Higher trend scores indicate better investment opportunities.
-                </p>
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p>
+                    <span className="font-medium text-foreground">How it works:</span> We analyze price trends, 
+                    transaction volume, and market momentum to identify ZIP codes with strong appreciation potential. 
+                    Higher trend scores indicate better investment opportunities.
+                  </p>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                      <span className="text-green-700 dark:text-green-400">Verified</span> = Real recorded sales
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 text-amber-600" />
+                      <span className="text-amber-700 dark:text-amber-400">Estimated</span> = Modeled values
+                    </span>
+                  </div>
+                </div>
               </div>
               
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -421,31 +435,64 @@ export default function UpAndComingZips() {
                       
                       <div className="mt-4 flex items-center justify-between text-sm">
                         <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1.5">
-                            <Home className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{zip.propertyCount} properties</span>
-                          </div>
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1.5 cursor-help">
+                                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span>{zip.propertyCount} buildings</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Number of buildings with estimated values in this ZIP</p>
+                            </TooltipContent>
+                          </Tooltip>
                           {zip.avgOpportunityScore && (
-                            <div className="flex items-center gap-1.5">
-                              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span>Opp: {zip.avgOpportunityScore}</span>
-                            </div>
+                            <Tooltip delayDuration={200}>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1.5 cursor-help">
+                                  <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span>Gap: {zip.avgOpportunityScore}</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Avg value gap score (estimated data)</p>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                         </div>
-                        <div className="font-medium">
-                          {formatPrice(zip.medianPrice)}
-                        </div>
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <div className="font-medium cursor-help flex items-center gap-1">
+                              {formatPrice(zip.medianPrice)}
+                              <AlertCircle className="h-3 w-3 text-amber-500" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Median estimated value (not verified sales)</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       
-                      <div className="mt-4">
-                        <Link href={`/investment-opportunities?zipCodes=${zip.zipCode}`}>
+                      <div className="mt-4 flex gap-2">
+                        <Link href={`/screener?zipCodes=${zip.zipCode}`} className="flex-1">
                           <Button 
                             variant="outline" 
                             className="w-full"
-                            data-testid={`button-view-properties-${zip.zipCode}`}
+                            data-testid={`button-view-units-${zip.zipCode}`}
                           >
-                            View Properties
-                            <ArrowRight className="ml-2 h-4 w-4" />
+                            <Home className="mr-1.5 h-4 w-4" />
+                            Units
+                            <ArrowRight className="ml-auto h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Link href={`/investment-opportunities?zipCodes=${zip.zipCode}`} className="flex-1">
+                          <Button 
+                            variant="ghost" 
+                            className="w-full"
+                            data-testid={`button-view-buildings-${zip.zipCode}`}
+                          >
+                            <Building2 className="mr-1.5 h-4 w-4" />
+                            Buildings
                           </Button>
                         </Link>
                       </div>
