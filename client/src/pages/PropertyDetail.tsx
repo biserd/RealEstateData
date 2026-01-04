@@ -24,7 +24,8 @@ import {
   LogIn,
   Crown,
   Lock,
-  Eye
+  Eye,
+  History
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ import { UpgradeModal, BlurredContent, ProBadge } from "@/components/UpgradeProm
 import { PropertyStickyCTA } from "@/components/PropertyStickyCTA";
 import { NycDeepInsights } from "@/components/NycDeepInsights";
 import { PropertyAIInsights } from "@/components/PropertyAIInsights";
+import { BuildingSalesHistory } from "@/components/BuildingSalesHistory";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -582,6 +584,10 @@ export default function PropertyDetail() {
                 Investment
               </TabsTrigger>
               <TabsTrigger value="signals" className="flex-shrink-0" data-testid="tab-signals">Signals</TabsTrigger>
+              <TabsTrigger value="sales" className="flex-shrink-0" data-testid="tab-sales">
+                <History className="h-4 w-4 mr-1 hidden sm:inline" />
+                Sales
+              </TabsTrigger>
               <TabsTrigger value="ai" className="flex-shrink-0" data-testid="tab-ai">AI</TabsTrigger>
             </TabsList>
           </div>
@@ -865,6 +871,13 @@ export default function PropertyDetail() {
               propertyId={id!} 
               city={property.city} 
               state={property.state} 
+            />
+          </TabsContent>
+
+          <TabsContent value="sales">
+            <BuildingSalesHistory 
+              bbl={property.bbl}
+              isCondoUnit={property.propertyType?.toLowerCase().includes("condo")}
             />
           </TabsContent>
 
