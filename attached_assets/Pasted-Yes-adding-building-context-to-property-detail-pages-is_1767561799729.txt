@@ -1,0 +1,100 @@
+Yes — **adding building context to property detail pages is the next highest-ROI step**. It turns your new “units + buildings” infrastructure into a coherent product experience (and immediately improves trust + navigation).
+
+Here’s the spec I’d implement next (in order), with minimal risk.
+
+## 1) Make property pages “entity-aware”
+
+Right now you effectively have (at least) two NYC condo concepts:
+
+* **Unit**: `unitBbl` (10-char string) → belongs to `baseBbl`
+* **Building**: `baseBbl` (10-char string) → has many `unitBbl`s
+
+Update the property detail resolver so it can detect:
+
+* **If page is a condo unit:** show Unit page + Building context
+* **If page is a condo building/base lot:** show Building page + Units list/summary
+* **If it’s neither:** keep existing behavior
+
+**Rule of thumb**
+
+* If you have `unitBbl` → it’s a unit
+* Else if you have `baseBbl` or a 10-char BBL that exists in `buildings` → it’s a condo building
+* Else → it’s “regular lot/building” (your existing PLUTO-driven pages)
+
+## 2) Add a “Building Context” card on Unit property pages
+
+On a **unit detail page**, show a top card:
+
+**Building context (parent)**
+
+* Building address (canonical)
+* Borough/ZIP
+* “Condo building” badge
+* Unit count (residential + total)
+* Link: “View building” (building detail page)
+
+**Units navigation**
+
+* “More units in this building” preview (e.g., 10 units)
+* Search within building (your existing `baseBbl` filter)
+
+## 3) Add a “Units” section on Building property pages
+
+On a **building detail page**, show:
+
+* Units summary:
+
+  * Residential units count (default)
+  * Toggle “Include parking/storage/commercial”
+* Unit list (paginated)
+* Unit search input (scoped to `baseBbl`)
+* Optional: unit-type breakdown (you already have this)
+
+## 4) Fix the legacy `properties.bbl` mismatch once, centrally
+
+You’ve already discovered `properties.bbl` is sometimes stored as a decimal-ish string (e.g., `1012380064.0000000`). That will keep biting you until you normalize it.
+
+Do *not* sprinkle fixes across endpoints. Add one canonical field and use it everywhere:
+
+* `properties.bbl10` = 10-char, left-padded, no decimals
+* Same for any other source keys.
+
+Then your joins become deterministic:
+
+* `properties.bbl10` ↔ `buildings.baseBbl` (building)
+* `properties.bbl10` ↔ `condo_units.unitBbl` (unit)
+
+## 5) Acceptance tests before you roll out
+
+Pick 20 random unit pages and verify:
+
+* Building card appears
+* “View building” works
+* Units list under building includes the unit you started from
+
+Pick 20 random building pages and verify:
+
+* Units count matches API
+* Residential-only default works
+* “include all” works
+
+## 6) Nice-to-have (quick win): add “Breadcrumbs”
+
+On a unit page:
+
+* NYC → Borough → Building → Unit
+
+This reduces bounce and makes the dataset feel intentionally structured.
+
+---
+
+### So the answer: **Yes, do it next.**
+
+If you want a crisp task for your agent:
+
+1. Implement entity-aware property detail resolver
+2. Add Building Context card on unit pages (parent building fetch by `baseBbl`)
+3. Add Units section on building pages (units fetch by `baseBbl`, residential default)
+4. Normalize `properties.bbl` to `bbl10` centrally and refactor joins to use it
+
+If you paste your current property detail route shape (URL params + what key it uses today), I’ll tell you the cleanest way to support **both** `/property/:id` and `/building/:baseBbl` / `/unit/:unitBbl` without breaking existing links.

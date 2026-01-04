@@ -634,6 +634,50 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/buildings/:baseBbl/units", async (req, res) => {
+    try {
+      const { baseBbl } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const offset = parseInt(req.query.offset as string) || 0;
+      const includeAll = req.query.includeAll === "true";
+      
+      const unitTypes = includeAll ? undefined : ["residential"];
+      
+      const units = await storage.getCondoUnitsForBuilding(baseBbl, {
+        unitTypes,
+        limit,
+        offset,
+      });
+      
+      res.json({
+        baseBbl,
+        units,
+        count: units.length,
+        offset,
+        filtered: !includeAll,
+      });
+    } catch (error) {
+      console.error("Error fetching building units:", error);
+      res.status(500).json({ message: "Failed to fetch building units" });
+    }
+  });
+
+  app.get("/api/condo-units/:unitBbl", async (req, res) => {
+    try {
+      const { unitBbl } = req.params;
+      const unit = await storage.getCondoUnit(unitBbl);
+      
+      if (!unit) {
+        return res.status(404).json({ message: "Condo unit not found" });
+      }
+      
+      res.json(unit);
+    } catch (error) {
+      console.error("Error fetching condo unit:", error);
+      res.status(500).json({ message: "Failed to fetch condo unit" });
+    }
+  });
+
   app.get("/api/properties/:id", async (req, res) => {
     try {
       const property = await storage.getProperty(req.params.id);

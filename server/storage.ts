@@ -229,6 +229,31 @@ export interface IStorage {
   getBuilding(baseBbl: string): Promise<Building | undefined>;
   getBuildingsWithUnits(limit?: number, offset?: number): Promise<Building[]>;
   upsertBuilding(building: InsertBuilding): Promise<Building>;
+  
+  // Condo Unit operations
+  getCondoUnit(unitBbl: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined>;
+  
+  getCondoUnitsForBuilding(baseBbl: string, params?: {
+    unitTypes?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<Array<{
+    unitBbl: string;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    unitDisplayAddress: string | null;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1399,6 +1424,68 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  async getCondoUnit(unitBbl: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    buildingDisplayAddress: string | null;
+    unitDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | undefined> {
+    const [unit] = await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        baseBbl: condoUnits.baseBbl,
+        unitDesignation: condoUnits.unitDesignation,
+        unitTypeHint: condoUnits.unitTypeHint,
+        buildingDisplayAddress: condoUnits.buildingDisplayAddress,
+        unitDisplayAddress: condoUnits.unitDisplayAddress,
+        borough: condoUnits.borough,
+        zipCode: condoUnits.zipCode,
+        latitude: condoUnits.latitude,
+        longitude: condoUnits.longitude,
+      })
+      .from(condoUnits)
+      .where(eq(condoUnits.unitBbl, unitBbl));
+    return unit;
+  }
+
+  async getCondoUnitsForBuilding(baseBbl: string, params?: {
+    unitTypes?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<Array<{
+    unitBbl: string;
+    unitDesignation: string | null;
+    unitTypeHint: string | null;
+    unitDisplayAddress: string | null;
+  }>> {
+    const { unitTypes, limit = 50, offset = 0 } = params || {};
+    
+    const conditions = [eq(condoUnits.baseBbl, baseBbl)];
+    
+    if (unitTypes && unitTypes.length > 0) {
+      conditions.push(inArray(condoUnits.unitTypeHint, unitTypes));
+    }
+    
+    return await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        unitDesignation: condoUnits.unitDesignation,
+        unitTypeHint: condoUnits.unitTypeHint,
+        unitDisplayAddress: condoUnits.unitDisplayAddress,
+      })
+      .from(condoUnits)
+      .where(and(...conditions))
+      .orderBy(condoUnits.unitDesignation)
+      .limit(limit)
+      .offset(offset);
   }
 }
 

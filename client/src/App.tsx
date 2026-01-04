@@ -30,6 +30,8 @@ import ApiAccess from "@/pages/ApiAccess";
 import ReleaseNotes from "@/pages/ReleaseNotes";
 import Portfolio from "@/pages/Portfolio";
 import Activate from "@/pages/Activate";
+import BuildingDetail from "@/pages/BuildingDetail";
+import UnitDetail from "@/pages/UnitDetail";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -44,6 +46,8 @@ function Router() {
       <Route path="/investment-opportunities" component={OpportunityScreener} />
       <Route path="/up-and-coming" component={UpAndComingZips} />
       <Route path="/properties/:slug" component={PropertyDetail} />
+      <Route path="/building/:baseBbl" component={BuildingDetail} />
+      <Route path="/unit/:unitBbl" component={UnitDetail} />
       <Route path="/saved-properties">
         {isAuthenticated ? <Watchlists /> : <Login />}
       </Route>
