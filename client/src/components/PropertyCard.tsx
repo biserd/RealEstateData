@@ -89,9 +89,7 @@ export function PropertyCard({
             >
               <Heart className={cn("h-4 w-4", isSaved && "fill-current")} />
             </Button>
-            <EntityTypeBadge 
-              type={property.propertyType === "Condo" && property.sqft && property.sqft <= 6000 ? "unit" : "building"} 
-            />
+            <EntityTypeBadge type="building" />
           </div>
           {showOpportunityScore && property.opportunityScore && (
             <Tooltip delayDuration={200}>

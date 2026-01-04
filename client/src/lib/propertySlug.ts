@@ -56,16 +56,8 @@ export function extractPropertyIdFromSlug(slug: string): string {
   return parts[parts.length - 1];
 }
 
-export function isPropertyUnit(property: Property): boolean {
-  return property.propertyType === "Condo" && !!property.sqft && property.sqft <= 6000;
-}
-
 export function getPropertyUrl(property: Property): string {
-  // Units (small condos) should link to the unit detail page
-  // Buildings should link to the properties detail page
-  if (isPropertyUnit(property)) {
-    // For units, use the property slug format for now (unit page will handle resolution)
-    return `/unit/${generatePropertySlug(property)}`;
-  }
+  // All properties from the properties table link to /properties/
+  // Individual condo units from the condo_units table use /unit/ routes
   return `/properties/${generatePropertySlug(property)}`;
 }
