@@ -1,0 +1,95 @@
+You’re *very* close — but I would **not ship** unit search based on this QA as-is because the “orphan units” line is a **red flag**.
+
+### Why it’s a red flag
+
+> **304,291 units don’t join to properties table**
+
+That means only **138 units** *do* join. That can’t be “expected” if:
+
+* your units have `baseBbl`, and
+* your buildings/lots came from PLUTO and should contain those `baseBbl` values.
+
+In a correct NYC model, **most `baseBbl` should exist in the buildings/PLUTO universe**. If they don’t join, one of these is wrong:
+
+1. You’re joining `units.baseBbl` to the wrong key in `properties` (e.g., `properties.id` instead of `properties.bbl`)
+2. BBL formatting mismatch (strings vs ints, missing leading zeros, borough encoded differently)
+3. Your `properties` table is not actually “PLUTO lots” (it’s a curated subset that excluded most condo base lots)
+4. `baseBbl` is not a true base-lot BBL in the way you think (less likely given your earlier registry)
+
+### The consequence if you ship now
+
+Search results will show unit addresses, but:
+
+* building links may fail,
+* “show units for this building” will be incomplete/wrong,
+* sales matching/building context will be unreliable,
+* you’ll get weird UX bugs that look like data quality issues.
+
+---
+
+## What to do next (the correct fix)
+
+### Step 1 — Measure joins against the *right* table
+
+Don’t join to your curated `properties` table yet. Join to your **raw PLUTO lots table** (or whatever table actually contains all PLUTO BBLs).
+
+You want:
+
+* `% of units where baseBbl exists in pluto_lots.bbl`
+  This should be **very high**.
+
+### Step 2 — Create a `buildings` (or `building_entity`) table keyed by **baseBbl**
+
+If your “properties” table is curated and doesn’t include condo base lots, that’s fine—just don’t use it as the parent.
+
+Create:
+
+* `building_entity (base_bbl PRIMARY KEY, …)`
+  Populated from PLUTO (or your building universe) **including condo base lots**.
+
+Then:
+
+* `condo_units.base_bbl -> building_entity.base_bbl`
+
+### Step 3 — Enforce BBL normalization everywhere
+
+Standardize a single canonical format:
+
+* `bbl` stored as **10-character string**, left padded
+* derived `borough/block/lot` stored separately only for search/filter
+
+### Step 4 — Fix the 3 out-of-bounds coords
+
+These should be quarantined:
+
+* set `lat/lon = building lat/lon` or mark as invalid
+* don’t let them leak into map search (they’ll create weird pins)
+
+---
+
+## After the join is fixed: yes, ship unit search (Postgres FTS is fine)
+
+Your planned design is good:
+
+* default filter: `unit_type_hint = 'residential'`
+* optional toggle: include all unit types
+
+**One improvement:** rename `includeAll` to `unitType=...` (keep `includeAll` if you want backwards compatibility).
+
+---
+
+## The one question you should ask your dev/agent (or check yourself)
+
+**What is the join key used in the orphan check?**
+
+* If it’s `condo_units.baseBbl = properties.bbl` and still failing, your properties table likely excludes condo base lots or BBLs are misformatted.
+* If it’s joining to `properties.id`, that’s simply the wrong join.
+
+---
+
+## Bottom line
+
+* ✅ Everything else looks launch-ready.
+* ❌ The orphan join must be fixed before launch.
+
+If you paste the exact SQL used for the “orphan units” check and the schema/columns of `properties` (just key columns), I’ll tell you exactly what’s wrong and the fastest correction.
