@@ -391,24 +391,16 @@ export default function UnitDetail() {
             <Card data-testid="card-unit-header">
               <CardHeader>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Home className="h-5 w-5 text-muted-foreground" />
-                      <CardTitle className="text-xl" data-testid="text-unit-title">
-                        {unitTitle}
-                      </CardTitle>
-                    </div>
+                  <div className="space-y-1">
+                    <h1 className="text-xl font-semibold tracking-tight" data-testid="text-unit-title">
+                      {unit.unitDisplayAddress || `${unit.buildingDisplayAddress}, ${unitTitle}`}
+                    </h1>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <MapPin className="h-4 w-4" />
                       <span data-testid="text-unit-address">
-                        {unit.unitDisplayAddress || unit.buildingDisplayAddress}
+                        {unit.borough}{unit.zipCode ? `, ${unit.zipCode}` : ""}
                       </span>
                     </div>
-                    {unit.borough && (
-                      <p className="text-sm text-muted-foreground" data-testid="text-unit-location">
-                        {unit.borough}{unit.zipCode ? `, ${unit.zipCode}` : ""}
-                      </p>
-                    )}
                   </div>
                   <div className="flex flex-col gap-2 items-end">
                     <Badge data-testid="badge-unit-type">
