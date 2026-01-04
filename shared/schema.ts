@@ -183,8 +183,23 @@ export const sales = pgTable(
     armsLength: boolean("arms_length").default(true),
     deedType: varchar("deed_type"),
     createdAt: timestamp("created_at").defaultNow(),
+    // Entity matching fields
+    unitBbl: varchar("unit_bbl"),
+    baseBbl: varchar("base_bbl"),
+    matchMethod: varchar("match_method"), // 'unit_bbl', 'geoclient', 'block_lot', 'unresolved'
+    rawBorough: varchar("raw_borough"),
+    rawBlock: varchar("raw_block"),
+    rawLot: varchar("raw_lot"),
+    rawAddress: text("raw_address"),
+    rawAptNumber: varchar("raw_apt_number"),
+    unresolvedReason: varchar("unresolved_reason"),
   },
-  (table) => [index("idx_sales_property").on(table.propertyId)]
+  (table) => [
+    index("idx_sales_property").on(table.propertyId),
+    index("idx_sales_unit_bbl").on(table.unitBbl),
+    index("idx_sales_base_bbl").on(table.baseBbl),
+    index("idx_sales_match_method").on(table.matchMethod),
+  ]
 );
 
 export const insertSaleSchema = createInsertSchema(sales).omit({
