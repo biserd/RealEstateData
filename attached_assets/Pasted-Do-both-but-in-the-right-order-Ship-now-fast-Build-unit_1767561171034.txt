@@ -1,0 +1,103 @@
+Do **both**, but in the right order:
+
+### Ship now (fast) ✅
+
+**Build unit search directly on `condo_units`.**
+You already have 100% addresses/coords/type classification there, so it’s the quickest path to a working unit search feature.
+
+**But** don’t wire unit search to `properties` at all. Treat `condo_units` as its own inventory/index for now.
+
+---
+
+### Fix properly (next sprint) ✅✅
+
+**Create a real `buildings` (or `building_entities`) table keyed by `baseBbl`** and make it the parent of units.
+
+This isn’t optional long-term because you’ll need it for:
+
+* “show all units in this building”
+* building-level comps and rollups
+* joining DOB/HPD/ACRIS signals reliably
+* a clean UX: Unit → Building → Neighborhood
+
+Your diagnosis proves your current `properties` table is **unit-level condo BBLs in a decimal format**, so it’s not a “building inventory” table.
+
+---
+
+## What I would do next, exactly
+
+## 1) TODAY: Unit search MVP (directly on `condo_units`)
+
+* Endpoint: `/api/condo-units/search`
+* Default filter: `unit_type_hint = 'residential'`
+* Optional: `unitType=all|parking|storage|commercial|residential`
+* Query matches:
+
+  * `unit_display_address` (building address + unitDesignation)
+  * `unitDesignation`
+* Return fields should include:
+
+  * `unitBbl` (canonical key)
+  * `baseBbl` (parent key)
+  * `unitDesignation`
+  * `unit_display_address`
+  * `lat/lon`
+  * `borough`, `zipCode` (if present)
+  * `unit_type_hint`
+
+**UI tip:** show building context line “Building BBL: ####…” until the building table exists, or link to a building page that you’ll backfill.
+
+---
+
+## 2) NEXT: Create `buildings` table (authoritative parent inventory)
+
+Build it from **distinct `baseBbl` in condo registry**, then enrich it:
+
+**buildings**
+
+* `base_bbl` (PK, 10-char string)
+* `building_display_address` (from Geoclient lookup keyed by base_bbl or address)
+* `bin` (if available)
+* `lat/lon` (building coords)
+* `borough`, `zip`
+
+Then:
+
+* `condo_units.base_bbl → buildings.base_bbl` FK
+
+**Acceptance test:** 11,893 base buildings from registry all exist in buildings table (or near-100%).
+
+---
+
+## 3) Clean up the “decimal BBL” mess (don’t ignore it)
+
+Your `properties.bbl` like `1012380064.0000000` suggests you ingested BBL as numeric/decimal.
+
+Fix by adding **a canonical `bbl_str`** column:
+
+* 10-char string, left-padded
+* never store BBL as numeric going forward
+
+You don’t have to refactor everything today, but you *do* need a single canonical representation to prevent future join hell.
+
+---
+
+## Why I wouldn’t “normalize properties and reuse it” as the fastest path
+
+Because your `properties` table is conceptually wrong right now: it’s neither clean building-level nor clean unit-level. Trying to “normalize and reuse” will waste time and keep breaking.
+
+Use:
+
+* `condo_units` = unit inventory
+* `buildings` = condo-building inventory
+* `pluto_lots` (optional) = full parcel universe
+* Keep `properties` as your legacy/curated table until you replace it
+
+---
+
+## Decision
+
+* **Yes, ship unit search now on `condo_units`.**
+* **In parallel, schedule building table creation next** so units have correct parents.
+
+If you want, I’ll give you a tight spec you can paste to your agent: table DDL, indexes for Postgres FTS/trigram, and the exact query logic for ranking “52 e 72 12b” style searches.
