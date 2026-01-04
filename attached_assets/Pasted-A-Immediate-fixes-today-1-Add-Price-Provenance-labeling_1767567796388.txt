@@ -1,0 +1,98 @@
+A. Immediate fixes (today)
+1) Add “Price Provenance” labeling everywhere (search results, cards, detail headers)
+
+Every card must show:
+
+Sale Price (recorded) — if you have a real transaction
+
+Estimated Value — if it’s modeled/derived (sqft × $/sqft)
+
+Assessed Value — if it’s from assessment (if you have it)
+
+And a tiny tag:
+
+Verified (transactions)
+
+Estimated (model)
+
+Assessed (tax)
+
+This single change eliminates most confusion.
+
+3) Add a badge on cards (non-negotiable)
+
+On each card and detail page:
+
+PRICE: VERIFIED or PRICE: ESTIMATED
+
+Also show the formula if estimated:
+
+“Estimated = sqft × neighborhood $/sqft (not a recorded sale)”
+
+B. Product structure (next)
+Make “Opportunity Screener” use verified data by default
+
+This is the trust layer.
+
+Default mode: Verified Opportunities
+
+Source: condo units with recorded sales (your unit_sales)
+
+Score is meaningful here
+
+Secondary mode: Estimated Opportunities
+
+Source: PLUTO properties with estimated values
+
+Different score name: don’t call it “deal score”
+
+call it “Value Gap (Estimated)” or “Model Discount”
+
+Requires a visible toggle + warning
+
+This way you keep the Properties tab useful without pretending it’s deal-grade.
+
+C. Should Units be the default? (yes, but do it tactfully)
+2) Set Units as default for Opportunity Screener, not for the whole app (yet)
+
+The best compromise:
+
+Opportunity Screener default = Verified (Units)
+
+Market Explorer can remain market-wide
+
+Properties tab remains accessible as “Buildings (Estimated)”
+
+Later, if users overwhelmingly prefer units, you can make global default “All” with Units ranked first.
+
+D. Rename tabs to match reality (big UX win)
+
+Instead of:
+
+Properties
+
+Condo Units
+
+Use:
+
+Buildings (Estimated)
+
+Units (Verified Sales)
+
+People instantly understand.
+
+E. Implementation details (simple and robust)
+
+Add fields to every search result payload:
+
+entity_type: building | unit
+
+price_value
+
+price_kind: sale | estimate | assessed | none
+
+price_confidence: verified | modeled | admin
+
+price_as_of (date)
+
+Then UI rendering is deterministic.
