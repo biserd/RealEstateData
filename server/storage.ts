@@ -687,7 +687,17 @@ export class DatabaseStorage implements IStorage {
     units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null }>;
     locations: Array<{ type: string; id: string; name: string; state: string }>;
   }> {
-    const searchQuery = `%${query}%`;
+    // Normalize the query to match database format:
+    // - Remove ordinal suffixes (1st -> 1, 2nd -> 2, 76th -> 76)
+    // - Handle common abbreviations
+    const normalizedQuery = query
+      .replace(/(\d+)(st|nd|rd|th)\b/gi, "$1")  // 76th -> 76
+      .replace(/\bstreet\b/gi, "")              // "76th street" becomes "76"
+      .replace(/\bave(nue)?\b/gi, "avenue")
+      .replace(/\bst\b/gi, "street")
+      .trim();
+    
+    const searchQuery = `%${normalizedQuery}%`;
     
     // Search buildings by address
     const buildingResults = entityFilter === "units" ? [] : await db
