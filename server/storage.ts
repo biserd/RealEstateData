@@ -682,24 +682,106 @@ export class DatabaseStorage implements IStorage {
     ];
   }
 
+  // Smart NYC address parser
+  private parseNYCAddress(query: string): { buildingQuery: string; unitDesignation: string | null } {
+    // Normalize and tokenize
+    let normalized = query.trim().toLowerCase();
+    
+    // Expand directional abbreviations
+    normalized = normalized
+      .replace(/\be\b/gi, "east")
+      .replace(/\bw\b/gi, "west")
+      .replace(/\bn\b/gi, "north")
+      .replace(/\bs\b/gi, "south");
+    
+    // Normalize ordinals (72nd -> 72, 1st -> 1)
+    normalized = normalized.replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
+    
+    // Normalize street type abbreviations
+    normalized = normalized
+      .replace(/\bave(nue)?\b/gi, "avenue")
+      .replace(/\bblvd\b/gi, "boulevard")
+      .replace(/\bpkwy\b/gi, "parkway")
+      .replace(/\bpl\b/gi, "place")
+      .replace(/\bdr\b/gi, "drive");
+    
+    // Remove "street" word as DB format doesn't always include it
+    normalized = normalized.replace(/\bstreet\b/gi, "");
+    
+    // Tokenize
+    const tokens = normalized.split(/\s+/).filter(t => t.length > 0);
+    
+    if (tokens.length === 0) {
+      return { buildingQuery: query, unitDesignation: null };
+    }
+    
+    // Pattern: [street number] [direction?] [street number/name] [unit?]
+    // Examples: "52 east 72 12b" -> building: "52 east 72", unit: "12b"
+    //           "404 east 76" -> building: "404 east 76", unit: null
+    
+    // Check if first token is a street number
+    const firstIsNumber = /^\d+$/.test(tokens[0]);
+    if (!firstIsNumber) {
+      // Not a typical address, return as-is
+      return { buildingQuery: normalized.replace(/\s+/g, " ").trim(), unitDesignation: null };
+    }
+    
+    // Find where building address ends and unit begins
+    // Heuristics: 
+    // - Unit designations typically: alphanumeric like "12b", "PH2", "3A", or start with letters
+    // - Building addresses: number + direction + street number/name
+    
+    let buildingTokens: string[] = [tokens[0]]; // Start with street number
+    let unitDesignation: string | null = null;
+    
+    for (let i = 1; i < tokens.length; i++) {
+      const token = tokens[i];
+      const isDirection = /^(east|west|north|south)$/.test(token);
+      const isStreetNumber = /^\d+$/.test(token);
+      const isStreetName = /^(avenue|broadway|park|madison|lexington|boulevard|parkway|place|drive)$/.test(token);
+      const isUnitPrefix = /^(apt|unit|ph|phd|penthouse|#)$/i.test(token);
+      const looksLikeUnit = /^([a-z]+\d+|\d+[a-z]+|ph\d*|phd?\d*|[a-z]{1,2})$/i.test(token);
+      
+      // If we see a unit prefix, everything after is the unit
+      if (isUnitPrefix) {
+        unitDesignation = tokens.slice(i + 1).join(" ").toUpperCase() || token.toUpperCase();
+        break;
+      }
+      
+      // If this looks like a unit designation and we already have a reasonable building address
+      if (buildingTokens.length >= 2 && looksLikeUnit && !isDirection && !isStreetNumber && !isStreetName) {
+        // Check if remaining tokens are all unit-like
+        const remaining = tokens.slice(i);
+        const allUnitLike = remaining.every(t => 
+          /^([a-z]+\d+|\d+[a-z]+|ph\d*|phd?\d*|[a-z]{1,2}|\d+)$/i.test(t)
+        );
+        
+        if (allUnitLike && remaining.length <= 2) {
+          unitDesignation = remaining.join("").toUpperCase();
+          break;
+        }
+      }
+      
+      // Otherwise, this is part of the building address
+      buildingTokens.push(token);
+    }
+    
+    const buildingQuery = buildingTokens.join(" ").trim();
+    
+    return { buildingQuery, unitDesignation };
+  }
+
   async searchUnified(query: string, entityFilter: "all" | "buildings" | "units" = "all"): Promise<{
     buildings: Array<{ baseBbl: string; displayAddress: string; borough: string | null; unitCount: number }>;
     units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null }>;
     locations: Array<{ type: string; id: string; name: string; state: string }>;
   }> {
-    // Normalize the query to match database format:
-    // - Remove ordinal suffixes (1st -> 1, 2nd -> 2, 76th -> 76)
-    // - Handle common abbreviations
-    const normalizedQuery = query
-      .replace(/(\d+)(st|nd|rd|th)\b/gi, "$1")  // 76th -> 76
-      .replace(/\bstreet\b/gi, "")              // "76th street" becomes "76"
-      .replace(/\bave(nue)?\b/gi, "avenue")
-      .replace(/\bst\b/gi, "street")
-      .trim();
+    // Parse the address using smart NYC address parser
+    const { buildingQuery, unitDesignation } = this.parseNYCAddress(query);
     
-    const searchQuery = `%${normalizedQuery}%`;
+    const searchQuery = `%${buildingQuery}%`;
     
-    // Search buildings by address
+    // Search buildings by normalized address
     const buildingResults = entityFilter === "units" ? [] : await db
       .select({
         baseBbl: buildings.baseBbl,
@@ -716,24 +798,53 @@ export class DatabaseStorage implements IStorage {
       )
       .limit(10);
 
-    // Search units by address or unit designation
-    const unitResults = entityFilter === "buildings" ? [] : await db
-      .select({
-        unitBbl: condoUnits.unitBbl,
-        baseBbl: condoUnits.baseBbl,
-        unitDesignation: condoUnits.unitDesignation,
-        displayAddress: condoUnits.unitDisplayAddress,
-        borough: condoUnits.borough,
-      })
-      .from(condoUnits)
-      .where(
-        or(
-          ilike(condoUnits.unitDisplayAddress, searchQuery),
-          ilike(condoUnits.unitDesignation, `%${query}%`),
-          ilike(condoUnits.unitBbl, searchQuery)
-        )
-      )
-      .limit(10);
+    // Search units - if unit designation detected, search more precisely
+    let unitResults: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null }> = [];
+    
+    if (entityFilter !== "buildings") {
+      if (unitDesignation && buildingResults.length > 0) {
+        // Search for specific unit in matched buildings
+        const buildingBbls = buildingResults.map(b => b.baseBbl);
+        unitResults = await db
+          .select({
+            unitBbl: condoUnits.unitBbl,
+            baseBbl: condoUnits.baseBbl,
+            unitDesignation: condoUnits.unitDesignation,
+            displayAddress: condoUnits.unitDisplayAddress,
+            borough: condoUnits.borough,
+          })
+          .from(condoUnits)
+          .where(
+            and(
+              inArray(condoUnits.baseBbl, buildingBbls),
+              or(
+                ilike(condoUnits.unitDesignation, `%${unitDesignation}%`),
+                ilike(condoUnits.unitDesignation, unitDesignation)
+              )
+            )
+          )
+          .limit(10);
+      } else {
+        // General unit search
+        unitResults = await db
+          .select({
+            unitBbl: condoUnits.unitBbl,
+            baseBbl: condoUnits.baseBbl,
+            unitDesignation: condoUnits.unitDesignation,
+            displayAddress: condoUnits.unitDisplayAddress,
+            borough: condoUnits.borough,
+          })
+          .from(condoUnits)
+          .where(
+            or(
+              ilike(condoUnits.unitDisplayAddress, searchQuery),
+              ilike(condoUnits.unitDesignation, `%${query}%`),
+              ilike(condoUnits.unitBbl, `%${query.replace(/[-\s]/g, "")}%`)
+            )
+          )
+          .limit(10);
+      }
+    }
 
     // Get location results only for "all" filter
     const locations = entityFilter === "all" ? await this.searchGeo(query) : [];
