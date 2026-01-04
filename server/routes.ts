@@ -460,6 +460,22 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/units/top-opportunities", async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+      const borough = req.query.borough as string | undefined;
+      
+      const units = await storage.getTopUnitOpportunities({ borough, limit });
+      res.json({
+        units,
+        count: units.length,
+      });
+    } catch (error) {
+      console.error("Error fetching unit opportunities:", error);
+      res.status(500).json({ message: "Failed to fetch unit opportunities" });
+    }
+  });
+
   app.get("/api/properties/screener", optionalAuth, async (req: any, res) => {
     try {
       const stateParam = req.query.state as string | undefined;
@@ -597,6 +613,79 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error fetching unit sales:", error);
       res.status(500).json({ message: "Failed to fetch unit sales" });
+    }
+  });
+
+  app.get("/api/units/:unitBbl/opportunity", async (req, res) => {
+    try {
+      const { unitBbl } = req.params;
+      
+      const opportunityData = await storage.getUnitOpportunityData(unitBbl);
+      
+      if (!opportunityData) {
+        return res.status(404).json({ message: "Unit not found" });
+      }
+      
+      res.json(opportunityData);
+    } catch (error) {
+      console.error("Error fetching unit opportunity data:", error);
+      res.status(500).json({ message: "Failed to fetch unit opportunity data" });
+    }
+  });
+
+  app.get("/api/units/:unitBbl/insights", optionalAuth, async (req: any, res) => {
+    try {
+      const { unitBbl } = req.params;
+      
+      const unit = await storage.getCondoUnit(unitBbl);
+      if (!unit) {
+        return res.status(404).json({ message: "Unit not found" });
+      }
+      
+      const opportunityData = await storage.getUnitOpportunityData(unitBbl);
+      const building = await storage.getBuilding(unit.baseBbl);
+      
+      const context = {
+        unit: {
+          address: unit.unitDisplayAddress || unit.buildingDisplayAddress,
+          designation: unit.unitDesignation,
+          type: unit.unitTypeHint,
+          borough: unit.borough,
+          zipCode: unit.zipCode,
+        },
+        building: building ? {
+          address: building.displayAddress,
+          unitCount: building.unitCount,
+          residentialUnitCount: building.residentialUnitCount,
+        } : null,
+        sales: opportunityData ? {
+          lastSalePrice: opportunityData.lastSalePrice,
+          lastSaleDate: opportunityData.lastSaleDate,
+          buildingMedianPrice: opportunityData.buildingMedianPrice,
+          recentBuildingSales: opportunityData.buildingSales.slice(0, 10),
+          priceHistory: opportunityData.buildingAvgPricePerYear,
+        } : null,
+        opportunityScore: opportunityData?.opportunityScore,
+        scoreBreakdown: opportunityData?.scoreBreakdown,
+      };
+
+      const analysis = await analyzeProperty(
+        `Analyze this condo unit as an investment opportunity. Provide insights on: 
+        1. Value assessment compared to building median
+        2. Market position and recent price trends
+        3. Key considerations for buyers
+        4. Potential risks and opportunities`,
+        { property: context as any }
+      );
+
+      res.json({
+        ...analysis,
+        unitBbl,
+        context,
+      });
+    } catch (error) {
+      console.error("Error generating unit insights:", error);
+      res.status(500).json({ message: "Failed to generate unit insights" });
     }
   });
 

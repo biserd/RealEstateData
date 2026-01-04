@@ -254,6 +254,39 @@ export interface IStorage {
     unitTypeHint: string | null;
     unitDisplayAddress: string | null;
   }>>;
+  
+  getUnitOpportunityData(unitBbl: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    unitSales: Array<{ salePrice: number; saleDate: Date }>;
+    buildingSales: Array<{ salePrice: number; saleDate: Date }>;
+    buildingMedianPrice: number | null;
+    buildingAvgPricePerYear: Array<{ year: number; avgPrice: number }>;
+    lastSalePrice: number | null;
+    lastSaleDate: Date | null;
+    opportunityScore: number | null;
+    scoreBreakdown: {
+      vsMedian: number;
+      trend: number;
+      recency: number;
+    } | null;
+  } | null>;
+
+  getTopUnitOpportunities(params?: {
+    borough?: string;
+    limit?: number;
+  }): Promise<Array<{
+    unitBbl: string;
+    baseBbl: string;
+    unitDesignation: string | null;
+    unitDisplayAddress: string | null;
+    buildingDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    lastSalePrice: number;
+    lastSaleDate: Date;
+    opportunityScore: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1486,6 +1519,201 @@ export class DatabaseStorage implements IStorage {
       .orderBy(condoUnits.unitDesignation)
       .limit(limit)
       .offset(offset);
+  }
+
+  async getUnitOpportunityData(unitBbl: string): Promise<{
+    unitBbl: string;
+    baseBbl: string;
+    unitSales: Array<{ salePrice: number; saleDate: Date }>;
+    buildingSales: Array<{ salePrice: number; saleDate: Date }>;
+    buildingMedianPrice: number | null;
+    buildingAvgPricePerYear: Array<{ year: number; avgPrice: number }>;
+    lastSalePrice: number | null;
+    lastSaleDate: Date | null;
+    opportunityScore: number | null;
+    scoreBreakdown: {
+      vsMedian: number;
+      trend: number;
+      recency: number;
+    } | null;
+  } | null> {
+    const unit = await this.getCondoUnit(unitBbl);
+    if (!unit) return null;
+
+    const unitSalesData = await db
+      .select({
+        salePrice: sales.salePrice,
+        saleDate: sales.saleDate,
+      })
+      .from(sales)
+      .where(eq(sales.unitBbl, unitBbl))
+      .orderBy(desc(sales.saleDate));
+
+    const buildingSalesData = await db
+      .select({
+        salePrice: sales.salePrice,
+        saleDate: sales.saleDate,
+      })
+      .from(sales)
+      .where(eq(sales.baseBbl, unit.baseBbl))
+      .orderBy(desc(sales.saleDate))
+      .limit(100);
+
+    const prices = buildingSalesData.map(s => s.salePrice).sort((a, b) => a - b);
+    const buildingMedianPrice = prices.length > 0 
+      ? prices[Math.floor(prices.length / 2)] 
+      : null;
+
+    const yearlyPrices: Record<number, number[]> = {};
+    buildingSalesData.forEach(s => {
+      const year = new Date(s.saleDate).getFullYear();
+      if (!yearlyPrices[year]) yearlyPrices[year] = [];
+      yearlyPrices[year].push(s.salePrice);
+    });
+
+    const buildingAvgPricePerYear = Object.entries(yearlyPrices)
+      .map(([year, prices]) => ({
+        year: parseInt(year),
+        avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
+      }))
+      .sort((a, b) => b.year - a.year);
+
+    const lastSale = unitSalesData[0];
+    const lastSalePrice = lastSale?.salePrice || null;
+    const lastSaleDate = lastSale?.saleDate || null;
+
+    let opportunityScore: number | null = null;
+    let scoreBreakdown: { vsMedian: number; trend: number; recency: number } | null = null;
+
+    if (lastSalePrice && buildingMedianPrice) {
+      const priceDiff = (buildingMedianPrice - lastSalePrice) / buildingMedianPrice;
+      const vsMedianScore = Math.min(40, Math.max(0, priceDiff * 100));
+
+      let trendScore = 20;
+      if (buildingAvgPricePerYear.length >= 2) {
+        const recent = buildingAvgPricePerYear[0];
+        const older = buildingAvgPricePerYear[1];
+        const growth = (recent.avgPrice - older.avgPrice) / older.avgPrice;
+        trendScore = Math.min(30, Math.max(0, growth * 100));
+      }
+
+      let recencyScore = 10;
+      if (lastSaleDate) {
+        const daysSinceLastSale = (Date.now() - new Date(lastSaleDate).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceLastSale < 180) recencyScore = 30;
+        else if (daysSinceLastSale < 365) recencyScore = 25;
+        else if (daysSinceLastSale < 730) recencyScore = 20;
+        else recencyScore = 10;
+      }
+
+      opportunityScore = Math.round(vsMedianScore + trendScore + recencyScore);
+      scoreBreakdown = {
+        vsMedian: Math.round(vsMedianScore),
+        trend: Math.round(trendScore),
+        recency: Math.round(recencyScore),
+      };
+    }
+
+    return {
+      unitBbl,
+      baseBbl: unit.baseBbl,
+      unitSales: unitSalesData,
+      buildingSales: buildingSalesData,
+      buildingMedianPrice,
+      buildingAvgPricePerYear,
+      lastSalePrice,
+      lastSaleDate,
+      opportunityScore,
+      scoreBreakdown,
+    };
+  }
+
+  async getTopUnitOpportunities(params?: {
+    borough?: string;
+    limit?: number;
+  }): Promise<Array<{
+    unitBbl: string;
+    baseBbl: string;
+    unitDesignation: string | null;
+    unitDisplayAddress: string | null;
+    buildingDisplayAddress: string | null;
+    borough: string | null;
+    zipCode: string | null;
+    lastSalePrice: number;
+    lastSaleDate: Date;
+    opportunityScore: number;
+  }>> {
+    const { borough, limit = 20 } = params || {};
+
+    const conditions = [
+      eq(condoUnits.unitTypeHint, "residential"),
+      isNotNull(sales.salePrice),
+    ];
+    
+    if (borough) {
+      conditions.push(eq(condoUnits.borough, borough));
+    }
+
+    const unitsWithSales = await db
+      .select({
+        unitBbl: condoUnits.unitBbl,
+        baseBbl: condoUnits.baseBbl,
+        unitDesignation: condoUnits.unitDesignation,
+        unitDisplayAddress: condoUnits.unitDisplayAddress,
+        buildingDisplayAddress: condoUnits.buildingDisplayAddress,
+        borough: condoUnits.borough,
+        zipCode: condoUnits.zipCode,
+        lastSalePrice: sql<number>`MAX(${sales.salePrice})`,
+        lastSaleDate: sql<Date>`MAX(${sales.saleDate})`,
+      })
+      .from(condoUnits)
+      .innerJoin(sales, eq(sales.unitBbl, condoUnits.unitBbl))
+      .where(and(...conditions))
+      .groupBy(
+        condoUnits.unitBbl,
+        condoUnits.baseBbl,
+        condoUnits.unitDesignation,
+        condoUnits.unitDisplayAddress,
+        condoUnits.buildingDisplayAddress,
+        condoUnits.borough,
+        condoUnits.zipCode
+      )
+      .orderBy(desc(sql`MAX(${sales.saleDate})`))
+      .limit(limit * 2);
+
+    const results: Array<{
+      unitBbl: string;
+      baseBbl: string;
+      unitDesignation: string | null;
+      unitDisplayAddress: string | null;
+      buildingDisplayAddress: string | null;
+      borough: string | null;
+      zipCode: string | null;
+      lastSalePrice: number;
+      lastSaleDate: Date;
+      opportunityScore: number;
+    }> = [];
+
+    for (const unit of unitsWithSales) {
+      const oppData = await this.getUnitOpportunityData(unit.unitBbl);
+      if (oppData && oppData.opportunityScore !== null && oppData.opportunityScore !== undefined) {
+        results.push({
+          unitBbl: unit.unitBbl,
+          baseBbl: unit.baseBbl,
+          unitDesignation: unit.unitDesignation,
+          unitDisplayAddress: unit.unitDisplayAddress,
+          buildingDisplayAddress: unit.buildingDisplayAddress,
+          borough: unit.borough,
+          zipCode: unit.zipCode,
+          lastSalePrice: Number(unit.lastSalePrice),
+          lastSaleDate: new Date(unit.lastSaleDate),
+          opportunityScore: oppData.opportunityScore,
+        });
+      }
+      if (results.length >= limit) break;
+    }
+
+    return results.sort((a, b) => b.opportunityScore - a.opportunityScore);
   }
 }
 

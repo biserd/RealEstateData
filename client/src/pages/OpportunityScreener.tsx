@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map, Crown, Lock } from "lucide-react";
+import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map, Crown, Lock, Home, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import { AppLayout } from "@/components/layouts";
 import { FilterPanel } from "@/components/FilterPanel";
 import { PropertyCard } from "@/components/PropertyCard";
 import { PropertyMap } from "@/components/PropertyMap";
+import { UnitOpportunityCard } from "@/components/UnitOpportunityCard";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { UpgradeModal, ProBadge, PremiumBadge } from "@/components/UpgradePrompt";
@@ -32,6 +34,19 @@ import { useSubscription } from "@/hooks/useSubscription";
 import type { Property, ScreenerFilters } from "@shared/schema";
 
 const defaultFilters: ScreenerFilters = {};
+
+interface UnitOpportunity {
+  unitBbl: string;
+  baseBbl: string;
+  unitDesignation: string | null;
+  unitDisplayAddress: string | null;
+  buildingDisplayAddress: string | null;
+  borough: string | null;
+  zipCode: string | null;
+  lastSalePrice: number;
+  lastSaleDate: string;
+  opportunityScore: number;
+}
 
 export default function OpportunityScreener() {
   const { toast } = useToast();
@@ -46,6 +61,7 @@ export default function OpportunityScreener() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState("");
   const [upgradeDescription, setUpgradeDescription] = useState("");
+  const [entityType, setEntityType] = useState<"properties" | "units">("properties");
 
   interface ScreenerResponse {
     properties: Property[];
@@ -99,6 +115,21 @@ export default function OpportunityScreener() {
   const isLimited = screenerData?.limited;
   const visibleCount = screenerData?.visibleCount ?? 3;
   const hiddenCount = screenerData?.hiddenCount ?? 0;
+
+  const { data: unitsData, isLoading: unitsLoading } = useQuery<{
+    units: UnitOpportunity[];
+    count: number;
+  }>({
+    queryKey: ["/api/units/top-opportunities", filters.state === "NY" ? undefined : ""],
+    queryFn: async () => {
+      const res = await fetch(`/api/units/top-opportunities?limit=30`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch units");
+      return res.json();
+    },
+    enabled: entityType === "units",
+  });
 
   const handleResetFilters = () => {
     setFilters(defaultFilters);
@@ -176,14 +207,32 @@ export default function OpportunityScreener() {
         <main className="flex-1 overflow-auto">
           <div className="sticky top-0 z-10 border-b bg-background px-4 py-4 md:px-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
+              <div className="space-y-2">
                 <h1 className="text-xl font-semibold">Opportunity Screener</h1>
+                <Tabs value={entityType} onValueChange={(v) => setEntityType(v as "properties" | "units")}>
+                  <TabsList data-testid="tabs-entity-type">
+                    <TabsTrigger value="properties" data-testid="tab-properties">
+                      <Building2 className="h-4 w-4 mr-1.5" />
+                      Properties
+                    </TabsTrigger>
+                    <TabsTrigger value="units" data-testid="tab-units">
+                      <Home className="h-4 w-4 mr-1.5" />
+                      Condo Units
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
                 <p className="text-sm text-muted-foreground">
-                  {properties?.length || 0} properties found
-                  {isLimited && (
-                    <span className="ml-2 text-amber-600 dark:text-amber-400">
-                      (showing {visibleCount} of {properties?.length || 0})
-                    </span>
+                  {entityType === "properties" ? (
+                    <>
+                      {properties?.length || 0} properties found
+                      {isLimited && (
+                        <span className="ml-2 text-amber-600 dark:text-amber-400">
+                          (showing {visibleCount} of {properties?.length || 0})
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>{unitsData?.count || 0} unit opportunities found</>
                   )}
                 </p>
               </div>
@@ -361,7 +410,33 @@ export default function OpportunityScreener() {
           </div>
 
           <div className="p-4 md:p-6">
-            {isLoading ? (
+            {entityType === "units" ? (
+              unitsLoading ? (
+                <LoadingState type="skeleton-cards" count={6} />
+              ) : unitsData?.units && unitsData.units.length > 0 ? (
+                <div
+                  className={
+                    viewMode === "grid"
+                      ? "grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+                      : "space-y-4"
+                  }
+                >
+                  {unitsData.units.map((unit) => (
+                    <UnitOpportunityCard 
+                      key={unit.unitBbl} 
+                      unit={unit} 
+                      viewMode={viewMode === "map" ? "grid" : viewMode}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<Home className="h-8 w-8" />}
+                  title="No unit opportunities found"
+                  description="We're analyzing condo units for investment opportunities. Check back soon for new opportunities."
+                />
+              )
+            ) : isLoading ? (
               <LoadingState type="skeleton-cards" count={6} />
             ) : properties && properties.length > 0 ? (
               viewMode === "map" ? (
