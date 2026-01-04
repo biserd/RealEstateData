@@ -1,7 +1,12 @@
 import { Link } from "wouter";
-import { Home, MapPin, DollarSign, Target, Calendar, Building2 } from "lucide-react";
+import { Home, MapPin, DollarSign, Target, Calendar, Building2, CheckCircle, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { getUnitUrl } from "@/lib/unitSlug";
 
@@ -23,16 +28,42 @@ export function EntityTypeBadge({ type }: { type: "unit" | "building" }) {
 
 export function PriceTypeBadge({ hasRealSale }: { hasRealSale: boolean }) {
   return (
-    <Badge 
-      variant="outline" 
-      className={hasRealSale 
-        ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800" 
-        : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800"
-      }
-      data-testid={`badge-price-type-${hasRealSale ? "real" : "estimated"}`}
-    >
-      {hasRealSale ? "Sale Price" : "Estimated"}
-    </Badge>
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <span className="cursor-help inline-block">
+          <Badge 
+            variant="outline" 
+            className={hasRealSale 
+              ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800" 
+              : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800"
+            }
+            data-testid={`badge-price-type-${hasRealSale ? "verified" : "estimated"}`}
+          >
+            {hasRealSale ? (
+              <>
+                <CheckCircle className="h-3 w-3 mr-1" />
+                VERIFIED
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-3 w-3 mr-1" />
+                ESTIMATED
+              </>
+            )}
+          </Badge>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[220px]">
+        <div className="space-y-1">
+          <p className="font-medium">{hasRealSale ? "Verified Sale Price" : "Estimated Value"}</p>
+          <p className="text-xs text-muted-foreground">
+            {hasRealSale 
+              ? "Based on a recorded transaction from public records."
+              : "Estimated = sqft × neighborhood $/sqft (not a recorded sale)"}
+          </p>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -84,6 +115,7 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <EntityTypeBadge type="unit" />
+                    <PriceTypeBadge hasRealSale={true} />
                   </div>
                   <h3 className="font-semibold" data-testid="text-unit-title">{unitTitle}</h3>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -132,11 +164,12 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
       <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-unit-opportunity-${unit.unitBbl}`}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
                 <Home className="h-5 w-5 text-primary" />
               </div>
               <EntityTypeBadge type="unit" />
+              <PriceTypeBadge hasRealSale={true} />
             </div>
             <Badge 
               variant="secondary" 

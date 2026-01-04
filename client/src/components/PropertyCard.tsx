@@ -115,13 +115,16 @@ export function PropertyCard({
               </TooltipTrigger>
               <TooltipContent side="left" className="max-w-[240px]">
                 <div className="space-y-1">
-                  <p className="font-medium">Opportunity Score</p>
+                  <p className="font-medium">Value Gap (Estimated)</p>
                   <p className="text-xs text-muted-foreground">
                     {property.opportunityScore >= 75
-                      ? "Strong investment potential—property appears underpriced vs. market."
+                      ? "Estimated value appears below market—based on modeled data, not verified sales."
                       : property.opportunityScore >= 50
-                      ? "Moderate opportunity—fairly priced with some upside potential."
-                      : "Fair market value—priced in line with comparable properties."}
+                      ? "Fair estimated value—some potential upside based on modeled comparisons."
+                      : "Estimated market value—priced in line with modeled comparable properties."}
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Note: Based on estimated values, not recorded transactions.
                   </p>
                 </div>
               </TooltipContent>
@@ -134,11 +137,14 @@ export function PropertyCard({
         <Link href={getPropertyUrl(property)}>
           <div className="space-y-3">
             <div>
+              <p className="text-sm text-muted-foreground">
+                {property.lastSalePrice ? "Sale Price" : "Estimated Value"}
+              </p>
               <p className="text-xl font-bold" data-testid={`text-price-${property.id}`}>
-                {formatPrice(property.estimatedValue || property.lastSalePrice)}
+                {formatPrice(property.lastSalePrice || property.estimatedValue)}
               </p>
               {property.pricePerSqft && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   ${property.pricePerSqft.toFixed(0)}/sqft
                 </p>
               )}

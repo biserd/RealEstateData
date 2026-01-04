@@ -61,7 +61,7 @@ export default function OpportunityScreener() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState("");
   const [upgradeDescription, setUpgradeDescription] = useState("");
-  const [entityType, setEntityType] = useState<"properties" | "units">("properties");
+  const [entityType, setEntityType] = useState<"properties" | "units">("units");
 
   interface ScreenerResponse {
     properties: Property[];
@@ -211,13 +211,13 @@ export default function OpportunityScreener() {
                 <h1 className="text-xl font-semibold">Opportunity Screener</h1>
                 <Tabs value={entityType} onValueChange={(v) => setEntityType(v as "properties" | "units")}>
                   <TabsList data-testid="tabs-entity-type">
-                    <TabsTrigger value="properties" data-testid="tab-properties">
-                      <Building2 className="h-4 w-4 mr-1.5" />
-                      Properties
-                    </TabsTrigger>
                     <TabsTrigger value="units" data-testid="tab-units">
                       <Home className="h-4 w-4 mr-1.5" />
-                      Condo Units
+                      Units (Verified Sales)
+                    </TabsTrigger>
+                    <TabsTrigger value="properties" data-testid="tab-properties">
+                      <Building2 className="h-4 w-4 mr-1.5" />
+                      Buildings (Estimated)
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
