@@ -1,0 +1,122 @@
+That’s totally normal at this stage — most real-estate apps start “building-first.” The key is to **make units a first-class entity in the UI + routing + search**, without breaking your existing building pages.
+
+Here’s the clean path.
+
+## 1) Decide what each page *is* (entity types)
+
+You now have two NYC condo layers:
+
+* **Building entity** (baseBbl): `/building/:baseBbl`
+* **Unit entity** (unitBbl): `/unit/:unitBbl`
+
+If your “property detail” route still points to buildings, that’s why everything feels building-based.
+
+✅ Next step: make the **global search** and **opportunity cards** return a mix of building + unit results, each with a link to the correct route.
+
+---
+
+## 2) Make the search bar return both Buildings + Units
+
+### UX
+
+Add a pill toggle:
+
+* **All** (default)
+* **Buildings**
+* **Units**
+
+### Response shape (simple)
+
+Return results like:
+
+```json
+{
+  "type": "unit",
+  "unitBbl": "1012345678",
+  "baseBbl": "1012340003",
+  "title": "52 E 72 St — Unit 12B",
+  "subtitle": "Upper East Side • Manhattan",
+  "href": "/unit/1012345678"
+}
+```
+
+and
+
+```json
+{
+  "type": "building",
+  "baseBbl": "1012340003",
+  "title": "52 E 72 St",
+  "subtitle": "Condo building • 212 residential units",
+  "href": "/building/1012340003"
+}
+```
+
+---
+
+## 3) Update “Opportunity Screener” to be **unit-first** (NYC condo investing is unit-level)
+
+Right now, if opportunities are building-level, you’ll miss the actual deals.
+
+### Minimal change
+
+* Keep building opportunities for multifamily / 1–4 family
+* For condos, generate opportunities at the **unit** level:
+
+  * underpriced vs building median unit sales
+  * underpriced vs last sale (repeat-sale delta)
+
+Each card must link to:
+
+* condos → `/unit/:unitBbl`
+* non-condo lots → `/property/:bbl` or `/building/:baseBbl`
+
+---
+
+## 4) Put “Unit picker” on building pages
+
+Your building page can remain the entry point, but it must route users into units:
+
+* Default tab: **Units**
+* Click a row → `/unit/:unitBbl`
+* Add quick filters: bedrooms (later), unit type, “has recent sale”
+
+This turns building pages into a directory instead of the “main object.”
+
+---
+
+## 5) Add a unit-aware “Property Detail” resolver (so old links still work)
+
+If you have a generic route like `/property/:id`, make it resolve:
+
+* if `id` matches a unitBbl → redirect to `/unit/:unitBbl`
+* else if matches baseBbl/building → redirect to `/building/:baseBbl`
+* else show your existing building/lot page
+
+This prevents breaking anything and makes the system feel coherent.
+
+---
+
+## 6) What to build next (given your screenshot sections)
+
+The best next feature once units are surfaced:
+
+### **Unit-level Comps + “Why it’s underpriced”**
+
+Because it powers:
+
+* Opportunity Screener credibility
+* Unit detail page usefulness
+* Market Explorer “median” accuracy (condos should use unit sales, not building aggregates)
+
+---
+
+### Quick self-check: are you truly “building-only” right now?
+
+You are if:
+
+* search results link to `/building/...` even when the query clearly includes “Unit 12B”
+* opportunity cards show one item per building, not per unit
+* your “property details” are keyed by `baseBbl` only
+
+If you want, paste one sample search API response + one opportunity card payload and I’ll tell you exactly where to switch to unit routing and which pages should stay building-first.
