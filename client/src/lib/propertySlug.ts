@@ -62,10 +62,10 @@ export function isPropertyUnit(property: Property): boolean {
 
 export function getPropertyUrl(property: Property): string {
   // Units (small condos) should link to the unit detail page
-  // Buildings should link to the property detail page
+  // Buildings should link to the properties detail page
   if (isPropertyUnit(property)) {
     // For units, use the property slug format for now (unit page will handle resolution)
     return `/unit/${generatePropertySlug(property)}`;
   }
-  return `/property/${generatePropertySlug(property)}`;
+  return `/properties/${generatePropertySlug(property)}`;
 }
