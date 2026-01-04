@@ -366,27 +366,7 @@ export default function PropertyDetail() {
             </Link>
           </div>
 
-        <div className="mb-8 grid gap-8 lg:grid-cols-2">
-          <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
-            {property.imageUrl ? (
-              <img
-                src={property.imageUrl}
-                alt={formatPropertyAddress(property)}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <Home className="h-16 w-16 text-muted-foreground/50" />
-              </div>
-            )}
-            <div className="absolute left-4 top-4 flex gap-2">
-              <Badge variant="secondary" className="bg-background/80 backdrop-blur">
-                {property.propertyType}
-              </Badge>
-              <CoverageBadge level="Comps" />
-            </div>
-          </div>
-
+        <div className="mb-8">
           <div className="space-y-6">
             <div>
               <div className="mb-2 flex items-start justify-between gap-2">
@@ -508,10 +488,14 @@ export default function PropertyDetail() {
               </div>
             )}
 
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <Badge variant="secondary">
+                {property.propertyType}
+              </Badge>
+              <CoverageBadge level="Comps" />
+            </div>
+
             <div className="flex flex-wrap gap-3">
-              <Button className="flex-1 min-w-[140px]" data-testid="button-contact-agent">
-                Contact Agent
-              </Button>
               <DealMemo propertyId={id!} />
               <Button 
                 variant="outline" 
