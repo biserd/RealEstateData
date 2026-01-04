@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { Bed, Bath, Square, Calendar, MapPin, Heart, TrendingUp, TrendingDown } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Bed, Bath, Square, Calendar, MapPin, Heart, Target } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,76 +62,79 @@ export function PropertyCard({
     return "bg-red-100 dark:bg-red-900/30";
   };
 
+  const getScoreLabel = (score: number | null) => {
+    if (!score) return "";
+    if (score >= 75) return "Strong";
+    if (score >= 50) return "Moderate";
+    return "Limited";
+  };
+
   return (
-    <Card className="group overflow-hidden hover-elevate" data-testid={`card-property-${property.id}`}>
-      <div className="relative">
-        <div className="aspect-[4/3] overflow-hidden bg-muted">
-          {property.imageUrl ? (
-            <img
-              src={property.imageUrl}
-              alt={property.address}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+    <Card className="group hover-elevate h-full" data-testid={`card-property-${property.id}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 shrink-0",
+                isSaved && "text-red-500"
+              )}
+              onClick={(e) => {
+                e.preventDefault();
+                onSave?.(property.id);
+              }}
+              data-testid={`button-save-property-${property.id}`}
+            >
+              <Heart className={cn("h-4 w-4", isSaved && "fill-current")} />
+            </Button>
+            <EntityTypeBadge 
+              type={property.propertyType === "Condo" && property.sqft && property.sqft <= 6000 ? "unit" : "building"} 
             />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <Square className="h-12 w-12 text-muted-foreground/50" />
-            </div>
+          </div>
+          {showOpportunityScore && property.opportunityScore && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "cursor-help",
+                    getScoreBg(property.opportunityScore)
+                  )}
+                  data-testid={`badge-score-${property.id}`}
+                >
+                  <Target className="h-3 w-3 mr-1" />
+                  <span className={cn("font-bold", getScoreColor(property.opportunityScore))}>
+                    {property.opportunityScore}
+                  </span>
+                  <span className="ml-1 text-muted-foreground">
+                    - {getScoreLabel(property.opportunityScore)}
+                  </span>
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-[240px]">
+                <div className="space-y-1">
+                  <p className="font-medium">Opportunity Score</p>
+                  <p className="text-xs text-muted-foreground">
+                    {property.opportunityScore >= 75
+                      ? "Strong investment potential—property appears underpriced vs. market."
+                      : property.opportunityScore >= 50
+                      ? "Moderate opportunity—fairly priced with some upside potential."
+                      : "Fair market value—priced in line with comparable properties."}
+                  </p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
-        
-        {showOpportunityScore && property.opportunityScore && (
-          <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild>
-              <div
-                className={cn(
-                  "absolute right-3 top-3 flex h-12 w-12 flex-col items-center justify-center rounded-lg shadow-lg cursor-help",
-                  getScoreBg(property.opportunityScore)
-                )}
-                data-testid={`tooltip-score-${property.id}`}
-              >
-                <span className={cn("text-lg font-bold", getScoreColor(property.opportunityScore))}>
-                  {property.opportunityScore}
-                </span>
-                <span className="text-[10px] uppercase text-muted-foreground">Score</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="max-w-[240px]">
-              <div className="space-y-1">
-                <p className="font-medium">Opportunity Score</p>
-                <p className="text-xs text-muted-foreground">
-                  {property.opportunityScore >= 75
-                    ? "Strong investment potential—property appears underpriced vs. market."
-                    : property.opportunityScore >= 50
-                    ? "Moderate opportunity—fairly priced with some upside potential."
-                    : "Fair market value—priced in line with comparable properties."}
-                </p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        )}
+      </CardHeader>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "absolute left-3 top-3 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm",
-            isSaved && "text-red-500"
-          )}
-          onClick={(e) => {
-            e.preventDefault();
-            onSave?.(property.id);
-          }}
-          data-testid={`button-save-property-${property.id}`}
-        >
-          <Heart className={cn("h-4 w-4", isSaved && "fill-current")} />
-        </Button>
-      </div>
-
-      <CardContent className="p-4">
+      <CardContent className="pt-0">
         <Link href={getPropertyUrl(property)}>
           <div className="space-y-3">
             <div>
-              <p className="text-2xl font-bold" data-testid={`text-price-${property.id}`}>
+              <p className="text-xl font-bold" data-testid={`text-price-${property.id}`}>
                 {formatPrice(property.estimatedValue || property.lastSalePrice)}
               </p>
               {property.pricePerSqft && (
@@ -139,6 +142,13 @@ export function PropertyCard({
                   ${property.pricePerSqft.toFixed(0)}/sqft
                 </p>
               )}
+            </div>
+
+            <div className="flex items-start gap-1 text-sm">
+              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <span className="line-clamp-2" data-testid={`text-address-${property.id}`}>
+                {formatFullAddress(property)}
+              </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -162,17 +172,7 @@ export function PropertyCard({
               )}
             </div>
 
-            <div className="flex items-start gap-1 text-sm">
-              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
-              <span className="line-clamp-2" data-testid={`text-address-${property.id}`}>
-                {formatFullAddress(property)}
-              </span>
-            </div>
-
             <div className="flex flex-wrap items-center gap-2">
-              <EntityTypeBadge 
-                type={property.propertyType === "Condo" && property.sqft && property.sqft <= 6000 ? "unit" : "building"} 
-              />
               <PriceTypeBadge hasRealSale={!!property.lastSalePrice} />
               <Badge variant="outline" className="text-xs">
                 {property.propertyType}
