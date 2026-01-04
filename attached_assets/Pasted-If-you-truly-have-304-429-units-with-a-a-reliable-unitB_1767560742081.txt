@@ -1,0 +1,119 @@
+If you truly have **304,429 units with (a) a reliable `unitBbl`, (b) a parent `baseBbl` join, and (c) a populated display address + coords**, you’re **ready for a unit-level search feature — but only with a couple of guardrails**.
+
+I can’t verify your DB directly, so here’s the exact “ready / not ready” checklist I’d run. If you pass the **Hard Blockers**, ship it as **beta behind a toggle**.
+
+---
+
+## Ready for unit search if these Hard Blockers are true
+
+### 1) Identity is clean
+
+* **`unit_bbl` is unique** (no duplicates)
+* **`base_bbl` exists** for every unit and **joins to exactly 1 building** in your buildings table
+* No “orphans”: units whose `base_bbl` is missing from buildings
+
+### 2) Address is user-meaningful
+
+Because registry has no real unit address, your “unit address” is likely:
+
+> building canonical address + unitDesignation
+
+That’s OK **if**:
+
+* `building_display_address` is not null
+* `unit_designation` is not null for almost all units (yours is ~98%)
+* you have a consistent `unit_display_address` format (so search ranking is stable)
+
+### 3) Coordinates are sane
+
+* non-null lat/lon for essentially all units
+* coordinates fall within a NYC bounding box (catch garbage 0,0 / swapped lat-lon / out-of-state)
+
+### 4) You are NOT polluting inventory with junk sublots
+
+NYC condo unit lots include **parking, storage, mechanical**, etc.
+
+Before global search, you need `unit_type_hint` and a default filter like:
+
+* show only `residential_like` in search
+* keep “all sublots” accessible from the building page (optional)
+
+If you skip this, your search results will feel broken (“STOR-12”, “SUB-A”, etc.).
+
+---
+
+## Strongly recommended before you turn it on for everyone
+
+### 5) Duplicate “display address” collisions
+
+Even if `unit_bbl` is unique, your `unit_display_address` can collide if:
+
+* address normalization changes
+* unitDesignations repeat across different buildings (fine) but also within the same building (rare, but happens)
+* you have weird designations like “GARAGE” with no unique label
+
+Mitigation: make your canonical key for a unit page be `unit_bbl`, not address.
+
+### 6) Transaction attachment sanity check
+
+Pick 100 random buildings and confirm:
+
+* sales with `unit_bbl` land on the correct unit entity
+* building-level sales land on the building entity
+* no sales record matches *multiple* units/entities
+
+---
+
+## My recommendation on rollout
+
+**Ship unit-level search as “Beta: Include condo units”** with these defaults:
+
+* Only show `residential_like` units by default
+* Prefer units that have at least **one sale** (if you have enough coverage); otherwise allow all but make the UX “unit-lite”
+* Search results should show:
+
+  * “52 E 72 St — Unit 12B”
+  * plus the **parent building** snippet (neighborhood, building name if you have it)
+
+---
+
+## QA queries (Postgres examples)
+
+```sql
+-- 1) Uniqueness
+select count(*) total, count(distinct unit_bbl) distinct_unit_bbl
+from condo_units;
+
+-- 2) Orphans (units whose base_bbl doesn't exist in buildings)
+select count(*) orphan_units
+from condo_units u
+left join buildings b on b.bbl = u.base_bbl
+where b.bbl is null;
+
+-- 3) Missing addresses
+select
+  sum(case when unit_display_address is null or unit_display_address = '' then 1 else 0 end) as missing_unit_addr,
+  sum(case when building_display_address is null or building_display_address = '' then 1 else 0 end) as missing_building_addr
+from condo_units;
+
+-- 4) Coordinate sanity (rough NYC bounding box)
+select count(*) out_of_bounds
+from condo_units
+where lat is null or lon is null
+   or lat < 40.45 or lat > 40.95
+   or lon > -73.65 or lon < -74.30;
+
+-- 5) "Junk" unit designation share (tune patterns)
+select
+  sum(case when unit_designation ~* '(STOR|PARK|GAR|MECH|ELEC|BOILER|SUB|CELLAR|BASE)' then 1 else 0 end)::float / count(*) as junk_ratio
+from condo_units;
+```
+
+---
+
+## Bottom line
+
+* **Yes, it’s ready for a unit-level search feature** *if* you pass the blockers above and **default-filter out junk sublots**.
+* If you don’t filter, it’ll technically work but feel low-quality.
+
+If you tell me what database/search stack you’re using (Postgres full-text? Meilisearch? Typesense? Elasticsearch?), I’ll give you the exact indexing strategy + ranking rules so unit search feels fast and “Zillow-grade.”
