@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Bed, Bath, Square, MapPin, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
-import { getPropertyUrl } from "@/lib/propertySlug";
+import { getPropertyUrl, formatPropertyAddress } from "@/lib/propertySlug";
 import type { Property } from "@shared/schema";
 
 interface PropertyMapProps {
@@ -190,7 +190,7 @@ export function PropertyMap({
             key={property.id}
             position={{ lat: property.latitude!, lng: property.longitude! }}
             icon={getMarkerIcon(property)}
-            title={property.address}
+            title={formatPropertyAddress(property)}
             zIndex={
               subjectProperty?.id === property.id ? 1000 :
               selectedPropertyId === property.id ? 500 : 1

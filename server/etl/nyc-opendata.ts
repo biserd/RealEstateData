@@ -329,9 +329,15 @@ export async function importNYCProperties(
       sqft
     );
 
+    // Extract apartment/unit number from sale data if available
+    // Normalize: trim whitespace and set to null if empty
+    const rawUnit = latestSale?.apartment_number?.trim();
+    const unitNumber = rawUnit && rawUnit.length > 0 ? rawUnit : null;
+
     try {
       const [inserted] = await db.insert(properties).values({
         address: record.address,
+        unit: unitNumber,
         city: borough,
         state: "NY",
         zipCode: record.zipcode,

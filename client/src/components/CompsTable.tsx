@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { getPropertyUrl } from "@/lib/propertySlug";
+import { getPropertyUrl, formatPropertyAddress } from "@/lib/propertySlug";
 import type { Property, Comp } from "@shared/schema";
 
 interface CompWithProperty extends Comp {
@@ -79,7 +79,7 @@ export function CompsTable({ comps, subjectProperty }: CompsTableProps) {
                     href={getPropertyUrl(comp.property)}
                     className="flex items-center gap-1 font-medium hover:underline"
                   >
-                    {comp.property.address}
+                    {formatPropertyAddress(comp.property)}
                     <ExternalLink className="h-3 w-3" />
                   </Link>
                   <p className="text-xs text-muted-foreground">

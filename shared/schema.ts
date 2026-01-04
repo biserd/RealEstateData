@@ -128,6 +128,7 @@ export const properties = pgTable(
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     bbl: varchar("bbl"), // Borough-Block-Lot: master key for NYC properties
     address: text("address").notNull(),
+    unit: varchar("unit"), // Apartment/unit number (e.g., "4B", "PH1", "Unit 5")
     city: varchar("city").notNull(),
     state: varchar("state").notNull(),
     zipCode: varchar("zip_code").notNull(),

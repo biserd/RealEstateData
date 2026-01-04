@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { getPropertyUrl } from "@/lib/propertySlug";
+import { getPropertyUrl, formatFullAddress } from "@/lib/propertySlug";
 import type { Property, ConfidenceLevel } from "@shared/schema";
 
 interface PropertyCardProps {
@@ -164,7 +164,7 @@ export function PropertyCard({
             <div className="flex items-start gap-1 text-sm">
               <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
               <span className="line-clamp-2" data-testid={`text-address-${property.id}`}>
-                {property.address}, {property.city}, {property.state} {property.zipCode}
+                {formatFullAddress(property)}
               </span>
             </div>
 

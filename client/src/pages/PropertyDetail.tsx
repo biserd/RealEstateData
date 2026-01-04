@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { extractPropertyIdFromSlug } from "@/lib/propertySlug";
+import { extractPropertyIdFromSlug, formatPropertyAddress, formatFullAddress } from "@/lib/propertySlug";
 import { SEO } from "@/components/SEO";
 import { PropertyJsonLd } from "@/components/PropertyJsonLd";
 import { 
@@ -338,11 +338,12 @@ export default function PropertyDetail() {
     ],
   };
 
+  const fullAddress = formatFullAddress(property);
   const seoTitle = property.address 
-    ? `${property.address}, ${property.city}, ${property.state} ${property.zipCode} - Property Details`
+    ? `${fullAddress} - Property Details`
     : "Property Details";
   const seoDescription = property.address
-    ? `View details for ${property.address} in ${property.city}, ${property.state}. ${property.beds || 0} beds, ${property.baths || 0} baths, ${property.sqft?.toLocaleString() || 'N/A'} sqft. ${property.lastSalePrice ? `Last sold for ${formatPrice(property.lastSalePrice)}.` : ''} Opportunity score: ${property.opportunityScore || 'N/A'}/100.`
+    ? `View details for ${fullAddress}. ${property.beds || 0} beds, ${property.baths || 0} baths, ${property.sqft?.toLocaleString() || 'N/A'} sqft. ${property.lastSalePrice ? `Last sold for ${formatPrice(property.lastSalePrice)}.` : ''} Opportunity score: ${property.opportunityScore || 'N/A'}/100.`
     : "View detailed property information including pricing, comparable sales, market analysis, and opportunity scoring.";
 
   return (
@@ -368,7 +369,7 @@ export default function PropertyDetail() {
             {property.imageUrl ? (
               <img
                 src={property.imageUrl}
-                alt={property.address}
+                alt={formatPropertyAddress(property)}
                 className="h-full w-full object-cover"
               />
             ) : (
@@ -388,7 +389,7 @@ export default function PropertyDetail() {
             <div>
               <div className="mb-2 flex items-start justify-between gap-2">
                 <h1 className="text-xl font-bold md:text-2xl lg:text-3xl break-words min-w-0" data-testid="text-property-address">
-                  {property.address}
+                  {formatPropertyAddress(property)}
                 </h1>
                 <div className="flex gap-2 flex-shrink-0">
                   {isAuthenticated ? (
@@ -888,7 +889,7 @@ export default function PropertyDetail() {
                   {isAuthenticated && isPro ? (
                     <AIChat
                       propertyId={id}
-                      contextLabel={`${property.address}, ${property.city}`}
+                      contextLabel={`${formatPropertyAddress(property)}, ${property.city}`}
                       onSendMessage={handleSendAIMessage}
                     />
                   ) : isAuthenticated && isFree ? (
@@ -942,7 +943,7 @@ export default function PropertyDetail() {
       />
       
       <PropertyStickyCTA
-        propertyAddress={property.address}
+        propertyAddress={formatPropertyAddress(property)}
         propertyPrice={formatPrice(property.lastSalePrice)}
         opportunityScore={property.opportunityScore}
         onSaveProperty={() => saveMutation.mutate()}
