@@ -310,7 +310,9 @@ export default function UnitDetail() {
     queryFn: async () => {
       const res = await fetch(`/api/units/resolve/${encodeURIComponent(idOrSlug || "")}`);
       if (!res.ok) throw new Error("Failed to fetch unit");
-      return res.json();
+      const data = await res.json();
+      // The resolve endpoint returns { unitBbl, slug, unit: {...} }
+      return data.unit || data;
     },
     enabled: !!idOrSlug,
   });
