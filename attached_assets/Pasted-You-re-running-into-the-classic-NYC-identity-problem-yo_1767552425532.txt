@@ -1,0 +1,173 @@
+You’re running into the classic NYC identity problem (your screenshots nailed it): PLUTO is “building/base lot (0001–0199)” while many sales + unit datasets are “condo unit lots (1001–9999)” — so naive BBL joins break.
+
+Below is a strategy that gets you to an end-to-end NYC real-estate data platform across 1–4 family, multifamily, condos, and co-ops, without getting stuck on BBL mismatches.
+
+⸻
+
+1) Start with the right mental model: NYC is not “one property = one ID”
+
+You need a graph of entities, not a single table.
+
+Core entities
+	•	Tax Lot (Parcel) = BBL (PLUTO/MapPLUTO is your base layer)  ￼
+	•	Building = BIN (DOB / geocoding tools can translate address ↔ BIN ↔ BBL)
+	•	Condo Unit = Unit BBL (often lot 1001+) + condo metadata
+	•	Co-op Unit = no real unit parcel (it’s shares in a corporation + proprietary lease), so you need a different approach
+	•	Address (normalized) = your “universal glue” when IDs don’t line up
+
+Key rule: Never force everything into BBL-only matching. Use BBL where it’s valid, but keep address/BIN as first-class keys.
+
+⸻
+
+2) Build a “golden ID spine” (the part most people skip)
+
+Create a Property Identity Service that outputs stable internal IDs and maintains mapping tables:
+
+Canonical IDs you store for every record
+	•	bbl (10-digit)
+	•	bin (where available)
+	•	normalized_address_id (from NYC’s official geocoder)
+	•	property_internal_id (your UUID)
+	•	entity_type = {LOT, BUILDING, CONDO_UNIT, COOP_BUILDING, COOP_UNIT}
+
+Use NYC’s official address normalization (don’t roll your own)
+
+Use Geoclient/Geoservice (Geosupport-backed) to normalize addresses and convert between Address ↔ BBL ↔ BIN.  ￼
+This removes 80% of “52 E 72 ST vs 52 East 72nd Street” pain and makes your address-based matching defensible.
+
+⸻
+
+3) Source strategy by property type
+
+A) Parcels + baseline attributes (foundation)
+
+Use PLUTO/MapPLUTO as your parcel/building baseline (land use, units, year built, FAR, zoning-ish fields, etc.).  ￼
+This becomes your “what exists” universe.
+
+Add building footprints for mapping/visualization & spatial joins.  ￼
+
+B) Sales & transactions (comps + underwriting history)
+
+Use two layers:
+	1.	DOF Rolling Sales / Citywide Rolling Sales for broad citywide sales (good for comps and quick history).  ￼
+	2.	ACRIS for recorded documents (deeds, mortgages, etc.) for Manhattan/Brooklyn/Queens/Bronx.  ￼
+	•	Note: Staten Island is handled differently (Richmond County Clerk), so treat SI as a separate ingestion track.  ￼
+
+C) Condos (the “BBL mismatch” fix, done properly)
+
+You need an authoritative condo unit registry to map:
+	•	base lot/building view (PLUTO)
+↔ unit lots (sales + condo unit data)
+
+Use the Digital Tax Map condominium unit dataset (or equivalent DOF condo unit source) as your mapping backbone.  ￼
+
+What you build
+	•	condo_unit_registry table keyed by unit_bbl, with:
+	•	condo number / condo ID (if present)
+	•	base building identifiers (often derivable via address/BIN/condo number)
+	•	unit label (apt/unit)
+	•	plus “parent building/lot” linkage
+
+Matching logic (best practice)
+	1.	Join on unit_bbl where you have it (sales docs, unit datasets)
+	2.	If PLUTO is base lot only: map via condo registry OR BIN/address normalization
+	3.	Fallback: address+ZIP (what you did) — but store a confidence score and keep it as a fallback, not the primary method
+
+D) Co-ops (hardest part — accept the reality early)
+
+Co-ops usually do not have unit parcels, and many transfers are not like condo deeds.
+
+So you model co-ops as:
+	•	Co-op building entity (BBL/BIN/address)
+	•	Co-op unit entity (internal synthetic ID: coop_building_id + unit)
+
+Data sources for co-ops
+	•	DOF rolling sales often includes co-op transactions at a “unit-like” level in practice, but you’ll still see inconsistencies.  ￼
+	•	For truly complete co-op unit detail (maintenance, financials, offering plan details), you typically need licensed/private sources or targeted scraping of listing platforms (riskier).
+
+Pragmatic goal: be “complete” on building + transaction history + signals, and be “best-effort” on co-op unit enrichment unless you license data.
+
+E) Houses / 1–4 family / small multifamily
+
+These are the easiest:
+	•	They’re usually cleanly keyed by BBL and address, and have clearer deed records in ACRIS (except SI differences).  ￼
+
+⸻
+
+4) Add the “investing signals” layer (where your product becomes valuable)
+
+Once identity is solid, you can enrich every entity with signals investors care about:
+
+Regulatory / building health
+	•	DOB building history tools (permits, violations, complaints)  ￼
+
+Neighborhood + risk (examples)
+	•	flood zones, transit proximity, school zones, 311 density, etc. (mix of open + derived)
+
+Derived investing features
+	•	last sale + repeat sale deltas
+	•	turnover rate by building
+	•	price/ft² comps by micro-neighborhood
+	•	renovation indicator (permits + subsequent sale lift)
+	•	“uncertainty score” (how confident your unit match is)
+
+⸻
+
+5) The pipeline architecture that won’t collapse later
+
+Bronze / Silver / Gold (ELT pattern)
+	•	Bronze (raw): dump each dataset exactly as received, versioned by date
+	•	Silver (clean): normalize types, parse addresses, standardize borough/block/lot formats
+	•	Gold (serving): your entity graph + investor features
+
+Two critical system tables
+	1.	entity_resolution_map
+	•	source_system, source_key, property_internal_id, match_method, confidence, as_of_date
+	2.	provenance_log
+	•	every field can be traced back to source + extraction run
+
+Update cadence
+	•	PLUTO: periodic releases  ￼
+	•	Rolling sales: rolling windows, update regularly  ￼
+	•	ACRIS: frequent updates; design incremental loads  ￼
+	•	Geocoding: on demand + cached (since it’s your normalization layer)  ￼
+
+⸻
+
+6) A practical build roadmap (so you stop getting blocked)
+
+Phase 1 (2–3 weeks): “Clean citywide spine”
+	•	PLUTO baseline
+	•	Geoclient/Geoservice normalization + caching
+	•	Rolling sales ingestion + joins by BBL where possible
+	•	Confidence-scored address fallback matching
+
+Phase 2 (next): “Condo correctness”
+	•	Ingest condo unit registry (Digital Tax Map condo units)
+	•	Build base-lot ↔ unit-lot mapping
+	•	Rewrite joins to prefer registry mapping over address heuristics
+
+Phase 3: “Co-ops done the right way”
+	•	Build co-op entity model (building + synthetic unit IDs)
+	•	Attach transactions + signals
+	•	Decide: license vs best-effort for unit-level fundamentals
+
+Phase 4: “Investor-grade signals”
+	•	DOB/permits/violations ingestion
+	•	risk + neighborhood features
+	•	scoring + explainability
+
+⸻
+
+7) Your specific blocker (from the screenshot) — the “right” fix
+
+What your agent discovered is correct: PLUTO ≠ unit lots, and matching by address works but is a fallback.
+
+The durable solution is:
+	•	Use Geosupport-based normalization for addresses (not custom string cleanup)  ￼
+	•	Add a condo unit registry so you can map unit BBLs ↔ parent building/base lot  ￼
+	•	Keep address matching, but only as a scored backstop
+
+⸻
+
+If you tell me what your end product is (e.g., “find underpriced condos with renovation upside” vs “full property pages like Zillow”), I’ll translate this into a concrete data dictionary + minimal schema (entities, keys, match rules, confidence scoring) tailored to that use case.
