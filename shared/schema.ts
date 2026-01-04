@@ -1242,6 +1242,43 @@ export const insertCondoRegistrySchema = createInsertSchema(condoRegistry).omit(
 export type InsertCondoRegistry = z.infer<typeof insertCondoRegistrySchema>;
 export type CondoRegistry = typeof condoRegistry.$inferSelect;
 
+// Condo Units - first-class unit entities that can receive sales/signals
+// Populated from condo_registry with inherited building data
+export const condoUnits = pgTable(
+  "condo_units",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    unitBbl: varchar("unit_bbl").notNull().unique(),
+    baseBbl: varchar("base_bbl").notNull(),
+    condoNumber: varchar("condo_number"),
+    unitDesignation: varchar("unit_designation"),
+    buildingPropertyId: varchar("building_property_id").references(() => properties.id),
+    buildingDisplayAddress: text("building_display_address"),
+    unitDisplayAddress: text("unit_display_address"),
+    bin: varchar("bin"),
+    latitude: real("latitude"),
+    longitude: real("longitude"),
+    borough: varchar("borough"),
+    zipCode: varchar("zip_code"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_condo_units_unit_bbl").on(table.unitBbl),
+    index("idx_condo_units_base_bbl").on(table.baseBbl),
+    index("idx_condo_units_building").on(table.buildingPropertyId),
+    index("idx_condo_units_address").on(table.unitDisplayAddress),
+  ]
+);
+
+export const insertCondoUnitSchema = createInsertSchema(condoUnits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCondoUnit = z.infer<typeof insertCondoUnitSchema>;
+export type CondoUnit = typeof condoUnits.$inferSelect;
+
 // Entity Resolution Map - tracks source record mappings to properties
 // Supports multiple match types with confidence scoring
 export const matchTypes = ["bbl_exact", "unit_registry", "address_normalized", "address_fuzzy", "geoclient"] as const;
