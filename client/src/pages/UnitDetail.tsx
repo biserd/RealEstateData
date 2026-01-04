@@ -337,7 +337,7 @@ export default function UnitDetail() {
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="container max-w-6xl py-6">
+        <div className="container max-w-6xl mx-auto px-4 py-6">
           <LoadingState type="skeleton-details" />
         </div>
       </AppLayout>
@@ -347,7 +347,7 @@ export default function UnitDetail() {
   if (error || !unit) {
     return (
       <AppLayout>
-        <div className="container max-w-6xl py-6">
+        <div className="container max-w-6xl mx-auto px-4 py-6">
           <EmptyState
             icon={<Home className="h-12 w-12" />}
             title="Unit not found"
@@ -374,7 +374,7 @@ export default function UnitDetail() {
         description={seoDescription}
       />
       
-      <div className="container max-w-6xl py-6 space-y-6">
+      <div className="container max-w-6xl mx-auto px-4 py-6 space-y-6">
         <PropertyBreadcrumbs
           borough={unit.borough}
           buildingAddress={unit.buildingDisplayAddress}
