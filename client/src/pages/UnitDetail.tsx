@@ -67,8 +67,12 @@ interface OpportunityData {
 }
 
 interface AIInsights {
-  response: string;
-  context: any;
+  answerSummary: string;
+  keyNumbers?: Array<{ label: string; value: string; unit?: string }>;
+  evidence?: Array<{ type: string; id: string; description: string }>;
+  confidence?: string;
+  limitations?: string[];
+  context?: any;
   sources?: string[];
 }
 
@@ -337,21 +341,57 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
           <Sparkles className="h-5 w-5 text-primary" />
           AI Analysis
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="flex items-center gap-2">
           Investment insights based on available data
+          {data.confidence && (
+            <Badge 
+              variant={data.confidence === "High" ? "default" : data.confidence === "Medium" ? "secondary" : "outline"}
+              className="text-xs"
+            >
+              {data.confidence} confidence
+            </Badge>
+          )}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <div className="prose prose-sm dark:prose-invert max-w-none" data-testid="text-ai-response">
-          {data.response}
+          {data.answerSummary}
         </div>
-        {data.sources && data.sources.length > 0 && (
-          <div className="mt-4 pt-4 border-t">
-            <p className="text-xs text-muted-foreground mb-2">Data Sources:</p>
+        
+        {data.keyNumbers && data.keyNumbers.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4 border-t">
+            {data.keyNumbers.slice(0, 6).map((num, i) => (
+              <div key={i} className="text-center p-2 rounded-md bg-muted/50">
+                <p className="text-lg font-semibold" data-testid={`stat-ai-${i}`}>
+                  {num.value}{num.unit ? ` ${num.unit}` : ""}
+                </p>
+                <p className="text-xs text-muted-foreground">{num.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {data.limitations && data.limitations.length > 0 && (
+          <div className="pt-4 border-t">
+            <p className="text-xs text-muted-foreground mb-2">Data Limitations:</p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              {data.limitations.slice(0, 3).map((lim, i) => (
+                <li key={i} className="flex items-start gap-1">
+                  <span className="text-yellow-500">•</span>
+                  <span>{lim}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {data.evidence && data.evidence.length > 0 && (
+          <div className="pt-4 border-t">
+            <p className="text-xs text-muted-foreground mb-2">Evidence:</p>
             <div className="flex flex-wrap gap-1">
-              {data.sources.map((source, i) => (
+              {data.evidence.map((ev, i) => (
                 <Badge key={i} variant="outline" className="text-xs">
-                  {source}
+                  {ev.type}
                 </Badge>
               ))}
             </div>
