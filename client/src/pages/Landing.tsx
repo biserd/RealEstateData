@@ -11,6 +11,7 @@ import { SEO } from "@/components/SEO";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { generateOpportunitySlug } from "@/lib/propertySlug";
 
 interface Product {
   id: string;
@@ -51,6 +52,7 @@ interface TopOpportunity {
   scoreDrivers?: ScoreDriver[];
   unitSlug?: string | null;
   unitBbl?: string;
+  propertyId?: string;
 }
 
 export default function Landing() {
@@ -384,7 +386,7 @@ export default function Landing() {
                   const isStrong = opp.opportunityScore >= 70;
                   const href = opp.entityType === "unit" 
                     ? (opp.unitSlug ? `/unit/${opp.unitSlug}` : `/unit/${opp.unitBbl}`)
-                    : `/property/${opp.id}`;
+                    : `/properties/${generateOpportunitySlug(opp)}`;
                   return (
                     <Link key={opp.id} href={href}>
                       <Card 
