@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, TrendingDown, Minus, Home as HomeIcon, Bell, ArrowRight, MapPin, Building2, Target, Square, Calendar, CheckCircle, AlertCircle } from "lucide-react";
+import { BarChart3, TrendingUp, Home as HomeIcon, Bell, ArrowRight, MapPin, Building2, Target, Square, Calendar, CheckCircle, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,13 +10,8 @@ import { MarketStatsCard } from "@/components/MarketStatsCard";
 import { LoadingState } from "@/components/LoadingState";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { ScoreDriversList, type ScoreDriver } from "@/components/ScoreDriversList";
 import type { MarketAggregate, Notification } from "@shared/schema";
-
-type ScoreDriver = {
-  label: string;
-  value: string;
-  impact: "positive" | "neutral" | "negative";
-};
 
 type TopOpportunity = {
   id: string;
@@ -158,23 +153,7 @@ function OpportunityCard({ opportunity }: { opportunity: TopOpportunity }) {
           
           {opportunity.scoreDrivers && opportunity.scoreDrivers.length > 0 && (
             <div className="border-t pt-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Why this opportunity:</p>
-              <div className="space-y-1.5">
-                {opportunity.scoreDrivers.slice(0, 2).map((driver, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs">
-                    {driver.impact === "positive" ? (
-                      <TrendingUp className="h-3 w-3 text-green-600 shrink-0" />
-                    ) : driver.impact === "negative" ? (
-                      <TrendingDown className="h-3 w-3 text-red-500 shrink-0" />
-                    ) : (
-                      <Minus className="h-3 w-3 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
-                      <span className="font-medium">{driver.label}:</span> {driver.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <ScoreDriversList drivers={opportunity.scoreDrivers} mode="compact" maxItems={2} showHeader />
             </div>
           )}
         </CardContent>

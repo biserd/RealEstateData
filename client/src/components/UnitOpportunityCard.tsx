@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Home, MapPin, DollarSign, Target, Calendar, Building2, CheckCircle, AlertCircle, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Home, MapPin, DollarSign, Target, Calendar, Building2, CheckCircle, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { getUnitUrl } from "@/lib/unitSlug";
+import { ScoreDriversList, type ScoreDriver } from "@/components/ScoreDriversList";
 
 export function EntityTypeBadge({ type }: { type: "unit" | "building" }) {
   return (
@@ -67,11 +68,6 @@ export function PriceTypeBadge({ hasRealSale }: { hasRealSale: boolean }) {
   );
 }
 
-interface ScoreDriver {
-  label: string;
-  value: string;
-  impact: "positive" | "neutral" | "negative";
-}
 
 interface UnitOpportunity {
   unitBbl: string;
@@ -142,21 +138,8 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
                     )}
                   </div>
                   {unit.scoreDrivers && unit.scoreDrivers.length > 0 && (
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      {unit.scoreDrivers.slice(0, 2).map((driver, idx) => (
-                        <div key={idx} className="flex items-center gap-1 text-xs" data-testid={`list-driver-${idx}`}>
-                          {driver.impact === "positive" ? (
-                            <TrendingUp className="h-3 w-3 text-green-600" />
-                          ) : driver.impact === "negative" ? (
-                            <TrendingDown className="h-3 w-3 text-red-500" />
-                          ) : (
-                            <Minus className="h-3 w-3 text-muted-foreground" />
-                          )}
-                          <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
-                            {driver.label}: {driver.value}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="mt-1">
+                      <ScoreDriversList drivers={unit.scoreDrivers} mode="compact" maxItems={2} />
                     </div>
                   )}
                 </div>
@@ -254,27 +237,7 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
           
           {unit.scoreDrivers && unit.scoreDrivers.length > 0 && (
             <div className="border-t pt-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Why this opportunity:</p>
-              <div className="space-y-1.5">
-                {unit.scoreDrivers.slice(0, 3).map((driver, idx) => (
-                  <div 
-                    key={idx} 
-                    className="flex items-center gap-2 text-xs"
-                    data-testid={`driver-${idx}`}
-                  >
-                    {driver.impact === "positive" ? (
-                      <TrendingUp className="h-3 w-3 text-green-600 shrink-0" />
-                    ) : driver.impact === "negative" ? (
-                      <TrendingDown className="h-3 w-3 text-red-500 shrink-0" />
-                    ) : (
-                      <Minus className="h-3 w-3 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
-                      <span className="font-medium">{driver.label}:</span> {driver.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <ScoreDriversList drivers={unit.scoreDrivers} mode="compact" maxItems={3} showHeader />
             </div>
           )}
         </CardContent>

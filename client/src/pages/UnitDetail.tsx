@@ -27,6 +27,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { ScoreDriversList, type ScoreDriver } from "@/components/ScoreDriversList";
 
 interface CondoUnit {
   unitBbl: string;
@@ -186,24 +187,8 @@ function OpportunityScoreCard({ score, breakdown, opportunityData }: {
         </Badge>
         
         {scoreDrivers.length > 0 && (
-          <div className="space-y-2 pt-2 border-t">
-            <p className="text-xs font-medium text-muted-foreground">Why this opportunity:</p>
-            <div className="space-y-1.5">
-              {scoreDrivers.map((driver, idx) => (
-                <div key={idx} className="flex items-center gap-2 text-sm" data-testid={`driver-${idx}`}>
-                  {driver.impact === "positive" ? (
-                    <TrendingUp className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                  ) : driver.impact === "negative" ? (
-                    <TrendingDown className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                  ) : (
-                    <Minus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  )}
-                  <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
-                    <span className="font-medium">{driver.label}:</span> {driver.value}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div className="pt-2 border-t">
+            <ScoreDriversList drivers={scoreDrivers} mode="compact" showHeader />
           </div>
         )}
         

@@ -36,6 +36,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AppLayout } from "@/components/layouts";
 import { OpportunityScore } from "@/components/OpportunityScore";
+import { ScoreDriversList, generateBuildingScoreDrivers, type ScoreDriver } from "@/components/ScoreDriversList";
 import { PriceDistribution } from "@/components/PriceDistribution";
 import { CompsTable } from "@/components/CompsTable";
 import { AIChat } from "@/components/AIChat";
@@ -560,14 +561,10 @@ export default function PropertyDetail() {
                   <p className="text-xs text-muted-foreground">Key factors driving this score</p>
                 </div>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {mockScoreBreakdown.explanations.slice(0, 4).map((explanation, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm rounded-md bg-muted/50 p-2">
-                    <TrendingUp className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span className="text-emerald-700 dark:text-emerald-400">{explanation}</span>
-                  </div>
-                ))}
-              </div>
+              <ScoreDriversList 
+                drivers={generateBuildingScoreDrivers(property)} 
+                mode="expanded" 
+              />
             </CardContent>
           </Card>
         )}

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
-import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon, TrendingDown, Minus } from "lucide-react";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon } from "lucide-react";
+import { ScoreDriversList } from "@/components/ScoreDriversList";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -453,22 +454,7 @@ export default function Landing() {
                             </Badge>
                           </div>
                           {opp.scoreDrivers && opp.scoreDrivers.length > 0 && (
-                            <div className="space-y-1">
-                              {opp.scoreDrivers.slice(0, 2).map((driver, i) => (
-                                <div key={i} className="flex items-center gap-1 text-xs">
-                                  {driver.impact === "positive" ? (
-                                    <TrendingUp className="h-3 w-3 text-emerald-600 shrink-0" />
-                                  ) : driver.impact === "negative" ? (
-                                    <TrendingDown className="h-3 w-3 text-red-500 shrink-0" />
-                                  ) : (
-                                    <Minus className="h-3 w-3 text-muted-foreground shrink-0" />
-                                  )}
-                                  <span className={driver.impact === "positive" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
-                                    {driver.label}: {driver.value}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
+                            <ScoreDriversList drivers={opp.scoreDrivers} mode="compact" maxItems={2} />
                           )}
                         </CardContent>
                       </Card>
