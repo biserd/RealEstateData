@@ -546,6 +546,32 @@ export default function PropertyDetail() {
           </CardContent>
         </Card>
 
+        {property.opportunityScore && property.opportunityScore >= 50 && (
+          <Card className={`mb-6 ${property.opportunityScore >= 70 ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/20" : ""}`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-full text-white text-sm font-bold ${
+                  property.opportunityScore >= 70 ? "bg-emerald-500" : "bg-amber-500"
+                }`}>
+                  {property.opportunityScore}
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Why This Opportunity</p>
+                  <p className="text-xs text-muted-foreground">Key factors driving this score</p>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {mockScoreBreakdown.explanations.slice(0, 4).map((explanation, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm rounded-md bg-muted/50 p-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="text-emerald-700 dark:text-emerald-400">{explanation}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs defaultValue="pricing" className="space-y-6">
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
             <TabsList className="inline-flex w-auto min-w-full whitespace-nowrap md:min-w-0">
