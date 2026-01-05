@@ -142,12 +142,11 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
               </Link>
             ))}
           </nav>
-        </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
 
-          <DropdownMenu>
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2 pl-2 pr-1" data-testid="button-user-menu">
                 <Avatar className="h-7 w-7">
@@ -221,7 +220,8 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     </header>
