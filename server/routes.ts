@@ -957,10 +957,9 @@ Sitemap: ${baseUrl}/sitemap.xml
       // Check if it's a property slug or ID
       const property = await storage.getPropertyByIdOrSlug(id);
       if (property) {
-        const slug = property.slug || property.id;
         return res.json({
           type: "property",
-          redirectTo: `/properties/${slug}`,
+          redirectTo: `/properties/${property.id}`,
         });
       }
       
@@ -1192,11 +1191,35 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Get similar properties by ZIP code (for 404 pages)
+  app.get("/api/properties/similar-by-zip/:zipCode", async (req, res) => {
+    try {
+      const { zipCode } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 6, 20);
+      
+      if (!zipCode || zipCode.length !== 5) {
+        return res.status(400).json({ message: "Invalid ZIP code" });
+      }
+      
+      const properties = await storage.getPropertiesByArea("zip", zipCode, limit);
+      res.json({
+        zipCode,
+        properties,
+        count: properties.length,
+      });
+    } catch (error) {
+      console.error("Error fetching similar properties:", error);
+      res.status(500).json({ message: "Failed to fetch similar properties" });
+    }
+  });
+
   app.get("/api/properties/:id", async (req, res) => {
     try {
       const property = await storage.getProperty(req.params.id);
       if (!property) {
-        return res.status(404).json({ message: "Property not found" });
+        // Return 410 Gone to tell search engines this resource was removed
+        // and should be de-indexed faster than a 404
+        return res.status(410).json({ message: "Property no longer available" });
       }
       res.json(property);
     } catch (error) {

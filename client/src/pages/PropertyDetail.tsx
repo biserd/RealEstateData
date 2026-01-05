@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { extractPropertyIdFromSlug, formatPropertyAddress, formatFullAddress } from "@/lib/propertySlug";
+import { extractPropertyIdFromSlug, extractLocationFromSlug, formatPropertyAddress, formatFullAddress } from "@/lib/propertySlug";
+import { getPropertyUrl } from "@/lib/propertySlug";
 import { SEO } from "@/components/SEO";
 import { PropertyJsonLd } from "@/components/PropertyJsonLd";
 import { 
@@ -64,6 +65,151 @@ interface PropertyWithDetails extends Property {
 
 interface CompWithProperty extends Comp {
   property: Property;
+}
+
+interface SimilarPropertiesResponse {
+  zipCode: string;
+  properties: Property[];
+  count: number;
+}
+
+function PropertyNotFoundPage({ slug }: { slug: string }) {
+  const locationInfo = useMemo(() => extractLocationFromSlug(slug), [slug]);
+  
+  const { data: similarData, isLoading } = useQuery<SimilarPropertiesResponse>({
+    queryKey: ["/api/properties/similar-by-zip", locationInfo.zipCode],
+    queryFn: async () => {
+      if (!locationInfo.zipCode) return { zipCode: "", properties: [], count: 0 };
+      const res = await fetch(`/api/properties/similar-by-zip/${locationInfo.zipCode}?limit=6`);
+      if (!res.ok) return { zipCode: locationInfo.zipCode || "", properties: [], count: 0 };
+      return res.json();
+    },
+    enabled: !!locationInfo.zipCode,
+  });
+
+  const formatPrice = (price: number | null) => {
+    if (!price) return "N/A";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
+
+  return (
+    <AppLayout>
+      <SEO
+        title="Property Not Found | Realtors Dashboard"
+        description="This property listing is no longer available. Explore similar properties in the area."
+      />
+      <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+        <Card className="mb-8">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                <Home className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-2xl font-bold">Property No Longer Available</h1>
+                {locationInfo.address && (
+                  <p className="text-lg text-muted-foreground">
+                    {locationInfo.address}{locationInfo.city ? `, ${locationInfo.city}` : ""}
+                    {locationInfo.zipCode ? ` ${locationInfo.zipCode}` : ""}
+                  </p>
+                )}
+                <p className="text-muted-foreground max-w-md">
+                  This property listing has been removed or is no longer in our database. 
+                  Browse similar properties below or search for another address.
+                </p>
+              </div>
+              <div className="flex gap-3 flex-wrap justify-center">
+                <Link href="/screener">
+                  <Button data-testid="button-browse-screener">
+                    Browse All Properties
+                  </Button>
+                </Link>
+                <Link href="/">
+                  <Button variant="outline" data-testid="button-search-home">
+                    Search Properties
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {locationInfo.zipCode && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">
+                Similar Properties in {locationInfo.zipCode}
+              </h2>
+              <Link href={`/screener?zipCodes=${locationInfo.zipCode}`}>
+                <Button variant="ghost" size="sm" data-testid="link-view-all-zip">
+                  View all in {locationInfo.zipCode}
+                </Button>
+              </Link>
+            </div>
+
+            {isLoading ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="pt-6">
+                      <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                      <div className="h-3 bg-muted rounded w-1/2 mb-4" />
+                      <div className="h-6 bg-muted rounded w-1/3" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : similarData?.properties && similarData.properties.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {similarData.properties.map((prop) => (
+                  <Link key={prop.id} href={getPropertyUrl(prop)}>
+                    <Card 
+                      className="hover-elevate cursor-pointer h-full"
+                      data-testid={`card-similar-property-${prop.id}`}
+                    >
+                      <CardContent className="pt-6">
+                        <div className="space-y-2">
+                          <h3 className="font-medium line-clamp-1">{prop.address}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {prop.city}, {prop.state} {prop.zipCode}
+                          </p>
+                          <div className="flex items-center justify-between pt-2">
+                            <span className="text-lg font-bold text-primary">
+                              {formatPrice(prop.estimatedValue)}
+                            </span>
+                            {prop.opportunityScore && prop.opportunityScore >= 70 && (
+                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                                Score: {prop.opportunityScore}
+                              </Badge>
+                            )}
+                          </div>
+                          {prop.propertyType && (
+                            <Badge variant="outline" className="text-xs">
+                              {prop.propertyType}
+                            </Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  No similar properties found in this area.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
 }
 
 export default function PropertyDetail() {
@@ -274,21 +420,7 @@ export default function PropertyDetail() {
   }
 
   if (!property) {
-    return (
-      <AppLayout>
-        <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-          <EmptyState
-            icon={<Home className="h-8 w-8" />}
-            title="Property not found"
-            description="The property you're looking for doesn't exist or has been removed."
-            action={{
-              label: "Back to Screener",
-              onClick: () => window.history.back(),
-            }}
-          />
-        </div>
-      </AppLayout>
-    );
+    return <PropertyNotFoundPage slug={slug || ""} />;
   }
 
   const formatPrice = (price: number | null) => {

@@ -56,6 +56,51 @@ export function extractPropertyIdFromSlug(slug: string): string {
   return parts[parts.length - 1];
 }
 
+export function extractZipCodeFromSlug(slug: string): string | null {
+  // Slug format: address-city-zipCode-uuid
+  // Example: 1532-thieriot-avenue-bronx-10460-49d90fd6-39ba-4c48-ab24-1f0f473414d6
+  // ZIP code is a 5-digit number before the UUID
+  const zipCodeRegex = /(\d{5})-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  const match = slug.match(zipCodeRegex);
+  if (match) {
+    return match[1];
+  }
+  // Fallback: find any 5-digit sequence that looks like a ZIP
+  const anyZipMatch = slug.match(/\b(\d{5})\b/);
+  return anyZipMatch ? anyZipMatch[1] : null;
+}
+
+export function extractLocationFromSlug(slug: string): { address: string; city: string; zipCode: string | null } {
+  // Slug format: address-city-zipCode-uuid
+  const zipCode = extractZipCodeFromSlug(slug);
+  
+  // Remove the UUID part
+  const uuidRegex = /-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  const withoutUuid = slug.replace(uuidRegex, '');
+  
+  // Remove ZIP code if present
+  const withoutZip = zipCode ? withoutUuid.replace(new RegExp(`-${zipCode}$`), '') : withoutUuid;
+  
+  // Convert dashes back to spaces and capitalize
+  const parts = withoutZip.split('-').filter(Boolean);
+  
+  // Try to identify city (last word before ZIP, typically borough names)
+  const boroughs = ['manhattan', 'brooklyn', 'bronx', 'queens', 'staten'];
+  let cityIndex = parts.findIndex(p => boroughs.includes(p.toLowerCase()));
+  
+  if (cityIndex === -1) {
+    // No borough found, assume last part is city
+    cityIndex = parts.length - 1;
+  }
+  
+  const city = parts[cityIndex] ? parts[cityIndex].charAt(0).toUpperCase() + parts[cityIndex].slice(1) : '';
+  const address = parts.slice(0, cityIndex).map(p => 
+    p.charAt(0).toUpperCase() + p.slice(1)
+  ).join(' ');
+  
+  return { address, city, zipCode };
+}
+
 export function getPropertyUrl(property: Property): string {
   // All properties from the properties table link to /properties/
   // Individual condo units from the condo_units table use /unit/ routes
