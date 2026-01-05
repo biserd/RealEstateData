@@ -1842,9 +1842,15 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sales.saleDate))
       .limit(100);
 
-    const prices = buildingSalesData.map(s => s.salePrice).sort((a, b) => a - b);
-    const buildingMedianPrice = prices.length > 0 
-      ? prices[Math.floor(prices.length / 2)] 
+    // Filter out unreasonable prices (likely whole-building or commercial sales)
+    // Only include residential-range prices between $50K and $10M
+    const residentialPrices = buildingSalesData
+      .map(s => s.salePrice)
+      .filter(p => p >= 50000 && p <= 10000000)
+      .sort((a, b) => a - b);
+    
+    const buildingMedianPrice = residentialPrices.length > 0 
+      ? residentialPrices[Math.floor(residentialPrices.length / 2)] 
       : null;
 
     const yearlyPrices: Record<number, number[]> = {};
