@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
-import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell } from "lucide-react";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon, TrendingDown, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
@@ -29,6 +30,27 @@ interface PlatformStats {
   comps: number;
   aiChats: number;
   dataSources: number;
+  condoUnits?: number;
+}
+
+interface ScoreDriver {
+  label: string;
+  value: string;
+  impact: "positive" | "neutral" | "negative";
+}
+
+interface TopOpportunity {
+  id: string;
+  entityType: "building" | "unit";
+  address: string;
+  city: string;
+  zipCode: string;
+  price: number;
+  priceType: "estimated" | "verified";
+  opportunityScore: number;
+  scoreDrivers?: ScoreDriver[];
+  unitSlug?: string | null;
+  unitBbl?: string;
 }
 
 export default function Landing() {
@@ -38,6 +60,15 @@ export default function Landing() {
   
   const { data: platformStats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/stats/platform"],
+  });
+
+  const { data: topOpportunities, isLoading: opportunitiesLoading } = useQuery<TopOpportunity[]>({
+    queryKey: ["/api/opportunities/top"],
+    queryFn: async () => {
+      const res = await fetch("/api/opportunities/top?limit=3");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
   });
 
   const { data: productsData, isLoading: isProductsLoading } = useQuery<{ data: Product[] }>({
@@ -92,14 +123,19 @@ export default function Landing() {
 
   const features = [
     {
-      icon: <BarChart3 className="h-6 w-6" />,
-      title: "Market Intelligence",
-      description: "Instant pricing bands (P25/P50/P75) for any ZIP, city, or neighborhood across NY, NJ, and CT.",
+      icon: <CheckCircle className="h-6 w-6" />,
+      title: "Verified Sale Prices",
+      description: "300K+ NYC condo units with real transaction data. See actual sale prices, not estimates.",
     },
     {
       icon: <Target className="h-6 w-6" />,
-      title: "Opportunity Scoring",
-      description: "Proprietary 0-100 scores with transparent breakdowns showing mispricing, confidence, and risk.",
+      title: "Score Drivers Explained",
+      description: "Transparent scoring with breakdowns like 'Below building median: 12%' and 'High liquidity: 8 sales'.",
+    },
+    {
+      icon: <BarChart3 className="h-6 w-6" />,
+      title: "Market Intelligence",
+      description: "Instant pricing bands (P25/P50/P75) for any ZIP, city, or neighborhood across NY, NJ, and CT.",
     },
     {
       icon: <TrendingUp className="h-6 w-6" />,
@@ -117,11 +153,6 @@ export default function Landing() {
       description: "Save properties, monitor price changes, and get notified when opportunities arise.",
     },
     {
-      icon: <FileText className="h-6 w-6" />,
-      title: "Deal Memo Generator",
-      description: "AI-powered deal memos with market context, comparable sales, and investment analysis.",
-    },
-    {
       icon: <Code className="h-6 w-6" />,
       title: "Developer API",
       description: "RESTful API access for Pro subscribers to integrate property data into their own applications.",
@@ -135,13 +166,19 @@ export default function Landing() {
 
   const realStats = platformStats ? [
     { 
+      value: formatNumber(platformStats.condoUnits || 304000), 
+      label: "Condo Units",
+      icon: <HomeIcon className="h-5 w-5" />,
+      highlight: true,
+    },
+    { 
       value: formatNumber(platformStats.properties), 
       label: "Properties",
       icon: <Building2 className="h-5 w-5" />,
     },
     { 
       value: formatNumber(platformStats.sales), 
-      label: "Sales Records",
+      label: "Verified Sales",
       icon: <Receipt className="h-5 w-5" />,
     },
     { 
@@ -187,7 +224,7 @@ export default function Landing() {
               </h1>
               <p className="mb-8 text-lg text-muted-foreground md:text-xl">
                 Our proprietary Opportunity Score surfaces mispriced listings across NY, NJ, and CT. 
-                Get AI-powered analysis, comparable sales data, and deal memos—all backed by real data.
+                With 300K+ verified NYC condo sales and transparent score explanations, you'll know exactly why each property is an opportunity.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
@@ -257,11 +294,16 @@ export default function Landing() {
             ) : (
               <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">
                 {realStats.map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <div key={stat.label} className={`text-center ${stat.highlight ? "relative" : ""}`}>
+                    {stat.highlight && (
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-xs">Verified</Badge>
+                      </div>
+                    )}
+                    <div className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg ${stat.highlight ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-primary/10 text-primary"}`}>
                       {stat.icon}
                     </div>
-                    <p className="text-2xl font-bold text-primary md:text-3xl" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                    <p className={`text-2xl font-bold md:text-3xl ${stat.highlight ? "text-emerald-600 dark:text-emerald-400" : "text-primary"}`} data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
                       {stat.value}
                     </p>
                     <p className="text-xs text-muted-foreground md:text-sm">{stat.label}</p>
@@ -336,6 +378,111 @@ export default function Landing() {
                 </Card>
               </Link>
             </div>
+          </div>
+        </section>
+
+        <section className="py-12 border-b bg-gradient-to-b from-emerald-50/50 to-background dark:from-emerald-950/20 dark:to-background">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h2 className="mb-2 text-2xl font-bold tracking-tight md:text-3xl flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white">
+                    <TrendingUp className="h-4 w-4" />
+                  </span>
+                  Live Top Opportunities
+                </h2>
+                <p className="text-muted-foreground">
+                  Properties with strong potential highlighted in green
+                </p>
+              </div>
+              <Link href="/investment-opportunities">
+                <Button variant="outline" data-testid="link-view-all-opportunities">
+                  View All
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            {opportunitiesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : topOpportunities && topOpportunities.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-3">
+                {topOpportunities.map((opp) => {
+                  const isStrong = opp.opportunityScore >= 70;
+                  const href = opp.entityType === "unit" 
+                    ? (opp.unitSlug ? `/unit/${opp.unitSlug}` : `/unit/${opp.unitBbl}`)
+                    : `/property/${opp.id}`;
+                  return (
+                    <Link key={opp.id} href={href}>
+                      <Card 
+                        className={`hover-elevate cursor-pointer h-full ${isStrong ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/30" : ""}`}
+                        data-testid={`card-live-opportunity-${opp.id}`}
+                      >
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <CardTitle className="text-base truncate">{opp.address}</CardTitle>
+                              <p className="text-sm text-muted-foreground">{opp.city}, {opp.zipCode}</p>
+                            </div>
+                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                              isStrong 
+                                ? "bg-emerald-500 text-white" 
+                                : opp.opportunityScore >= 50 
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                                  : "bg-muted text-muted-foreground"
+                            }`}>
+                              {opp.opportunityScore}
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-lg font-bold">
+                              ${opp.price >= 1000000 
+                                ? (opp.price / 1000000).toFixed(2) + "M" 
+                                : Math.round(opp.price / 1000) + "K"}
+                            </span>
+                            <Badge variant={opp.priceType === "verified" ? "default" : "secondary"} className="text-xs">
+                              {opp.priceType === "verified" ? (
+                                <>
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Verified
+                                </>
+                              ) : "Estimated"}
+                            </Badge>
+                          </div>
+                          {opp.scoreDrivers && opp.scoreDrivers.length > 0 && (
+                            <div className="space-y-1">
+                              {opp.scoreDrivers.slice(0, 2).map((driver, i) => (
+                                <div key={i} className="flex items-center gap-1 text-xs">
+                                  {driver.impact === "positive" ? (
+                                    <TrendingUp className="h-3 w-3 text-emerald-600 shrink-0" />
+                                  ) : driver.impact === "negative" ? (
+                                    <TrendingDown className="h-3 w-3 text-red-500 shrink-0" />
+                                  ) : (
+                                    <Minus className="h-3 w-3 text-muted-foreground shrink-0" />
+                                  )}
+                                  <span className={driver.impact === "positive" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
+                                    {driver.label}: {driver.value}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground">Loading opportunities...</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </section>
 
