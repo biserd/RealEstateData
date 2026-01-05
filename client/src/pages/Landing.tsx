@@ -264,7 +264,7 @@ export default function Landing() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">
+              <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
                 {realStats.map((stat) => (
                   <div key={stat.label} className={`text-center ${stat.highlight ? "relative" : ""}`}>
                     {stat.highlight && (
