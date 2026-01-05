@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon } from "lucide-react";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Building2, Receipt, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon } from "lucide-react";
 import { ScoreDriversList } from "@/components/ScoreDriversList";
 import { SmartAddressSearch } from "@/components/SmartAddressSearch";
 import { Button } from "@/components/ui/button";
@@ -171,11 +171,6 @@ export default function Landing() {
       value: formatNumber(platformStats.sales), 
       label: "Verified Sales",
       icon: <Receipt className="h-5 w-5" />,
-    },
-    { 
-      value: formatNumber(platformStats.comps), 
-      label: "Comp Analyses",
-      icon: <GitCompare className="h-5 w-5" />,
     },
     { 
       value: formatNumber(platformStats.marketAggregates), 
