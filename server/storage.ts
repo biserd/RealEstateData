@@ -101,7 +101,7 @@ export interface IStorage {
   searchGeo(query: string): Promise<Array<{ type: string; id: string; name: string; state: string }>>;
   searchUnified(query: string, entityFilter?: "all" | "buildings" | "units"): Promise<{
     buildings: Array<{ baseBbl: string; displayAddress: string; borough: string | null; unitCount: number }>;
-    units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null }>;
+    units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null; slug: string | null }>;
     locations: Array<{ type: string; id: string; name: string; state: string }>;
   }>;
   
@@ -863,7 +863,7 @@ export class DatabaseStorage implements IStorage {
 
   async searchUnified(query: string, entityFilter: "all" | "buildings" | "units" = "all"): Promise<{
     buildings: Array<{ baseBbl: string; displayAddress: string; borough: string | null; unitCount: number }>;
-    units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null }>;
+    units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null; slug: string | null }>;
     locations: Array<{ type: string; id: string; name: string; state: string }>;
   }> {
     // Parse the address using smart NYC address parser
@@ -889,7 +889,7 @@ export class DatabaseStorage implements IStorage {
       .limit(10);
 
     // Search units - if unit designation detected, search more precisely
-    let unitResults: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null }> = [];
+    let unitResults: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null; slug: string | null }> = [];
     
     if (entityFilter !== "buildings") {
       if (unitDesignation && buildingResults.length > 0) {
@@ -902,6 +902,7 @@ export class DatabaseStorage implements IStorage {
             unitDesignation: condoUnits.unitDesignation,
             displayAddress: condoUnits.unitDisplayAddress,
             borough: condoUnits.borough,
+            slug: condoUnits.slug,
           })
           .from(condoUnits)
           .where(
@@ -923,6 +924,7 @@ export class DatabaseStorage implements IStorage {
             unitDesignation: condoUnits.unitDesignation,
             displayAddress: condoUnits.unitDisplayAddress,
             borough: condoUnits.borough,
+            slug: condoUnits.slug,
           })
           .from(condoUnits)
           .where(

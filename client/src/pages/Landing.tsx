@@ -1,10 +1,9 @@
-import { Link, useLocation } from "wouter";
-import { useState } from "react";
-import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Search, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon } from "lucide-react";
+import { Link } from "wouter";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Building2, Receipt, GitCompare, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon } from "lucide-react";
 import { ScoreDriversList } from "@/components/ScoreDriversList";
+import { SmartAddressSearch } from "@/components/SmartAddressSearch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
@@ -56,8 +55,6 @@ interface TopOpportunity {
 
 export default function Landing() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
-  const [searchQuery, setSearchQuery] = useState("");
   
   const { data: platformStats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/stats/platform"],
@@ -98,13 +95,6 @@ export default function Landing() {
       });
     },
   });
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      setLocation(`/market-intelligence?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
 
   const handleGetPro = () => {
     if (proMonthlyPrice?.id) {
@@ -250,24 +240,10 @@ export default function Landing() {
                 </Link>
               </div>
 
-              <form onSubmit={handleSearch} className="mx-auto mb-8 max-w-xl">
-                <div className="relative flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search by ZIP code, city, or address..."
-                      className="h-12 pl-12 pr-4 text-base"
-                      data-testid="input-hero-search"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <Button type="submit" size="lg" className="h-12 px-6" data-testid="button-hero-search">
-                    Search
-                  </Button>
-                </div>
-              </form>
+              <SmartAddressSearch 
+                className="mx-auto mb-8 max-w-xl"
+                placeholder="Search by address, ZIP, or city..."
+              />
 
               <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
                 {coverageAreas.map((area) => (
