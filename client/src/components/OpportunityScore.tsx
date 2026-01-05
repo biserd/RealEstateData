@@ -1,4 +1,4 @@
-import { Info, HelpCircle } from "lucide-react";
+import { Info, HelpCircle, TrendingUp, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -137,13 +137,13 @@ export function OpportunityScore({
           {breakdown.explanations.length > 0 && (
             <div className="mt-4 space-y-2 rounded-lg bg-muted/50 p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Key Factors
+                Why This Opportunity
               </p>
-              <ul className="space-y-1">
+              <ul className="space-y-2">
                 {breakdown.explanations.slice(0, 3).map((explanation, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
-                    {explanation}
+                    <TrendingUp className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                    <span className="text-green-700 dark:text-green-400">{explanation}</span>
                   </li>
                 ))}
               </ul>

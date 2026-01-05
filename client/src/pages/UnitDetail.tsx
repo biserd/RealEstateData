@@ -8,6 +8,8 @@ import {
   History, 
   Building2, 
   TrendingUp,
+  TrendingDown,
+  Minus,
   Sparkles,
   Target,
   AlertTriangle,
@@ -60,6 +62,7 @@ interface OpportunityData {
     recency: number;
   } | null;
   buildingAvgPricePerYear: Array<{ year: number; avgPrice: number }>;
+  buildingSales?: Array<{ salePrice: number; saleDate: string }>;
 }
 
 interface AIInsights {
@@ -75,10 +78,58 @@ const unitTypeLabels: Record<string, string> = {
   commercial: "Commercial Unit",
 };
 
-function OpportunityScoreCard({ score, breakdown }: { 
+function OpportunityScoreCard({ score, breakdown, opportunityData }: { 
   score: number | null; 
   breakdown: OpportunityData["scoreBreakdown"];
+  opportunityData?: OpportunityData;
 }) {
+  const scoreDrivers: Array<{ label: string; value: string; impact: "positive" | "neutral" | "negative" }> = [];
+  
+  if (opportunityData?.buildingMedianPrice && opportunityData?.lastSalePrice) {
+    const pctBelowMedian = ((opportunityData.buildingMedianPrice - opportunityData.lastSalePrice) / opportunityData.buildingMedianPrice) * 100;
+    if (pctBelowMedian > 5) {
+      scoreDrivers.push({
+        label: "Below building median",
+        value: `${Math.round(pctBelowMedian)}% below`,
+        impact: "positive",
+      });
+    } else if (pctBelowMedian < -5) {
+      scoreDrivers.push({
+        label: "Above building median", 
+        value: `${Math.abs(Math.round(pctBelowMedian))}% above`,
+        impact: "negative",
+      });
+    }
+  }
+  
+  if (opportunityData?.buildingSales?.length) {
+    const salesCount = opportunityData.buildingSales.length;
+    if (salesCount >= 8) {
+      scoreDrivers.push({
+        label: "High liquidity",
+        value: `${salesCount} sales in building`,
+        impact: "positive",
+      });
+    } else if (salesCount >= 4) {
+      scoreDrivers.push({
+        label: "Moderate activity",
+        value: `${salesCount} sales in building`,
+        impact: "neutral",
+      });
+    }
+  }
+  
+  if (opportunityData?.lastSaleDate) {
+    const daysSinceSale = (Date.now() - new Date(opportunityData.lastSaleDate).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceSale < 180) {
+      scoreDrivers.push({
+        label: "Recent sale",
+        value: `${Math.round(daysSinceSale)} days ago`,
+        impact: "positive",
+      });
+    }
+  }
+
   if (score === null) {
     return (
       <Card data-testid="card-opportunity-score-na">
@@ -134,19 +185,44 @@ function OpportunityScoreCard({ score, breakdown }: {
           {getScoreLabel(score)}
         </Badge>
         
+        {scoreDrivers.length > 0 && (
+          <div className="space-y-2 pt-2 border-t">
+            <p className="text-xs font-medium text-muted-foreground">Why this opportunity:</p>
+            <div className="space-y-1.5">
+              {scoreDrivers.map((driver, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-sm" data-testid={`driver-${idx}`}>
+                  {driver.impact === "positive" ? (
+                    <TrendingUp className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                  ) : driver.impact === "negative" ? (
+                    <TrendingDown className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                  ) : (
+                    <Minus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  )}
+                  <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
+                    <span className="font-medium">{driver.label}:</span> {driver.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
         {breakdown && (
           <div className="space-y-2 pt-2 border-t">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">vs Median</span>
-              <span className="font-medium">{breakdown.vsMedian}/40</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Market Trend</span>
-              <span className="font-medium">{breakdown.trend}/30</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Data Recency</span>
-              <span className="font-medium">{breakdown.recency}/30</span>
+            <p className="text-xs font-medium text-muted-foreground">Score Components:</p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">vs Median</span>
+                <span className="font-medium">{breakdown.vsMedian}/40</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Market Trend</span>
+                <span className="font-medium">{breakdown.trend}/30</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Data Recency</span>
+                <span className="font-medium">{breakdown.recency}/30</span>
+              </div>
             </div>
           </div>
         )}
@@ -479,6 +555,7 @@ export default function UnitDetail() {
                   <OpportunityScoreCard 
                     score={opportunityData?.opportunityScore ?? null}
                     breakdown={opportunityData?.scoreBreakdown ?? null}
+                    opportunityData={opportunityData}
                   />
                   <MarketComparisonCard data={opportunityData} />
                 </div>
