@@ -107,31 +107,44 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
           </SheetContent>
         </Sheet>
 
-        <Link href="/" className="flex items-center gap-2 font-semibold shrink-0">
+        <Link href="/" className="flex items-center gap-2 font-semibold md:hidden">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <span className="text-sm font-bold">RD</span>
           </div>
-          <span className="hidden text-lg tracking-tight sm:inline-block" data-testid="text-logo">
+          <span className="text-lg tracking-tight sm:inline-block" data-testid="text-logo-mobile">
             Realtors Dashboard
           </span>
         </Link>
 
-        <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant={location === item.href ? "secondary" : "ghost"}
-                size="sm"
-                className="text-sm"
-                data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-              >
-                {item.label}
-              </Button>
-            </Link>
-          ))}
-        </nav>
+        <div className="flex-1 md:hidden" />
 
-        <div className="flex items-center gap-2">
+        <div className="hidden flex-1 items-center justify-center gap-4 md:flex">
+          <Link href="/" className="flex items-center gap-2 font-semibold shrink-0">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <span className="text-sm font-bold">RD</span>
+            </div>
+            <span className="text-lg tracking-tight" data-testid="text-logo">
+              Realtors Dashboard
+            </span>
+          </Link>
+
+          <nav className="flex items-center gap-1">
+            {navItems.map((item) => (
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={location === item.href ? "secondary" : "ghost"}
+                  size="sm"
+                  className="text-sm"
+                  data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                >
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
 
           <DropdownMenu>
