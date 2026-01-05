@@ -146,81 +146,97 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
           <div className="flex items-center gap-2">
             <ThemeToggle />
 
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2 pl-2 pr-1" data-testid="button-user-menu">
-                <Avatar className="h-7 w-7">
-                  <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
-                  <AvatarFallback className="text-xs">{getInitials()}</AvatarFallback>
-                </Avatar>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="flex items-center gap-2 p-2">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "User"}
-                    </span>
-                    {isPro && (
-                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4" data-testid="badge-pro">
-                        <Crown className="h-2.5 w-2.5 mr-0.5" />
-                        PRO
-                      </Badge>
-                    )}
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="gap-2 pl-2 pr-1" data-testid="button-user-menu">
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
+                      <AvatarFallback className="text-xs">{getInitials()}</AvatarFallback>
+                    </Avatar>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="flex items-center gap-2 p-2">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
+                      <AvatarFallback>{getInitials()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">
+                          {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "User"}
+                        </span>
+                        {isPro && (
+                          <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4" data-testid="badge-pro">
+                            <Crown className="h-2.5 w-2.5 mr-0.5" />
+                            PRO
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{user?.email}</span>
+                    </div>
                   </div>
-                  <span className="text-xs text-muted-foreground">{user?.email}</span>
-                </div>
-              </div>
-              <DropdownMenuSeparator />
-              <Link href="/settings">
-                <DropdownMenuItem data-testid="menu-settings" className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
-              </Link>
-              {isFree ? (
-                <Link href="/pricing">
-                  <DropdownMenuItem data-testid="menu-upgrade" className="text-primary">
-                    <Crown className="mr-2 h-4 w-4" />
-                    Upgrade to Pro
-                  </DropdownMenuItem>
-                </Link>
-              ) : (
-                <Link href="/pricing">
-                  <DropdownMenuItem data-testid="menu-billing">
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Manage Subscription
-                  </DropdownMenuItem>
-                </Link>
-              )}
-              {user?.role === "admin" && (
-                <>
                   <DropdownMenuSeparator />
-                  <Link href="/admin-console">
-                    <DropdownMenuItem data-testid="menu-admin">
+                  <Link href="/settings">
+                    <DropdownMenuItem data-testid="menu-settings" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
-                      Admin Console
+                      Settings
                     </DropdownMenuItem>
                   </Link>
-                </>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => logout()}
-                className="cursor-pointer"
-                data-testid="menu-logout"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-            </DropdownMenu>
+                  {isFree ? (
+                    <Link href="/pricing">
+                      <DropdownMenuItem data-testid="menu-upgrade" className="text-primary">
+                        <Crown className="mr-2 h-4 w-4" />
+                        Upgrade to Pro
+                      </DropdownMenuItem>
+                    </Link>
+                  ) : (
+                    <Link href="/pricing">
+                      <DropdownMenuItem data-testid="menu-billing">
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Manage Subscription
+                      </DropdownMenuItem>
+                    </Link>
+                  )}
+                  {user?.role === "admin" && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <Link href="/admin-console">
+                        <DropdownMenuItem data-testid="menu-admin">
+                          <Settings className="mr-2 h-4 w-4" />
+                          Admin Console
+                        </DropdownMenuItem>
+                      </Link>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => logout()}
+                    className="cursor-pointer"
+                    data-testid="menu-logout"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Link href="/auth">
+                  <Button variant="ghost" size="sm" data-testid="button-login">
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/pricing">
+                  <Button size="sm" data-testid="button-go-pro">
+                    <Crown className="h-4 w-4 mr-1" />
+                    Go Pro
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
