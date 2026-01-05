@@ -24,7 +24,12 @@ interface Building {
 }
 
 export default function BuildingDetail() {
-  const { baseBbl } = useParams<{ baseBbl: string }>();
+  const { baseBbl: rawBaseBbl } = useParams<{ baseBbl: string }>();
+  
+  // Extract the actual baseBbl (10-digit number) from slug-baseBbl format
+  // URL format: /building/404-east-76-street-1014700148
+  // We need to extract just the 10-digit BBL at the end
+  const baseBbl = rawBaseBbl?.match(/(\d{10})$/)?.[1] || rawBaseBbl;
 
   const { data: building, isLoading, error } = useQuery<Building>({
     queryKey: ["/api/buildings", baseBbl, "details"],
