@@ -11,6 +11,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { ScoreDriversList, type ScoreDriver } from "@/components/ScoreDriversList";
+import { generateOpportunitySlug } from "@/lib/propertySlug";
 import type { MarketAggregate, Notification } from "@shared/schema";
 
 type TopOpportunity = {
@@ -51,7 +52,7 @@ function OpportunityCard({ opportunity }: { opportunity: TopOpportunity }) {
   const isUnit = opportunity.entityType === "unit";
   const href = isUnit 
     ? `/unit/${opportunity.unitSlug || opportunity.unitBbl}` 
-    : `/properties/${opportunity.address.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')}-${opportunity.city.toLowerCase().replace(/\s+/g, '-')}-${opportunity.zipCode}-${opportunity.propertyId}`;
+    : `/properties/${generateOpportunitySlug(opportunity)}`;
   
   const getScoreColor = (score: number) => {
     if (score >= 75) return "text-emerald-600 dark:text-emerald-400";

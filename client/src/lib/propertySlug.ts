@@ -1,5 +1,42 @@
 import type { Property } from "@shared/schema";
 
+export function generateOpportunitySlug(opportunity: {
+  address: string;
+  city: string;
+  zipCode: string;
+  propertyId?: string;
+}): string {
+  const slugParts: string[] = [];
+  
+  if (opportunity.address) {
+    const addressSlug = opportunity.address
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 50);
+    slugParts.push(addressSlug);
+  }
+  
+  if (opportunity.city) {
+    const citySlug = opportunity.city
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-');
+    slugParts.push(citySlug);
+  }
+  
+  if (opportunity.zipCode) {
+    slugParts.push(opportunity.zipCode);
+  }
+  
+  if (opportunity.propertyId) {
+    slugParts.push(opportunity.propertyId);
+  }
+  
+  return slugParts.filter(Boolean).join('-');
+}
+
 export function formatPropertyAddress(property: { address: string; unit?: string | null }): string {
   const trimmedUnit = property.unit?.trim();
   if (trimmedUnit) {
