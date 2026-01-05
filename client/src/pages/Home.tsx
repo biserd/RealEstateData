@@ -70,9 +70,14 @@ function OpportunityCard({ opportunity }: { opportunity: TopOpportunity }) {
     return "bg-red-100 dark:bg-red-900/30";
   };
 
+  const isStrongOpportunity = opportunity.opportunityScore >= 70;
+  
   return (
     <Link href={href}>
-      <Card className="group hover-elevate h-full cursor-pointer" data-testid={`card-opportunity-${opportunity.id}`}>
+      <Card 
+        className={`group hover-elevate h-full cursor-pointer ${isStrongOpportunity ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/20" : ""}`} 
+        data-testid={`card-opportunity-${opportunity.id}`}
+      >
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">

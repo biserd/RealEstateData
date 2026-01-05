@@ -111,10 +111,15 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
     ? `Unit ${unit.unitDesignation}` 
     : `Unit ${unit.unitBbl.slice(-4)}`;
 
+  const isStrongOpportunity = unit.opportunityScore >= 70;
+  
   if (viewMode === "list") {
     return (
       <Link href={getUnitUrl(unit)}>
-        <Card className="hover-elevate cursor-pointer" data-testid={`card-unit-opportunity-${unit.unitBbl}`}>
+        <Card 
+          className={`hover-elevate cursor-pointer ${isStrongOpportunity ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/20" : ""}`} 
+          data-testid={`card-unit-opportunity-${unit.unitBbl}`}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-4">
@@ -188,7 +193,10 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
 
   return (
     <Link href={getUnitUrl(unit)}>
-      <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-unit-opportunity-${unit.unitBbl}`}>
+      <Card 
+        className={`hover-elevate cursor-pointer h-full ${isStrongOpportunity ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/20" : ""}`} 
+        data-testid={`card-unit-opportunity-${unit.unitBbl}`}
+      >
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">

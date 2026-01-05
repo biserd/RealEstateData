@@ -77,8 +77,13 @@ export function PropertyCard({
     return "Limited";
   };
 
+  const isStrongOpportunity = property.opportunityScore && property.opportunityScore >= 70;
+  
   return (
-    <Card className="group hover-elevate h-full" data-testid={`card-property-${property.id}`}>
+    <Card 
+      className={`group hover-elevate h-full ${isStrongOpportunity ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/20" : ""}`} 
+      data-testid={`card-property-${property.id}`}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
