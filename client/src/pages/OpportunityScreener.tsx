@@ -57,6 +57,42 @@ interface UnitOpportunity {
   buildingSalesCount?: number;
 }
 
+function getBuildingScoreDrivers(property: Property): ScoreDriver[] {
+  const drivers: ScoreDriver[] = [];
+  
+  if (property.opportunityScore && property.opportunityScore >= 75) {
+    drivers.push({
+      label: "High opportunity score",
+      value: `${property.opportunityScore}/100`,
+      impact: "positive",
+    });
+  }
+  
+  if (property.pricePerSqft && property.pricePerSqft < 300) {
+    drivers.push({
+      label: "Attractive price per sqft",
+      value: `$${property.pricePerSqft}/sqft`,
+      impact: "positive",
+    });
+  }
+  
+  if (property.confidenceLevel === "High") {
+    drivers.push({
+      label: "High confidence estimate",
+      value: "Strong data coverage",
+      impact: "positive",
+    });
+  } else if (property.confidenceLevel === "Medium") {
+    drivers.push({
+      label: "Moderate confidence",
+      value: "Good data coverage",
+      impact: "neutral",
+    });
+  }
+  
+  return drivers;
+}
+
 export default function OpportunityScreener() {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
@@ -471,7 +507,7 @@ export default function OpportunityScreener() {
                           }`}
                           onClick={() => setSelectedPropertyId(property.id)}
                         >
-                          <PropertyCard property={property} />
+                          <PropertyCard property={property} scoreDrivers={getBuildingScoreDrivers(property)} />
                         </div>
                       ))}
                     </div>
@@ -497,7 +533,7 @@ export default function OpportunityScreener() {
                         aria-hidden="true"
                       >
                         <div className="blur-sm pointer-events-none select-none" tabIndex={-1}>
-                          <PropertyCard property={property} />
+                          <PropertyCard property={property} scoreDrivers={getBuildingScoreDrivers(property)} />
                         </div>
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm">
                           <Lock className="h-8 w-8 text-muted-foreground mb-2" />

@@ -615,23 +615,58 @@ Sitemap: ${baseUrl}/sitemap.xml
         propertyId?: string;
       };
       
-      const normalizedBuildings: TopOpportunity[] = buildings.map((b) => ({
-        id: b.id,
-        entityType: "building" as const,
-        address: b.address,
-        city: b.city,
-        state: b.state,
-        zipCode: b.zipCode,
-        price: b.estimatedValue || b.lastSalePrice || 0,
-        priceType: "estimated" as const,
-        pricePerSqft: b.pricePerSqft,
-        sqft: b.sqft,
-        yearBuilt: b.yearBuilt,
-        propertyType: b.propertyType,
-        opportunityScore: b.opportunityScore || 0,
-        confidenceLevel: b.confidenceLevel,
-        propertyId: b.id,
-      }));
+      const normalizedBuildings: TopOpportunity[] = buildings.map((b) => {
+        const drivers: ScoreDriver[] = [];
+        
+        if (b.opportunityScore && b.opportunityScore >= 75) {
+          drivers.push({
+            label: "High opportunity score",
+            value: `${b.opportunityScore}/100`,
+            impact: "positive",
+          });
+        }
+        
+        if (b.pricePerSqft && b.pricePerSqft < 300) {
+          drivers.push({
+            label: "Attractive price per sqft",
+            value: `$${b.pricePerSqft}/sqft`,
+            impact: "positive",
+          });
+        }
+        
+        if (b.confidenceLevel === "high") {
+          drivers.push({
+            label: "High confidence estimate",
+            value: "Strong data coverage",
+            impact: "positive",
+          });
+        } else if (b.confidenceLevel === "medium") {
+          drivers.push({
+            label: "Moderate confidence",
+            value: "Good data coverage",
+            impact: "neutral",
+          });
+        }
+        
+        return {
+          id: b.id,
+          entityType: "building" as const,
+          address: b.address,
+          city: b.city,
+          state: b.state,
+          zipCode: b.zipCode,
+          price: b.estimatedValue || b.lastSalePrice || 0,
+          priceType: "estimated" as const,
+          pricePerSqft: b.pricePerSqft,
+          sqft: b.sqft,
+          yearBuilt: b.yearBuilt,
+          propertyType: b.propertyType,
+          opportunityScore: b.opportunityScore || 0,
+          confidenceLevel: b.confidenceLevel,
+          propertyId: b.id,
+          scoreDrivers: drivers,
+        };
+      });
       
       const normalizedUnits: TopOpportunity[] = unitsData.map((u) => ({
         id: u.unitBbl,

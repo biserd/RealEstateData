@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Bed, Bath, Square, Calendar, MapPin, Heart, Target } from "lucide-react";
+import { Bed, Bath, Square, Calendar, MapPin, Heart, Target, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,18 @@ import { getPropertyUrl, formatFullAddress } from "@/lib/propertySlug";
 import type { Property, ConfidenceLevel } from "@shared/schema";
 import { EntityTypeBadge, PriceTypeBadge } from "./UnitOpportunityCard";
 
+interface ScoreDriver {
+  label: string;
+  value: string;
+  impact: "positive" | "neutral" | "negative";
+}
+
 interface PropertyCardProps {
   property: Property;
   showOpportunityScore?: boolean;
   onSave?: (propertyId: string) => void;
   isSaved?: boolean;
+  scoreDrivers?: ScoreDriver[];
 }
 
 export function PropertyCard({
@@ -25,6 +32,7 @@ export function PropertyCard({
   showOpportunityScore = true,
   onSave,
   isSaved = false,
+  scoreDrivers,
 }: PropertyCardProps) {
   const formatPrice = (price: number | null) => {
     if (!price) return "N/A";
@@ -217,6 +225,28 @@ export function PropertyCard({
                 </Tooltip>
               )}
             </div>
+            
+            {scoreDrivers && scoreDrivers.length > 0 && (
+              <div className="border-t pt-3 mt-3">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Why this opportunity:</p>
+                <div className="space-y-1.5">
+                  {scoreDrivers.slice(0, 2).map((driver, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-xs" data-testid={`driver-${idx}`}>
+                      {driver.impact === "positive" ? (
+                        <TrendingUp className="h-3 w-3 text-green-600 shrink-0" />
+                      ) : driver.impact === "negative" ? (
+                        <TrendingDown className="h-3 w-3 text-red-500 shrink-0" />
+                      ) : (
+                        <Minus className="h-3 w-3 text-muted-foreground shrink-0" />
+                      )}
+                      <span className={driver.impact === "positive" ? "text-green-700 dark:text-green-400" : driver.impact === "negative" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
+                        <span className="font-medium">{driver.label}:</span> {driver.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </Link>
       </CardContent>
