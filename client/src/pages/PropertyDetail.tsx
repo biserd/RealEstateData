@@ -48,7 +48,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { DealMemo } from "@/components/DealMemo";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { UpgradeModal, BlurredContent, ProBadge } from "@/components/UpgradePrompt";
-import { PropertyStickyCTA } from "@/components/PropertyStickyCTA";
 import { NycDeepInsights } from "@/components/NycDeepInsights";
 import { PropertyAIInsights } from "@/components/PropertyAIInsights";
 import { BuildingSalesHistory } from "@/components/BuildingSalesHistory";
@@ -1082,14 +1081,6 @@ export default function PropertyDetail() {
         description={`${upgradeFeature} is a Pro feature. Upgrade to unlock unlimited exports and more.`}
       />
       
-      <PropertyStickyCTA
-        propertyAddress={formatPropertyAddress(property)}
-        propertyPrice={formatPrice(property.lastSalePrice)}
-        opportunityScore={property.opportunityScore}
-        onSaveProperty={() => saveMutation.mutate()}
-        onExportReport={handleExportReport}
-        isSaving={saveMutation.isPending}
-      />
       </AppLayout>
     </>
   );
