@@ -107,7 +107,7 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
           </SheetContent>
         </Sheet>
 
-        <Link href="/" className="flex items-center gap-2 font-semibold">
+        <Link href="/" className="flex items-center gap-2 font-semibold shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <span className="text-sm font-bold">RD</span>
           </div>
@@ -116,7 +116,7 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <Button
@@ -130,12 +130,6 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
             </Link>
           ))}
         </nav>
-
-        {showSearch && (
-          <div className="flex flex-1 items-center justify-center px-4">
-            <GlobalSearch />
-          </div>
-        )}
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
