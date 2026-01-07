@@ -75,7 +75,10 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
         <div className="flex items-center gap-4">
           <ThemeToggle />
           {isLoading ? (
-            <div className="h-9 w-20 animate-pulse bg-muted rounded-md" />
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-16 animate-pulse bg-muted rounded-md" />
+              <div className="h-9 w-20 animate-pulse bg-muted rounded-md" />
+            </div>
           ) : isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

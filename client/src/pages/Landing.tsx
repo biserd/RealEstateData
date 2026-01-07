@@ -262,8 +262,23 @@ export default function Landing() {
               <h2 className="text-lg font-semibold text-muted-foreground">Our Database</h2>
             </div>
             {statsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="text-center relative">
+                    {i === 1 && (
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-xs animate-pulse opacity-60 pointer-events-none select-none" aria-hidden>Verified</Badge>
+                      </div>
+                    )}
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-muted animate-pulse" />
+                    <p className="text-2xl font-bold md:text-3xl">
+                      <span className="inline-block h-8 w-16 bg-muted rounded animate-pulse" aria-hidden />
+                    </p>
+                    <p className="text-xs text-muted-foreground md:text-sm">
+                      <span className="inline-block h-4 w-20 bg-muted rounded animate-pulse" aria-hidden />
+                    </p>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
@@ -377,8 +392,45 @@ export default function Landing() {
               </Link>
             </div>
             {opportunitiesLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="grid gap-4 md:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="hover-elevate h-full">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="text-base truncate">
+                            <span className="block h-6 w-3/4 rounded bg-muted animate-pulse" aria-hidden />
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            <span className="block h-5 w-1/2 rounded bg-muted animate-pulse" aria-hidden />
+                          </p>
+                        </div>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted animate-pulse" />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-lg font-bold">
+                          <span className="inline-block h-7 w-16 bg-muted rounded animate-pulse" aria-hidden />
+                        </span>
+                        <Badge variant="secondary" className="text-xs animate-pulse opacity-60 pointer-events-none select-none" aria-hidden>
+                          <CheckCircle className="h-3 w-3 mr-1 invisible" />
+                          <span className="invisible">Verified</span>
+                        </Badge>
+                      </div>
+                      <div className="min-h-[2.5rem] space-y-1">
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="h-3 w-3 rounded-full bg-muted animate-pulse shrink-0" aria-hidden />
+                          <span className="h-3 w-36 rounded bg-muted animate-pulse" aria-hidden />
+                        </div>
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="h-3 w-3 rounded-full bg-muted animate-pulse shrink-0" aria-hidden />
+                          <span className="h-3 w-28 rounded bg-muted animate-pulse" aria-hidden />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : topOpportunities && topOpportunities.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-3">
@@ -426,9 +478,11 @@ export default function Landing() {
                               ) : "Estimated"}
                             </Badge>
                           </div>
-                          {opp.scoreDrivers && opp.scoreDrivers.length > 0 && (
-                            <ScoreDriversList drivers={opp.scoreDrivers} mode="compact" maxItems={2} />
-                          )}
+                          <div className="min-h-[2.5rem]">
+                            {opp.scoreDrivers && opp.scoreDrivers.length > 0 && (
+                              <ScoreDriversList drivers={opp.scoreDrivers} mode="compact" maxItems={2} />
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                     </Link>
