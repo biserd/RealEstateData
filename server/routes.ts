@@ -2467,6 +2467,16 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Helper to get the correct base URL in production (handles proxy protocol detection)
+  const getBaseUrl = (req: any): string => {
+    // Check X-Forwarded-Proto header first (set by reverse proxies)
+    const forwardedProto = req.get('x-forwarded-proto');
+    const protocol = forwardedProto ? forwardedProto.split(',')[0].trim() : req.protocol;
+    // In production, always use HTTPS
+    const finalProtocol = process.env.NODE_ENV === 'production' ? 'https' : protocol;
+    return `${finalProtocol}://${req.get('host')}`;
+  };
+
   app.post("/api/checkout", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -2495,7 +2505,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         customerId = customer.id;
       }
 
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = getBaseUrl(req);
       const session = await stripeService.createCheckoutSession(
         customerId,
         priceId,
@@ -2525,7 +2535,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(400).json({ message: "Invalid subscription plan" });
       }
 
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = getBaseUrl(req);
       const session = await stripeService.createGuestCheckoutSession(
         priceId,
         `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -2661,7 +2671,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(400).json({ message: "No billing account found" });
       }
 
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = getBaseUrl(req);
       const session = await stripeService.createCustomerPortalSession(
         user.stripeCustomerId,
         `${baseUrl}/settings`
