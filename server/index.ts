@@ -31,7 +31,12 @@ async function initStripe() {
     const stripeSync = await getStripeSync();
 
     console.log('Setting up managed webhook...');
-    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    // Use custom domain in production, REPLIT_DOMAINS in development
+    const isProduction = process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
+    const webhookBaseUrl = isProduction 
+      ? 'https://realtorsdashboard.com'
+      : `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    console.log(`Using webhook base URL: ${webhookBaseUrl} (production: ${isProduction})`);
     const { webhook, uuid } = await stripeSync.findOrCreateManagedWebhook(
       `${webhookBaseUrl}/api/stripe/webhook`,
       {
