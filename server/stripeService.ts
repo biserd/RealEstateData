@@ -3,6 +3,11 @@ import { getUncachableStripeClient } from './stripeClient';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 
+// Determine if we're in production (live mode) or development (test mode)
+function isLiveMode(): boolean {
+  return process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
+}
+
 export class StripeService {
   async createCustomer(email: string, userId: string, name?: string) {
     const stripe = await getUncachableStripeClient();
@@ -55,13 +60,15 @@ export class StripeService {
   }
 
   async listProducts(active = true) {
+    const livemode = isLiveMode();
     const result = await db.execute(
-      sql`SELECT * FROM stripe.products WHERE active = ${active}`
+      sql`SELECT * FROM stripe.products WHERE active = ${active} AND livemode = ${livemode}`
     );
     return result.rows;
   }
 
   async listProductsWithPrices(active = true) {
+    const livemode = isLiveMode();
     const result = await db.execute(
       sql`
         SELECT 
@@ -77,8 +84,8 @@ export class StripeService {
           pr.active as price_active,
           pr.metadata as price_metadata
         FROM stripe.products p
-        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
-        WHERE p.active = ${active}
+        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true AND pr.livemode = ${livemode}
+        WHERE p.active = ${active} AND p.livemode = ${livemode}
         ORDER BY p.id, pr.unit_amount
       `
     );
@@ -93,6 +100,7 @@ export class StripeService {
   }
 
   async isValidProPrice(priceId: string): Promise<boolean> {
+    const livemode = isLiveMode();
     const result = await db.execute(
       sql`
         SELECT pr.id 
@@ -102,12 +110,15 @@ export class StripeService {
           AND pr.active = true
           AND p.active = true
           AND p.name = 'Pro Plan'
+          AND pr.livemode = ${livemode}
+          AND p.livemode = ${livemode}
       `
     );
     return result.rows.length > 0;
   }
 
   async isValidPremiumPrice(priceId: string): Promise<boolean> {
+    const livemode = isLiveMode();
     const result = await db.execute(
       sql`
         SELECT pr.id 
@@ -117,12 +128,16 @@ export class StripeService {
           AND pr.active = true
           AND p.active = true
           AND p.name = 'Premium Plan'
+          AND pr.livemode = ${livemode}
+          AND p.livemode = ${livemode}
       `
     );
     return result.rows.length > 0;
   }
 
   async isValidSubscriptionPrice(priceId: string): Promise<{ valid: boolean; tier: 'pro' | 'premium' | null }> {
+    const livemode = isLiveMode();
+    console.log(`[Stripe] Validating price ${priceId} in ${livemode ? 'LIVE' : 'TEST'} mode`);
     const result = await db.execute(
       sql`
         SELECT pr.id, p.name 
@@ -132,9 +147,12 @@ export class StripeService {
           AND pr.active = true
           AND p.active = true
           AND p.name IN ('Pro Plan', 'Premium Plan')
+          AND pr.livemode = ${livemode}
+          AND p.livemode = ${livemode}
       `
     );
     if (result.rows.length === 0) {
+      console.log(`[Stripe] Price ${priceId} NOT found in ${livemode ? 'LIVE' : 'TEST'} mode`);
       return { valid: false, tier: null };
     }
     const productName = (result.rows[0] as any).name;
@@ -145,6 +163,7 @@ export class StripeService {
   }
   
   async getValidPriceIds(): Promise<string[]> {
+    const livemode = isLiveMode();
     const result = await db.execute(
       sql`
         SELECT pr.id 
@@ -153,12 +172,15 @@ export class StripeService {
         WHERE pr.active = true
           AND p.active = true
           AND p.name IN ('Pro Plan', 'Premium Plan')
+          AND pr.livemode = ${livemode}
+          AND p.livemode = ${livemode}
       `
     );
     return result.rows.map((row: any) => row.id);
   }
 
   async getPricesForPlan(planName: 'Pro Plan' | 'Premium Plan'): Promise<any[]> {
+    const livemode = isLiveMode();
     const result = await db.execute(
       sql`
         SELECT pr.* 
@@ -167,6 +189,8 @@ export class StripeService {
         WHERE pr.active = true
           AND p.active = true
           AND p.name = ${planName}
+          AND pr.livemode = ${livemode}
+          AND p.livemode = ${livemode}
         ORDER BY pr.unit_amount ASC
       `
     );
