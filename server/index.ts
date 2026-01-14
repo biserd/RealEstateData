@@ -68,9 +68,15 @@ app.post(
   '/api/stripe/webhook/:uuid',
   express.raw({ type: 'application/json' }),
   async (req, res) => {
+    const { uuid } = req.params;
     const signature = req.headers['stripe-signature'];
+    
+    console.log(`[Webhook] Received webhook request for UUID: ${uuid}`);
+    console.log(`[Webhook] Has signature: ${!!signature}`);
+    console.log(`[Webhook] Body type: ${typeof req.body}, isBuffer: ${Buffer.isBuffer(req.body)}`);
 
     if (!signature) {
+      console.error('[Webhook] ERROR: Missing stripe-signature header');
       return res.status(400).json({ error: 'Missing stripe-signature' });
     }
 
@@ -78,17 +84,31 @@ app.post(
       const sig = Array.isArray(signature) ? signature[0] : signature;
 
       if (!Buffer.isBuffer(req.body)) {
-        console.error('STRIPE WEBHOOK ERROR: req.body is not a Buffer');
-        return res.status(500).json({ error: 'Webhook processing error' });
+        console.error('[Webhook] ERROR: req.body is not a Buffer - middleware order issue');
+        console.error('[Webhook] Body content type:', req.headers['content-type']);
+        return res.status(500).json({ error: 'Webhook processing error: body not buffer' });
       }
 
-      const { uuid } = req.params;
+      console.log(`[Webhook] Processing webhook with UUID: ${uuid}, body size: ${req.body.length} bytes`);
       await WebhookHandlers.processWebhook(req.body as Buffer, sig, uuid);
 
+      console.log(`[Webhook] Successfully processed webhook for UUID: ${uuid}`);
       res.status(200).json({ received: true });
     } catch (error: any) {
-      console.error('Webhook error:', error.message);
-      res.status(400).json({ error: 'Webhook processing error' });
+      console.error('[Webhook] ERROR processing webhook:');
+      console.error('[Webhook] Error name:', error.name);
+      console.error('[Webhook] Error message:', error.message);
+      console.error('[Webhook] Error stack:', error.stack);
+      
+      // Check for common Stripe errors
+      if (error.message?.includes('signature')) {
+        console.error('[Webhook] SIGNATURE VERIFICATION FAILED - webhook secret mismatch');
+      }
+      if (error.message?.includes('uuid') || error.message?.includes('UUID')) {
+        console.error('[Webhook] UUID MISMATCH - webhook URL has wrong UUID');
+      }
+      
+      res.status(400).json({ error: 'Webhook processing error', details: error.message });
     }
   }
 );
