@@ -72,19 +72,19 @@ export default function CheckoutSuccess() {
         <CardFooter className="flex flex-col gap-2">
           <Button
             className="w-full"
-            onClick={() => setLocation("/dashboard")}
-            data-testid="button-go-dashboard"
+            onClick={() => setLocation("/investment-opportunities")}
+            data-testid="button-go-opportunities"
           >
-            Go to Dashboard
+            Go to Opportunities
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             className="w-full"
-            onClick={() => setLocation("/opportunity-screener")}
-            data-testid="button-explore-opportunities"
+            onClick={() => setLocation("/")}
+            data-testid="button-go-home"
           >
-            Explore Opportunities
+            Back to Home
           </Button>
         </CardFooter>
       </Card>
