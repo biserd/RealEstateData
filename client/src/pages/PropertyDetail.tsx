@@ -122,7 +122,7 @@ function PropertyNotFoundPage({ slug }: { slug: string }) {
                 </p>
               </div>
               <div className="flex gap-3 flex-wrap justify-center">
-                <Link href="/screener">
+                <Link href="/investment-opportunities">
                   <Button data-testid="button-browse-screener">
                     Browse All Properties
                   </Button>
@@ -143,7 +143,7 @@ function PropertyNotFoundPage({ slug }: { slug: string }) {
               <h2 className="text-xl font-semibold">
                 Similar Properties in {locationInfo.zipCode}
               </h2>
-              <Link href={`/screener?zipCodes=${locationInfo.zipCode}`}>
+              <Link href={`/investment-opportunities?zipCodes=${locationInfo.zipCode}`}>
                 <Button variant="ghost" size="sm" data-testid="link-view-all-zip">
                   View all in {locationInfo.zipCode}
                 </Button>

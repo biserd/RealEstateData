@@ -379,7 +379,7 @@ export default function Settings() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Save a search from the Opportunity Screener to get alerts when new properties match your criteria.
                   </p>
-                  <Link href="/screener">
+                  <Link href="/investment-opportunities">
                     <Button variant="outline" data-testid="link-to-screener">
                       Go to Screener
                     </Button>

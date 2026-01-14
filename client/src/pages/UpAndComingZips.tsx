@@ -474,7 +474,7 @@ export default function UpAndComingZips() {
                       </div>
                       
                       <div className="mt-4 flex gap-2">
-                        <Link href={`/screener?zipCodes=${zip.zipCode}`} className="flex-1">
+                        <Link href={`/investment-opportunities?zipCodes=${zip.zipCode}`} className="flex-1">
                           <Button 
                             variant="outline" 
                             className="w-full"
