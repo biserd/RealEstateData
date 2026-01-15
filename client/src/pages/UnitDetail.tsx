@@ -15,7 +15,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   BarChart3,
-  Loader2
+  Loader2,
+  Info,
+  FileText,
+  XCircle
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { AppLayout } from "@/components/layouts";
@@ -334,9 +337,33 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
     );
   }
 
+  // Helper function to get score color
+  const getScoreColor = (score: number | null) => {
+    if (score === null) return { bg: "bg-muted", text: "text-muted-foreground", ring: "stroke-muted" };
+    if (score >= 80) return { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-600 dark:text-emerald-400", ring: "stroke-emerald-500" };
+    if (score >= 60) return { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400", ring: "stroke-blue-500" };
+    if (score >= 40) return { bg: "bg-yellow-100 dark:bg-yellow-900/30", text: "text-yellow-600 dark:text-yellow-400", ring: "stroke-yellow-500" };
+    return { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-600 dark:text-red-400", ring: "stroke-red-500" };
+  };
+
+  // Helper function to get confidence styling
+  const getConfidenceStyle = (confidence: string | undefined) => {
+    switch (confidence) {
+      case "High":
+        return { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-300", icon: CheckCircle2 };
+      case "Medium":
+        return { bg: "bg-yellow-100 dark:bg-yellow-900/30", text: "text-yellow-700 dark:text-yellow-300", icon: AlertTriangle };
+      default:
+        return { bg: "bg-muted", text: "text-muted-foreground", icon: Info };
+    }
+  };
+
+  const confidenceStyle = getConfidenceStyle(data.confidence);
+  const ConfidenceIcon = confidenceStyle.icon;
+
   return (
     <Card data-testid="card-ai-insights">
-      <CardHeader>
+      <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
           AI Analysis
@@ -344,55 +371,124 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
         <CardDescription className="flex items-center gap-2">
           Investment insights based on available data
           {data.confidence && (
-            <Badge 
-              variant={data.confidence === "High" ? "default" : data.confidence === "Medium" ? "secondary" : "outline"}
-              className="text-xs"
-            >
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${confidenceStyle.bg} ${confidenceStyle.text}`}>
+              <ConfidenceIcon className="h-3 w-3" />
               {data.confidence} confidence
-            </Badge>
+            </span>
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="prose prose-sm dark:prose-invert max-w-none" data-testid="text-ai-response">
-          {data.answerSummary}
-        </div>
-        
+      <CardContent className="space-y-5">
+        {/* Visual Score Dashboard */}
         {data.keyNumbers && data.keyNumbers.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4 border-t">
-            {data.keyNumbers.slice(0, 6).map((num, i) => (
-              <div key={i} className="text-center p-2 rounded-md bg-muted/50">
-                <p className="text-lg font-semibold" data-testid={`stat-ai-${i}`}>
-                  {num.value}{num.unit ? ` ${num.unit}` : ""}
-                </p>
-                <p className="text-xs text-muted-foreground">{num.label}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {data.keyNumbers.slice(0, 5).map((num, i) => {
+              const isScore = num.label.toLowerCase().includes("score");
+              const isNA = num.value === "N/A" || num.value === null;
+              const numValue = isScore && !isNA ? parseInt(num.value.replace(/[^0-9]/g, "")) : null;
+              const colors = isScore ? getScoreColor(numValue) : { bg: "bg-muted/50", text: "text-foreground", ring: "" };
+              
+              return (
+                <div 
+                  key={i} 
+                  className={`relative flex flex-col items-center justify-center p-4 rounded-xl ${colors.bg} transition-all`}
+                >
+                  {isScore && numValue !== null ? (
+                    <>
+                      {/* Circular Progress Ring */}
+                      <div className="relative w-16 h-16 mb-2">
+                        <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+                          <circle
+                            cx="32"
+                            cy="32"
+                            r="28"
+                            stroke="currentColor"
+                            strokeWidth="6"
+                            fill="none"
+                            className="text-muted/30"
+                          />
+                          <circle
+                            cx="32"
+                            cy="32"
+                            r="28"
+                            strokeWidth="6"
+                            fill="none"
+                            strokeLinecap="round"
+                            className={colors.ring}
+                            strokeDasharray={`${(numValue / 100) * 176} 176`}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className={`text-lg font-bold ${colors.text}`} data-testid={`stat-ai-${i}`}>
+                            {numValue}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-center text-muted-foreground font-medium">{num.label}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className={`text-2xl font-bold ${isNA ? "text-muted-foreground" : colors.text}`} data-testid={`stat-ai-${i}`}>
+                        {num.value}{num.unit && !isNA ? ` ${num.unit}` : ""}
+                      </p>
+                      <p className="text-xs text-center text-muted-foreground mt-1">{num.label}</p>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
+        {/* Summary with better formatting */}
+        <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+              <FileText className="h-4 w-4 text-primary" />
+            </div>
+            <div className="prose prose-sm dark:prose-invert max-w-none" data-testid="text-ai-response">
+              {data.answerSummary}
+            </div>
+          </div>
+        </div>
+
+        {/* Data Quality Indicators */}
         {data.limitations && data.limitations.length > 0 && (
-          <div className="pt-4 border-t">
-            <p className="text-xs text-muted-foreground mb-2">Data Limitations:</p>
-            <ul className="text-xs text-muted-foreground space-y-1">
-              {data.limitations.slice(0, 3).map((lim, i) => (
-                <li key={i} className="flex items-start gap-1">
-                  <span className="text-yellow-500">•</span>
-                  <span>{lim}</span>
-                </li>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Data Quality Notes
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {data.limitations.slice(0, 4).map((lim, i) => (
+                <div 
+                  key={i} 
+                  className="flex items-start gap-2 p-2 rounded-md bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30"
+                >
+                  <XCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span className="text-xs text-amber-800 dark:text-amber-200">{lim}</span>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
 
+        {/* Evidence Sources */}
         {data.evidence && data.evidence.length > 0 && (
-          <div className="pt-4 border-t">
-            <p className="text-xs text-muted-foreground mb-2">Evidence:</p>
-            <div className="flex flex-wrap gap-1">
+          <div className="pt-3 border-t">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <span className="text-sm font-medium">Data Sources</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
               {data.evidence.map((ev, i) => (
-                <Badge key={i} variant="outline" className="text-xs">
+                <span 
+                  key={i} 
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100/50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-800/30"
+                >
+                  <CheckCircle2 className="h-3 w-3" />
                   {ev.type}
-                </Badge>
+                </span>
               ))}
             </div>
           </div>
