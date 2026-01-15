@@ -567,7 +567,7 @@ export default function UnitDetail() {
     ? unit.unitDesignation 
     : unit.unitBbl.slice(-4);
 
-  const seoTitle = `${unit.unitDisplayAddress || unitTitle} | ${unit.borough || "NYC"} Condo | Realtors Dashboard`;
+  const seoTitle = `${unit.unitDisplayAddress || (unit.buildingDisplayAddress + ", " + unitTitle)} | ${unit.borough || "NYC"} Condo | Realtors Dashboard`;
   const seoDescription = `View ${unitTitle} at ${unit.buildingDisplayAddress || "NYC"}: sales history, market analysis, and AI-powered investment insights. ${unit.borough ? `Located in ${unit.borough}` : ""} ${unit.zipCode ? `ZIP ${unit.zipCode}` : ""}.`;
 
   return (
