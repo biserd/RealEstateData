@@ -24,6 +24,14 @@ export class WebhookHandlers {
       await sync.processWebhook(payload, signature, uuid);
       console.log(`[Webhook] stripeSync.processWebhook completed successfully`);
     } catch (error: any) {
+      // stripe-replit-sync throws "Unhandled webhook event" for event types it doesn't recognize
+      // This is expected behavior - Stripe sends many event types but the library only handles
+      // subscription-related ones. We should gracefully ignore these instead of failing.
+      if (error.message && error.message.includes('Unhandled webhook event')) {
+        console.log(`[Webhook] Ignoring unhandled event type (this is normal): ${error.message}`);
+        return; // Exit gracefully - this is not an error
+      }
+      // For actual errors, log and re-throw
       console.error(`[Webhook] stripeSync.processWebhook failed:`, error.message);
       console.error(`[Webhook] Full error:`, error);
       throw error;
