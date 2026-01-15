@@ -127,15 +127,14 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
                     <EntityTypeBadge type="unit" />
                     <PriceTypeBadge hasRealSale={true} />
                   </div>
-                  <h3 className="font-semibold" data-testid="text-unit-title">{unitTitle}</h3>
+                  <h2 className="font-semibold text-base" data-testid="text-unit-address">
+                    {unit.buildingDisplayAddress || unit.unitDisplayAddress}
+                    {unitTitle && <span className="text-muted-foreground">, {unitTitle}</span>}
+                  </h2>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="h-3 w-3" />
-                    <span data-testid="text-unit-address">
-                      {unit.buildingDisplayAddress || unit.unitDisplayAddress}
-                    </span>
-                    {unit.borough && (
-                      <span className="ml-1">({unit.borough})</span>
-                    )}
+                    {unit.borough && <span>{unit.borough}</span>}
+                    {unit.zipCode && <span>, {unit.zipCode}</span>}
                   </div>
                   {unit.scoreDrivers && unit.scoreDrivers.length > 0 && (
                     <div className="mt-1">
@@ -198,17 +197,13 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
               {unit.opportunityScore} - {getScoreLabel(unit.opportunityScore)}
             </Badge>
           </div>
-          <CardTitle className="text-base mt-2" data-testid="text-unit-title">
-            {unitTitle}
-          </CardTitle>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <MapPin className="h-3 w-3 shrink-0" />
-            <span className="truncate" data-testid="text-unit-address">
-              {unit.buildingDisplayAddress || unit.unitDisplayAddress}
-            </span>
-          </div>
+          <h2 className="text-lg font-semibold mt-2 leading-tight" data-testid="text-unit-address">
+            {unit.buildingDisplayAddress || unit.unitDisplayAddress}
+            {unitTitle && <span className="text-muted-foreground">, {unitTitle}</span>}
+          </h2>
           {unit.borough && (
-            <p className="text-xs text-muted-foreground" data-testid="text-location">
+            <p className="text-sm text-muted-foreground flex items-center gap-1" data-testid="text-location">
+              <MapPin className="h-3 w-3 shrink-0" />
               {unit.borough}{unit.zipCode ? `, ${unit.zipCode}` : ""}
             </p>
           )}
