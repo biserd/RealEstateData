@@ -45,16 +45,6 @@ export function Footer() {
               <MapPin className="h-4 w-4" />
               <span>New York, NY</span>
             </div>
-            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <Mail className="h-4 w-4" />
-              <a 
-                href="mailto:hello@realtorsdashboard.com" 
-                className="hover:text-foreground transition-colors"
-                data-testid="link-footer-email"
-              >
-                hello@realtorsdashboard.com
-              </a>
-            </div>
           </div>
 
           <div>
