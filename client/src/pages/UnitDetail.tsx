@@ -564,8 +564,8 @@ export default function UnitDetail() {
   const lastSale = salesData?.sales?.[0];
   const unitTypeLabel = unitTypeLabels[unit.unitTypeHint || "residential"] || "Unit";
   const unitTitle = unit.unitDesignation 
-    ? `Unit ${unit.unitDesignation}` 
-    : `Unit ${unit.unitBbl.slice(-4)}`;
+    ? unit.unitDesignation 
+    : unit.unitBbl.slice(-4);
 
   const seoTitle = `${unit.unitDisplayAddress || unitTitle} | ${unit.borough || "NYC"} Condo | Realtors Dashboard`;
   const seoDescription = `View ${unitTitle} at ${unit.buildingDisplayAddress || "NYC"}: sales history, market analysis, and AI-powered investment insights. ${unit.borough ? `Located in ${unit.borough}` : ""} ${unit.zipCode ? `ZIP ${unit.zipCode}` : ""}.`;

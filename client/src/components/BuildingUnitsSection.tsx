@@ -156,7 +156,7 @@ export function BuildingUnitsSection({ baseBbl, building }: BuildingUnitsSection
                       <IconComponent className="h-4 w-4 text-muted-foreground shrink-0" />
                       <div>
                         <p className="font-medium">
-                          {unit.unitDesignation || `Unit ${unit.unitBbl.slice(-4)}`}
+                          {unit.unitDesignation || unit.unitBbl.slice(-4)}
                         </p>
                         {unit.unitTypeHint && unit.unitTypeHint !== "residential" && (
                           <p className="text-xs text-muted-foreground">

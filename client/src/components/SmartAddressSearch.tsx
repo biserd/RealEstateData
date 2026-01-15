@@ -266,7 +266,7 @@ export function SmartAddressSearch({
                       <div className="font-medium truncate">
                         {unit.displayAddress}
                         {unit.unitDesignation && (
-                          <span className="text-primary ml-1">Unit {unit.unitDesignation}</span>
+                          <span className="text-primary ml-1">{unit.unitDesignation}</span>
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground">

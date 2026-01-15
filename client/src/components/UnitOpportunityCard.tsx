@@ -104,8 +104,8 @@ export function UnitOpportunityCard({ unit, viewMode = "grid" }: UnitOpportunity
   };
 
   const unitTitle = unit.unitDesignation 
-    ? `Unit ${unit.unitDesignation}` 
-    : `Unit ${unit.unitBbl.slice(-4)}`;
+    ? unit.unitDesignation 
+    : unit.unitBbl.slice(-4);
 
   const isStrongOpportunity = unit.opportunityScore >= 70;
   

@@ -251,10 +251,10 @@ export function GlobalSearch() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">
-                            {unit.displayAddress || `Unit ${unit.unitDesignation || unit.unitBbl.slice(-4)}`}
+                            {unit.displayAddress || unit.unitDesignation || unit.unitBbl.slice(-4)}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {unit.unitDesignation ? `Unit ${unit.unitDesignation}` : ""}{unit.borough ? ` · ${unit.borough}` : "NYC"}
+                            {unit.unitDesignation || ""}{unit.borough ? ` · ${unit.borough}` : "NYC"}
                           </p>
                         </div>
                         <Badge variant="secondary" className="shrink-0 text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">

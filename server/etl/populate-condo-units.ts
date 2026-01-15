@@ -22,7 +22,7 @@ function formatUnitDisplayAddress(buildingAddress: string, unitDesignation: stri
     return `${buildingAddress}, ${unit}`;
   }
   
-  return `${buildingAddress}, Unit ${unit}`;
+  return `${buildingAddress}, ${unit}`;
 }
 
 export async function populateCondoUnits(): Promise<{

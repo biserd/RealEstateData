@@ -143,7 +143,7 @@ export async function enrichCondoUnitsFromPluto(): Promise<{
           UPDATE condo_units
           SET 
             building_display_address = ${address}::text,
-            unit_display_address = ${address}::text || ', Unit ' || COALESCE(unit_designation, ''),
+            unit_display_address = ${address}::text || ', ' || COALESCE(unit_designation, ''),
             latitude = ${lat},
             longitude = ${lng},
             borough = ${boro}::text,

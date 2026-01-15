@@ -206,7 +206,7 @@ export function PropertyBreadcrumbs({
       {unitDesignation && (
         <>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground font-medium">Unit {unitDesignation}</span>
+          <span className="text-foreground font-medium">{unitDesignation}</span>
         </>
       )}
     </nav>
