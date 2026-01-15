@@ -248,6 +248,9 @@ export interface IStorage {
     zipCode: string | null;
     latitude: number | null;
     longitude: number | null;
+    beds: number | null;
+    baths: number | null;
+    sqft: number | null;
   } | undefined>;
   
   getCondoUnitsForBuilding(baseBbl: string, params?: {
@@ -1755,6 +1758,9 @@ export class DatabaseStorage implements IStorage {
     zipCode: string | null;
     latitude: number | null;
     longitude: number | null;
+    beds: number | null;
+    baths: number | null;
+    sqft: number | null;
   } | undefined> {
     const [unit] = await db
       .select({
@@ -1768,6 +1774,9 @@ export class DatabaseStorage implements IStorage {
         zipCode: condoUnits.zipCode,
         latitude: condoUnits.latitude,
         longitude: condoUnits.longitude,
+        beds: condoUnits.beds,
+        baths: condoUnits.baths,
+        sqft: condoUnits.sqft,
       })
       .from(condoUnits)
       .where(eq(condoUnits.unitBbl, unitBbl));

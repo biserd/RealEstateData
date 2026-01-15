@@ -1281,6 +1281,10 @@ export const condoUnits = pgTable(
     longitude: real("longitude"),
     borough: varchar("borough"),
     zipCode: varchar("zip_code"),
+    // Unit specifications (for future data enrichment)
+    beds: integer("beds"),
+    baths: real("baths"),
+    sqft: integer("sqft"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },

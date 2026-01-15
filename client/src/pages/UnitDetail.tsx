@@ -384,8 +384,12 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {data.keyNumbers.slice(0, 5).map((num, i) => {
               const isScore = num.label.toLowerCase().includes("score");
-              const isNA = num.value === "N/A" || num.value === null;
-              const numValue = isScore && !isNA ? parseInt(num.value.replace(/[^0-9]/g, "")) : null;
+              // Handle all forms of missing data: null, undefined, "N/A", "undefined", empty string
+              const rawValue = num.value;
+              const isNA = rawValue === "N/A" || rawValue === null || rawValue === undefined || 
+                          rawValue === "undefined" || rawValue === "" || rawValue === "Unknown";
+              const displayValue = isNA ? "N/A" : rawValue;
+              const numValue = isScore && !isNA ? parseInt(String(rawValue).replace(/[^0-9]/g, "")) : null;
               const colors = isScore ? getScoreColor(numValue) : { bg: "bg-muted/50", text: "text-foreground", ring: "" };
               
               return (
@@ -429,7 +433,7 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
                   ) : (
                     <>
                       <p className={`text-2xl font-bold ${isNA ? "text-muted-foreground" : colors.text}`} data-testid={`stat-ai-${i}`}>
-                        {num.value}{num.unit && !isNA ? ` ${num.unit}` : ""}
+                        {displayValue}{num.unit && !isNA ? ` ${num.unit}` : ""}
                       </p>
                       <p className="text-xs text-center text-muted-foreground mt-1">{num.label}</p>
                     </>

@@ -870,28 +870,39 @@ Sitemap: ${baseUrl}/sitemap.xml
       const opportunityData = await storage.getUnitOpportunityData(unitBbl);
       const building = await storage.getBuilding(unit.baseBbl);
       
+      const unitTypeLabels: Record<string, string> = {
+        residential: "Residential",
+        parking: "Parking",
+        storage: "Storage",
+        commercial: "Commercial",
+        other: "Other",
+      };
+      
       const context = {
         unit: {
-          address: unit.unitDisplayAddress || unit.buildingDisplayAddress,
-          designation: unit.unitDesignation,
-          type: unit.unitTypeHint,
-          borough: unit.borough,
-          zipCode: unit.zipCode,
+          address: unit.unitDisplayAddress || unit.buildingDisplayAddress || "Unknown",
+          designation: unit.unitDesignation || "Unknown",
+          type: unitTypeLabels[unit.unitTypeHint || "residential"] || "Residential",
+          borough: unit.borough || "NYC",
+          zipCode: unit.zipCode || "Unknown",
+          beds: unit.beds ?? null,
+          baths: unit.baths ?? null,
+          sqft: unit.sqft ?? null,
         },
         building: building ? {
-          address: building.displayAddress,
-          unitCount: building.unitCount,
-          residentialUnitCount: building.residentialUnitCount,
+          address: building.displayAddress || "Unknown",
+          unitCount: building.unitCount || 0,
+          residentialUnitCount: building.residentialUnitCount || 0,
         } : null,
         sales: opportunityData ? {
           lastSalePrice: opportunityData.lastSalePrice,
           lastSaleDate: opportunityData.lastSaleDate,
           buildingMedianPrice: opportunityData.buildingMedianPrice,
-          recentBuildingSales: opportunityData.buildingSales.slice(0, 10),
-          priceHistory: opportunityData.buildingAvgPricePerYear,
+          recentBuildingSales: opportunityData.buildingSales?.slice(0, 10) || [],
+          priceHistory: opportunityData.buildingAvgPricePerYear || [],
         } : null,
-        opportunityScore: opportunityData?.opportunityScore,
-        scoreBreakdown: opportunityData?.scoreBreakdown,
+        opportunityScore: opportunityData?.opportunityScore ?? null,
+        scoreBreakdown: opportunityData?.scoreBreakdown ?? null,
       };
 
       const analysis = await analyzeProperty(
