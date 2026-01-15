@@ -14,6 +14,7 @@ interface FilterPanelProps {
   filters: ScreenerFilters;
   onChange: (filters: ScreenerFilters) => void;
   onReset: () => void;
+  entityType?: "properties" | "units";
 }
 
 interface FilterSectionProps {
@@ -40,7 +41,8 @@ function FilterSection({ title, children, defaultOpen = true }: FilterSectionPro
   );
 }
 
-export function FilterPanel({ filters, onChange, onReset }: FilterPanelProps) {
+export function FilterPanel({ filters, onChange, onReset, entityType = "properties" }: FilterPanelProps) {
+  const isUnitsMode = entityType === "units";
   const handleArrayToggle = <K extends keyof ScreenerFilters>(
     key: K,
     value: string
@@ -86,125 +88,135 @@ export function FilterPanel({ filters, onChange, onReset }: FilterPanelProps) {
 
         <Separator />
 
-        <FilterSection title="State">
-          <div className="space-y-2">
-            {states.map((state) => (
-              <div key={state} className="flex items-center gap-2">
-                <Checkbox
-                  id={`state-${state}`}
-                  checked={filters.state === state}
-                  onCheckedChange={(checked) =>
-                    onChange({ ...filters, state: checked ? state : undefined })
-                  }
-                  data-testid={`filter-state-${state}`}
-                />
-                <Label htmlFor={`state-${state}`} className="text-sm cursor-pointer">
-                  {state === "NY" ? "New York" : state === "NJ" ? "New Jersey" : "Connecticut"}
-                </Label>
+        {isUnitsMode && (
+          <div className="py-3 px-2 bg-muted/50 rounded-md text-sm text-muted-foreground mb-2">
+            Unit filters: Price Range and Opportunity Score. All units are NYC residential condos.
+          </div>
+        )}
+
+        {!isUnitsMode && (
+          <>
+            <FilterSection title="State">
+              <div className="space-y-2">
+                {states.map((state) => (
+                  <div key={state} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`state-${state}`}
+                      checked={filters.state === state}
+                      onCheckedChange={(checked) =>
+                        onChange({ ...filters, state: checked ? state : undefined })
+                      }
+                      data-testid={`filter-state-${state}`}
+                    />
+                    <Label htmlFor={`state-${state}`} className="text-sm cursor-pointer">
+                      {state === "NY" ? "New York" : state === "NJ" ? "New Jersey" : "Connecticut"}
+                    </Label>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </FilterSection>
+            </FilterSection>
 
-        <Separator />
+            <Separator />
 
-        <FilterSection title="Property Type">
-          <div className="space-y-2">
-            {propertyTypes.map((type) => (
-              <div key={type} className="flex items-center gap-2">
-                <Checkbox
-                  id={`type-${type}`}
-                  checked={filters.propertyTypes?.includes(type)}
-                  onCheckedChange={() => handleArrayToggle("propertyTypes", type)}
-                  data-testid={`filter-type-${type}`}
-                />
-                <Label htmlFor={`type-${type}`} className="text-sm cursor-pointer">
-                  {type}
-                </Label>
+            <FilterSection title="Property Type">
+              <div className="space-y-2">
+                {propertyTypes.map((type) => (
+                  <div key={type} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`type-${type}`}
+                      checked={filters.propertyTypes?.includes(type)}
+                      onCheckedChange={() => handleArrayToggle("propertyTypes", type)}
+                      data-testid={`filter-type-${type}`}
+                    />
+                    <Label htmlFor={`type-${type}`} className="text-sm cursor-pointer">
+                      {type}
+                    </Label>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </FilterSection>
+            </FilterSection>
 
-        <Separator />
+            <Separator />
 
-        <FilterSection title="Bedrooms">
-          <div className="flex flex-wrap gap-2">
-            {bedsBands.map((band) => (
-              <Button
-                key={band}
-                variant={filters.bedsBands?.includes(band) ? "default" : "outline"}
-                size="sm"
-                className="h-8 min-w-[3rem]"
-                onClick={() => handleArrayToggle("bedsBands", band)}
-                data-testid={`filter-beds-${band}`}
-              >
-                {band}
-              </Button>
-            ))}
-          </div>
-        </FilterSection>
-
-        <Separator />
-
-        <FilterSection title="Bathrooms">
-          <div className="flex flex-wrap gap-2">
-            {bathsBands.map((band) => (
-              <Button
-                key={band}
-                variant={filters.bathsBands?.includes(band) ? "default" : "outline"}
-                size="sm"
-                className="h-8 min-w-[3rem]"
-                onClick={() => handleArrayToggle("bathsBands", band)}
-                data-testid={`filter-baths-${band}`}
-              >
-                {band}
-              </Button>
-            ))}
-          </div>
-        </FilterSection>
-
-        <Separator />
-
-        <FilterSection title="Year Built">
-          <div className="space-y-2">
-            {yearBuiltBands.map((band) => (
-              <div key={band} className="flex items-center gap-2">
-                <Checkbox
-                  id={`year-${band}`}
-                  checked={filters.yearBuiltBands?.includes(band)}
-                  onCheckedChange={() => handleArrayToggle("yearBuiltBands", band)}
-                  data-testid={`filter-year-${band}`}
-                />
-                <Label htmlFor={`year-${band}`} className="text-sm cursor-pointer">
-                  {band}
-                </Label>
+            <FilterSection title="Bedrooms">
+              <div className="flex flex-wrap gap-2">
+                {bedsBands.map((band) => (
+                  <Button
+                    key={band}
+                    variant={filters.bedsBands?.includes(band) ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 min-w-[3rem]"
+                    onClick={() => handleArrayToggle("bedsBands", band)}
+                    data-testid={`filter-beds-${band}`}
+                  >
+                    {band}
+                  </Button>
+                ))}
               </div>
-            ))}
-          </div>
-        </FilterSection>
+            </FilterSection>
 
-        <Separator />
+            <Separator />
 
-        <FilterSection title="Size (sqft)">
-          <div className="space-y-2">
-            {sizeBands.map((band) => (
-              <div key={band} className="flex items-center gap-2">
-                <Checkbox
-                  id={`size-${band}`}
-                  checked={filters.sizeBands?.includes(band)}
-                  onCheckedChange={() => handleArrayToggle("sizeBands", band)}
-                  data-testid={`filter-size-${band}`}
-                />
-                <Label htmlFor={`size-${band}`} className="text-sm cursor-pointer">
-                  {band} sqft
-                </Label>
+            <FilterSection title="Bathrooms">
+              <div className="flex flex-wrap gap-2">
+                {bathsBands.map((band) => (
+                  <Button
+                    key={band}
+                    variant={filters.bathsBands?.includes(band) ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 min-w-[3rem]"
+                    onClick={() => handleArrayToggle("bathsBands", band)}
+                    data-testid={`filter-baths-${band}`}
+                  >
+                    {band}
+                  </Button>
+                ))}
               </div>
-            ))}
-          </div>
-        </FilterSection>
+            </FilterSection>
 
-        <Separator />
+            <Separator />
+
+            <FilterSection title="Year Built">
+              <div className="space-y-2">
+                {yearBuiltBands.map((band) => (
+                  <div key={band} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`year-${band}`}
+                      checked={filters.yearBuiltBands?.includes(band)}
+                      onCheckedChange={() => handleArrayToggle("yearBuiltBands", band)}
+                      data-testid={`filter-year-${band}`}
+                    />
+                    <Label htmlFor={`year-${band}`} className="text-sm cursor-pointer">
+                      {band}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </FilterSection>
+
+            <Separator />
+
+            <FilterSection title="Size (sqft)">
+              <div className="space-y-2">
+                {sizeBands.map((band) => (
+                  <div key={band} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`size-${band}`}
+                      checked={filters.sizeBands?.includes(band)}
+                      onCheckedChange={() => handleArrayToggle("sizeBands", band)}
+                      data-testid={`filter-size-${band}`}
+                    />
+                    <Label htmlFor={`size-${band}`} className="text-sm cursor-pointer">
+                      {band} sqft
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </FilterSection>
+
+            <Separator />
+          </>
+        )}
 
         <FilterSection title="Price Range">
           <div className="space-y-4 px-1">
@@ -242,25 +254,29 @@ export function FilterPanel({ filters, onChange, onReset }: FilterPanelProps) {
           </div>
         </FilterSection>
 
-        <Separator />
+        {!isUnitsMode && (
+          <>
+            <Separator />
 
-        <FilterSection title="Confidence Level">
-          <div className="space-y-2">
-            {confidenceLevels.map((level) => (
-              <div key={level} className="flex items-center gap-2">
-                <Checkbox
-                  id={`confidence-${level}`}
-                  checked={filters.confidenceLevels?.includes(level)}
-                  onCheckedChange={() => handleArrayToggle("confidenceLevels", level)}
-                  data-testid={`filter-confidence-${level}`}
-                />
-                <Label htmlFor={`confidence-${level}`} className="text-sm cursor-pointer">
-                  {level}
-                </Label>
+            <FilterSection title="Confidence Level">
+              <div className="space-y-2">
+                {confidenceLevels.map((level) => (
+                  <div key={level} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`confidence-${level}`}
+                      checked={filters.confidenceLevels?.includes(level)}
+                      onCheckedChange={() => handleArrayToggle("confidenceLevels", level)}
+                      data-testid={`filter-confidence-${level}`}
+                    />
+                    <Label htmlFor={`confidence-${level}`} className="text-sm cursor-pointer">
+                      {level}
+                    </Label>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </FilterSection>
+            </FilterSection>
+          </>
+        )}
       </div>
     </ScrollArea>
   );

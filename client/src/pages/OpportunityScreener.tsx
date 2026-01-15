@@ -256,6 +256,7 @@ export default function OpportunityScreener() {
             filters={filters}
             onChange={setFilters}
             onReset={handleResetFilters}
+            entityType={entityType}
           />
         </aside>
 
@@ -313,6 +314,7 @@ export default function OpportunityScreener() {
                       filters={filters}
                       onChange={setFilters}
                       onReset={handleResetFilters}
+                      entityType={entityType}
                     />
                   </SheetContent>
                 </Sheet>
