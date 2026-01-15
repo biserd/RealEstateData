@@ -561,8 +561,17 @@ Sitemap: ${baseUrl}/sitemap.xml
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
       const borough = req.query.borough as string | undefined;
+      const priceMin = req.query.priceMin ? parseInt(req.query.priceMin as string) : undefined;
+      const priceMax = req.query.priceMax ? parseInt(req.query.priceMax as string) : undefined;
+      const opportunityScoreMin = req.query.opportunityScoreMin ? parseInt(req.query.opportunityScoreMin as string) : undefined;
       
-      const units = await storage.getTopUnitOpportunities({ borough, limit });
+      const units = await storage.getTopUnitOpportunities({ 
+        borough, 
+        limit, 
+        priceMin, 
+        priceMax, 
+        opportunityScoreMin 
+      });
       res.json({
         units,
         count: units.length,

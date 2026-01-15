@@ -165,9 +165,19 @@ export default function OpportunityScreener() {
     units: UnitOpportunity[];
     count: number;
   }>({
-    queryKey: ["/api/units/top-opportunities", filters.state === "NY" ? undefined : ""],
+    queryKey: [
+      "/api/units/top-opportunities",
+      filters.priceMin?.toString() || "",
+      filters.priceMax?.toString() || "",
+      filters.opportunityScoreMin?.toString() || "",
+    ],
     queryFn: async () => {
-      const res = await fetch(`/api/units/top-opportunities?limit=30`, {
+      const params = new URLSearchParams({ limit: "30" });
+      if (filters.priceMin) params.append("priceMin", filters.priceMin.toString());
+      if (filters.priceMax) params.append("priceMax", filters.priceMax.toString());
+      if (filters.opportunityScoreMin) params.append("opportunityScoreMin", filters.opportunityScoreMin.toString());
+      
+      const res = await fetch(`/api/units/top-opportunities?${params.toString()}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch units");

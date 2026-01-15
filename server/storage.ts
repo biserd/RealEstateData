@@ -284,6 +284,9 @@ export interface IStorage {
   getTopUnitOpportunities(params?: {
     borough?: string;
     limit?: number;
+    priceMin?: number;
+    priceMax?: number;
+    opportunityScoreMin?: number;
   }): Promise<Array<{
     unitBbl: string;
     baseBbl: string;
@@ -1931,6 +1934,9 @@ export class DatabaseStorage implements IStorage {
   async getTopUnitOpportunities(params?: {
     borough?: string;
     limit?: number;
+    priceMin?: number;
+    priceMax?: number;
+    opportunityScoreMin?: number;
   }): Promise<Array<{
     unitBbl: string;
     baseBbl: string;
@@ -1947,7 +1953,7 @@ export class DatabaseStorage implements IStorage {
     buildingMedianPrice: number | null;
     buildingSalesCount: number;
   }>> {
-    const { borough, limit = 20 } = params || {};
+    const { borough, limit = 20, priceMin, priceMax, opportunityScoreMin } = params || {};
 
     const conditions = [
       eq(condoUnits.unitTypeHint, "residential"),
@@ -1956,6 +1962,14 @@ export class DatabaseStorage implements IStorage {
     
     if (borough) {
       conditions.push(eq(condoUnits.borough, borough));
+    }
+    
+    if (priceMin) {
+      conditions.push(gte(sales.salePrice, priceMin));
+    }
+    
+    if (priceMax) {
+      conditions.push(lte(sales.salePrice, priceMax));
     }
 
     const unitsWithSales = await db
@@ -2007,6 +2021,9 @@ export class DatabaseStorage implements IStorage {
     for (const unit of unitsWithSales) {
       const oppData = await this.getUnitOpportunityData(unit.unitBbl);
       if (oppData && oppData.opportunityScore !== null && oppData.opportunityScore !== undefined) {
+        if (opportunityScoreMin && oppData.opportunityScore < opportunityScoreMin) {
+          continue;
+        }
         const scoreDrivers: Array<{ label: string; value: string; impact: "positive" | "neutral" | "negative" }> = [];
         
         if (oppData.buildingMedianPrice && oppData.lastSalePrice) {
