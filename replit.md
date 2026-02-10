@@ -64,13 +64,15 @@ The platform implements comprehensive SEO optimization:
 
 -   **AI Services:** Replit AI Integrations (OpenAI-compatible API for GPT-5)
 -   **Database:** Neon Serverless PostgreSQL
--   **Payments:** Stripe (via stripe-replit-sync) for subscription management
+-   **Payments:** Stripe (via stripe-replit-sync) for subscription management. Multi-app routing via `APP_SLUG` metadata on checkout sessions and webhook ignore gate.
 -   **Authentication:** Passport Local Strategy (bcrypt for password hashing)
 -   **Geocoding:** NYC Geoclient API
 
 ### Subscription System
 
 The platform implements a three-tier freemium model (Free, Pro, Premium) managed via Stripe. Features are gated based on subscription tier, with usage limits enforced for the Free tier. API endpoints exist for subscription status, checkout, and billing portal access.
+
+**Multi-App Stripe Routing:** The Stripe account is shared across multiple apps (aitracker, nycschoolsratings, realtorsdashboard). Each app tags checkout sessions with `metadata.app = APP_SLUG` and `subscription_data.metadata.app = APP_SLUG`. The webhook handler lets stripe-replit-sync verify/sync all events, then gates business logic (user subscription sync) by checking `metadata.app`. For older subscriptions without metadata, it falls back to matching price IDs against the database via `getValidPriceIds()`. Idempotency is enforced by in-memory event ID tracking.
 
 ### Developer API Access
 

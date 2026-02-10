@@ -20,6 +20,7 @@ export class StripeService {
 
   async createCheckoutSession(customerId: string, priceId: string, successUrl: string, cancelUrl: string) {
     const stripe = await getUncachableStripeClient();
+    const appSlug = process.env.APP_SLUG || 'realtorsdashboard';
     return await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
@@ -27,20 +28,27 @@ export class StripeService {
       mode: 'subscription',
       success_url: successUrl,
       cancel_url: cancelUrl,
+      metadata: { app: appSlug },
+      subscription_data: {
+        metadata: { app: appSlug },
+      },
     });
   }
 
   // Guest checkout - no account required, Stripe collects email
   async createGuestCheckoutSession(priceId: string, successUrl: string, cancelUrl: string) {
     const stripe = await getUncachableStripeClient();
+    const appSlug = process.env.APP_SLUG || 'realtorsdashboard';
     return await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
       success_url: successUrl,
       cancel_url: cancelUrl,
-      // For subscription mode, Stripe automatically creates/requires customers
-      // Customer email is collected during checkout
+      metadata: { app: appSlug },
+      subscription_data: {
+        metadata: { app: appSlug },
+      },
     });
   }
 

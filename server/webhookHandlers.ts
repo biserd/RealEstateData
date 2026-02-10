@@ -1,8 +1,121 @@
 import { getStripeSync, getUncachableStripeClient } from './stripeClient';
+import { stripeService } from './stripeService';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { generateActivationToken } from './auth';
 import { sendActivationEmail } from './emailService';
+
+const APP_SLUG = process.env.APP_SLUG || 'realtorsdashboard';
+
+const processedEventIds = new Set<string>();
+const MAX_PROCESSED_EVENTS = 10000;
+
+function trackEventId(eventId: string): boolean {
+  if (processedEventIds.has(eventId)) {
+    return false;
+  }
+  if (processedEventIds.size >= MAX_PROCESSED_EVENTS) {
+    const firstKey = processedEventIds.values().next().value;
+    if (firstKey) processedEventIds.delete(firstKey);
+  }
+  processedEventIds.add(eventId);
+  return true;
+}
+
+function extractOwnerApp(event: any): string | null {
+  const obj = event?.data?.object;
+  if (!obj) return null;
+
+  if (obj.metadata?.app) {
+    return obj.metadata.app;
+  }
+
+  if (event.type?.startsWith('invoice.')) {
+    const lines = obj.lines?.data || [];
+    for (const line of lines) {
+      if (line.metadata?.app) return line.metadata.app;
+    }
+  }
+
+  return null;
+}
+
+function extractPriceIds(event: any): string[] {
+  const obj = event?.data?.object;
+  if (!obj) return [];
+  const priceIds: string[] = [];
+
+  if (event.type?.startsWith('invoice.')) {
+    const lines = obj.lines?.data || [];
+    for (const line of lines) {
+      if (line.price?.id) priceIds.push(line.price.id);
+      if (line.pricing?.price_details?.price) priceIds.push(line.pricing.price_details.price);
+    }
+  }
+
+  if (event.type?.startsWith('customer.subscription')) {
+    const items = obj.items?.data || [];
+    for (const item of items) {
+      if (item.price?.id) priceIds.push(item.price.id);
+    }
+  }
+
+  if (event.type?.startsWith('checkout.session')) {
+    const lineItems = obj.line_items?.data || [];
+    for (const item of lineItems) {
+      if (item.price?.id) priceIds.push(item.price.id);
+    }
+  }
+
+  return priceIds;
+}
+
+async function shouldProcessBusinessLogic(event: any): Promise<boolean> {
+  const eventId = event.id;
+  const eventType = event.type;
+
+  const ownerApp = extractOwnerApp(event);
+
+  if (ownerApp && ownerApp !== APP_SLUG) {
+    console.log(`[Webhook] Skipping business logic for event ${eventId} (${eventType}) - belongs to app "${ownerApp}"`);
+    return false;
+  }
+
+  if (ownerApp === APP_SLUG) {
+    console.log(`[Webhook] Event ${eventId} (${eventType}) belongs to "${APP_SLUG}"`);
+    return true;
+  }
+
+  const priceIds = extractPriceIds(event);
+  if (priceIds.length > 0) {
+    try {
+      const validPriceIds = await stripeService.getValidPriceIds();
+      const hasMatch = priceIds.some(id => validPriceIds.includes(id));
+      if (!hasMatch) {
+        console.log(`[Webhook] Skipping business logic for event ${eventId} (${eventType}) - price IDs [${priceIds.join(', ')}] don't match this app's products`);
+        return false;
+      }
+      console.log(`[Webhook] Event ${eventId} (${eventType}) matched by price ID fallback`);
+      return true;
+    } catch (err: any) {
+      console.warn(`[Webhook] Could not validate price IDs, processing event anyway: ${err.message}`);
+      return true;
+    }
+  }
+
+  const safeEventTypes = [
+    'product.', 'price.', 'coupon.', 'promotion_code.',
+    'tax_rate.', 'billing_portal.',
+  ];
+  const isSafeEvent = safeEventTypes.some(prefix => eventType?.startsWith(prefix));
+  if (isSafeEvent) {
+    console.log(`[Webhook] Event ${eventId} (${eventType}) is account-level - processing`);
+    return true;
+  }
+
+  console.log(`[Webhook] Skipping business logic for event ${eventId} (${eventType}) - no app metadata or matching price IDs`);
+  return false;
+}
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string, uuid: string): Promise<void> {
@@ -24,28 +137,44 @@ export class WebhookHandlers {
       await sync.processWebhook(payload, signature, uuid);
       console.log(`[Webhook] stripeSync.processWebhook completed successfully`);
     } catch (error: any) {
-      // stripe-replit-sync throws "Unhandled webhook event" for event types it doesn't recognize
-      // This is expected behavior - Stripe sends many event types but the library only handles
-      // subscription-related ones. We should gracefully ignore these instead of failing.
       if (error.message && error.message.includes('Unhandled webhook event')) {
         console.log(`[Webhook] Ignoring unhandled event type (this is normal): ${error.message}`);
-        return; // Exit gracefully - this is not an error
+        return;
       }
-      // For actual errors, log and re-throw
       console.error(`[Webhook] stripeSync.processWebhook failed:`, error.message);
       console.error(`[Webhook] Full error:`, error);
       throw error;
     }
+
+    let event: any;
+    try {
+      event = JSON.parse(payload.toString('utf8'));
+    } catch {
+      console.warn('[Webhook] Could not parse payload for routing check, running business logic anyway');
+      event = null;
+    }
+
+    if (event) {
+      const eventId = event.id;
+      const eventType = event.type;
+
+      if (eventId && !trackEventId(eventId)) {
+        console.log(`[Webhook] Duplicate event ${eventId} (${eventType}) - skipping business logic`);
+        return;
+      }
+
+      const shouldProcess = await shouldProcessBusinessLogic(event);
+      if (!shouldProcess) {
+        return;
+      }
+    }
     
-    // After stripe-replit-sync processes the webhook and updates its tables,
-    // we need to sync user subscription status from the Stripe tables
     try {
       console.log(`[Webhook] Syncing user subscriptions from Stripe tables...`);
       await syncUserSubscriptions();
       console.log(`[Webhook] User subscription sync completed`);
     } catch (error: any) {
       console.error(`[Webhook] Error syncing user subscriptions:`, error.message);
-      // Don't throw here - the webhook was processed successfully
     }
   }
 }
@@ -127,6 +256,11 @@ async function processNewCheckoutSessions(): Promise<void> {
   
   for (const session of sessions.data) {
     if (session.payment_status !== 'paid' || !session.subscription) {
+      continue;
+    }
+    
+    const sessionApp = session.metadata?.app;
+    if (sessionApp && sessionApp !== APP_SLUG) {
       continue;
     }
     
