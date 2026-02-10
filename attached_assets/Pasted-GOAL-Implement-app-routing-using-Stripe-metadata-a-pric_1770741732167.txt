@@ -1,0 +1,65 @@
+GOAL
+Implement “app routing” using Stripe metadata + a price allowlist fallback, without creating any new APIs.
+
+HIGH-LEVEL PLAN
+1) Tag all Stripe Checkouts/Subscriptions with metadata.app = APP_SLUG (unique per app).
+2) In each app’s existing webhook handler:
+   - Verify Stripe signature (raw body!)
+   - Determine if event belongs to this app using metadata + fallback checks
+   - If NOT ours, return HTTP 200 immediately (ignored)
+   - If ours, process normally
+3) Add idempotency by event.id to avoid double-processing on retries.
+
+STEP 1 — ENV VARS (PER APP)
+Add these env vars in EACH app deployment:
+- APP_SLUG (unique):
+  - aitracker
+  - nycschoolsratings
+  - realtorsdashboard
+- STRIPE_SECRET_KEY (same Stripe account key is fine)
+- STRIPE_WEBHOOK_SECRET (WHSEC is different per endpoint!)
+- ALLOWED_PRICE_IDS (comma-separated; per app only; used as fallback for old subscriptions missing metadata)
+  Example: "price_123,price_456"
+
+STEP 2 — ADD METADATA AT CHECKOUT CREATION (PER APP)
+Find where each app creates Stripe Checkout Sessions and add:
+A) For subscription checkouts (mode="subscription"):
+- session.metadata.app = APP_SLUG
+- subscription_data.metadata.app = APP_SLUG   (IMPORTANT so invoices/subscription events can be routed)
+
+Example:
+stripe.checkout.sessions.create({
+  mode: "subscription",
+  line_items: [{ price: PRICE_ID, quantity: 1 }],
+  success_url: ...,
+  cancel_url: ...,
+  metadata: { app: APP_SLUG, userId: "<optional>" },
+  subscription_data: {
+    metadata: { app: APP_SLUG, userId: "<optional>" }
+  }
+})
+
+B) For one-time payments (mode="payment"):
+- session.metadata.app = APP_SLUG
+- payment_intent_data.metadata.app = APP_SLUG
+
+STEP 3 — WEBHOOK IGNORE-GATE (PER APP)
+In each app’s existing webhook endpoint:
+IMPORTANT: Stripe signature verification requires the RAW request body (don’t JSON parse first).
+
+1) Verify signature using STRIPE_WEBHOOK_SECRET for THAT endpoint.
+2) Determine “owner app”:
+
+Routing function (pseudo):
+- First try: event.data.object.metadata.app
+- If invoice.*: scan invoice.lines.data[].metadata.app
+- Else fallback: extract price IDs from the event and match ALLOWED_PRICE_IDS:
+  - invoice lines: line.price.id (older) OR line.pricing.price_details.price (newer)
+  - subscription events: subscription.items.data[].price.id
+
+3) If ownerApp exists AND ownerApp != APP_SLUG → IGNORE:
+   - log: ignored event.id, event.type, ownerApp
+   - return HTTP 200 {ignored:true}
+4) If ownerApp missing AND ALLOWED_PRICE_IDS configured:
+   - if NO price match → IGNORE return 200
+5) Otherwise process the event normally.
