@@ -51,12 +51,14 @@ The `condo_units` table contains over 300K NYC condo unit records, enabling unit
 ### SEO & Sitemap System
 
 The platform implements comprehensive SEO optimization:
+- **Server-Side Meta Tags**: `server/seoMetaTags.ts` injects unique title, description, OG, canonical, and Twitter tags per page at the HTML level (in `static.ts` for production). This ensures crawlers see page-specific meta without needing JavaScript rendering. Covers unit pages (300K+), property pages, and static pages.
 - **SEO-Friendly Unit URLs**: Format `/unit/{address}-unit-{designation}-{borough}-{9-digit-bbl}` (e.g., `/unit/1-water-street-unit-suba-manhattan-000041001`)
 - **Paginated Sitemaps**: Unit sitemaps paginated at 40k items per file (8 files for 300k+ units)
 - **Sitemap Index**: `/sitemap.xml` includes static pages, properties, and units
 - **Legacy URL Support**: Old unitBbl URLs redirect to SEO-friendly slugs
 - **Unit Resolver API**: `/api/units/resolve/:idOrSlug` handles both slug and legacy BBL lookups
 - **Admin Slug Generation**: `/api/admin/generate-unit-slugs` for batch slug generation
+- **Content-Signal**: robots.txt includes `Content-Signal: ai-train=yes, search=yes, ai-input=yes`
 
 ## External Dependencies
 
