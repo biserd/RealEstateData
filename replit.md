@@ -86,3 +86,14 @@ The platform implements a three-tier freemium model (Free, Pro, Premium) managed
 ### Developer API Access
 
 Pro subscribers can generate API keys to programmatically access platform data via external API endpoints for properties, market stats, comps, and trending ZIP codes. API key management is available, including generation and revocation, with rate limiting enforced.
+
+### Internal Linking & Browse Pages
+
+State and city browse pages (`/browse/:state` and `/browse/:state/:city`) provide SEO-friendly geographic navigation with:
+- State pages showing city listings, stats (total properties, median price), property type breakdowns, and top opportunities
+- City pages with ZIP code breakdowns, paginated property listings, and market stats
+- Breadcrumb navigation (Home > State > City)
+- Similar Properties section on PropertyDetail pages (same ZIP, type, and price range matching with fallback)
+- Server-side SEO meta tags for browse pages (`seoMetaTags.ts`)
+- Dedicated `sitemap-browse.xml` included in sitemap index
+- Browse API endpoints: `/api/browse/states`, `/api/browse/state/:state`, `/api/browse/state/:state/properties`, `/api/browse/state/:state/city/:city`, `/api/browse/state/:state/city/:city/properties`, `/api/properties/:id/similar`
