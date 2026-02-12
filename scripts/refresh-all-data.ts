@@ -74,6 +74,34 @@ const CT_TOWNS = [
   "Trumbull", "Darien", "Westport", "New Canaan", "Ridgefield",
 ];
 
+const CT_ZIP_FALLBACK: Record<string, string> = {
+  Waterbury: "06702", Norwalk: "06850", Danbury: "06810",
+  "New Britain": "06051", Greenwich: "06830", Fairfield: "06824",
+  "West Hartford": "06107", Hamden: "06514", Milford: "06460",
+  Meriden: "06450", Bristol: "06010", Manchester: "06040",
+  "West Haven": "06516", Stratford: "06614", Middletown: "06457",
+  Shelton: "06484", Trumbull: "06611", Darien: "06820",
+  Westport: "06880", "New Canaan": "06840", Ridgefield: "06877",
+  "New Haven": "06510", Stamford: "06901", Bridgeport: "06601",
+  Hartford: "06103",
+};
+
+const CT_COORDS: Record<string, { lat: number; lng: number }> = {
+  Stamford: { lat: 41.0534, lng: -73.5387 }, Bridgeport: { lat: 41.1865, lng: -73.1952 },
+  "New Haven": { lat: 41.3081, lng: -72.9282 }, Hartford: { lat: 41.7658, lng: -72.6734 },
+  Waterbury: { lat: 41.5582, lng: -73.0515 }, Norwalk: { lat: 41.1177, lng: -73.4082 },
+  Danbury: { lat: 41.3948, lng: -73.4540 }, "New Britain": { lat: 41.6612, lng: -72.7795 },
+  Greenwich: { lat: 41.0262, lng: -73.6285 }, Fairfield: { lat: 41.1408, lng: -73.2614 },
+  "West Hartford": { lat: 41.7620, lng: -72.7420 }, Hamden: { lat: 41.3959, lng: -72.8968 },
+  Milford: { lat: 41.2223, lng: -73.0565 }, Meriden: { lat: 41.5382, lng: -72.8071 },
+  Bristol: { lat: 41.6718, lng: -72.9493 }, Manchester: { lat: 41.7759, lng: -72.5215 },
+  "West Haven": { lat: 41.2712, lng: -72.9470 }, Stratford: { lat: 41.1845, lng: -73.1332 },
+  Middletown: { lat: 41.5622, lng: -72.6505 }, Shelton: { lat: 41.3068, lng: -73.0932 },
+  Trumbull: { lat: 41.2429, lng: -73.2008 }, Darien: { lat: 41.0787, lng: -73.4696 },
+  Westport: { lat: 41.1415, lng: -73.3579 }, "New Canaan": { lat: 41.1468, lng: -73.4951 },
+  Ridgefield: { lat: 41.2815, lng: -73.4985 },
+};
+
 const CT_COUNTY_MAP: Record<string, string> = {
   Stamford: "Fairfield", Bridgeport: "Fairfield", Norwalk: "Fairfield",
   Danbury: "Fairfield", Greenwich: "Fairfield", Fairfield: "Fairfield",
@@ -482,19 +510,25 @@ async function importCTProperties(): Promise<number> {
 
         const county = CT_COUNTY_MAP[town] || "Unknown";
 
-        const lat = 41.0 + Math.random() * 0.5;
-        const lng = -73.2 + Math.random() * 0.5;
+        const coords = CT_COORDS[town] || { lat: 41.3, lng: -72.9 };
+        const latJitter = (Math.random() - 0.5) * 0.03;
+        const lngJitter = (Math.random() - 0.5) * 0.03;
+        const lat = coords.lat + latJitter;
+        const lng = coords.lng + lngJitter;
         const grid = generateGridCoords(lat, lng);
+
+        let zipCode = r.mailing_zip?.substring(0, 5);
+        if (!zipCode || zipCode.length < 5) zipCode = CT_ZIP_FALLBACK[town] || "06000";
 
         batchValues.push({
           address: r.location?.trim() || `${randomBetween(1, 999)} Main St`,
           city: town,
           state: "CT",
-          zipCode: r.mailing_zip?.substring(0, 5) || null,
+          zipCode,
           county,
           neighborhood: r.neighborhood || town,
           latitude: lat,
-          longitude: lng * -1,
+          longitude: -Math.abs(lng),
           propertyType: propType,
           beds,
           baths,
@@ -531,156 +565,83 @@ async function importCTProperties(): Promise<number> {
 }
 
 async function computePropertySignals(): Promise<number> {
-  console.log("\n=== STEP 4: Computing Property Signals ===\n");
+  console.log("\n=== STEP 4: Computing Property Signals (Fast SQL) ===\n");
 
-  const nycProperties = await db
-    .select()
-    .from(properties)
-    .where(
-      and(
-        eq(properties.state, "NY"),
-        or(
-          eq(properties.city, "Manhattan"),
-          eq(properties.city, "Brooklyn"),
-          eq(properties.city, "Bronx"),
-          eq(properties.city, "Queens"),
-          eq(properties.city, "Staten Island")
-        )
-      )
-    );
+  await db.execute(sql`
+    INSERT INTO property_signal_summary (
+      id, property_id, bbl,
+      active_permits, permit_count_12m,
+      open_hpd_violations, total_hpd_violations_12m,
+      active_dob_complaints, dob_complaints_12m,
+      complaints_311_12m,
+      building_health_score, health_risk_level,
+      nearest_subway_meters, nearest_subway_station, nearest_subway_lines,
+      has_accessible_transit, transit_score,
+      flood_zone, is_flood_high_risk, is_flood_moderate_risk, flood_risk_level,
+      amenities_400m, amenities_800m, parks_400m, groceries_800m, amenity_score,
+      signal_confidence, data_completeness,
+      has_deep_coverage, signal_data_sources,
+      updated_at
+    )
+    SELECT
+      'signal-' || p.id, p.id, p.bbl,
+      COALESCE(dp.permit_count, 0), COALESCE(dp.permit_count, 0),
+      COALESCE(hv.open_violations, 0), COALESCE(hv.total_violations, 0),
+      0, 0,
+      COALESCE(c3.complaint_count, 0),
+      GREATEST(0, 100 - COALESCE(hv.open_violations, 0) * 5 - COALESCE(c3.complaint_count, 0) * 2),
+      CASE
+        WHEN GREATEST(0, 100 - COALESCE(hv.open_violations, 0) * 5 - COALESCE(c3.complaint_count, 0) * 2) >= 80 THEN 'low'
+        WHEN GREATEST(0, 100 - COALESCE(hv.open_violations, 0) * 5 - COALESCE(c3.complaint_count, 0) * 2) >= 60 THEN 'medium'
+        WHEN GREATEST(0, 100 - COALESCE(hv.open_violations, 0) * 5 - COALESCE(c3.complaint_count, 0) * 2) >= 40 THEN 'high'
+        ELSE 'critical'
+      END,
+      NULL, NULL, NULL, false, 0,
+      CASE
+        WHEN p.latitude < 40.65 THEN 'VE'
+        WHEN p.latitude < 40.68 THEN 'AE'
+        WHEN p.latitude < 40.72 THEN 'X-SHADED'
+        ELSE 'X'
+      END,
+      p.latitude < 40.68,
+      p.latitude >= 40.68 AND p.latitude < 40.72,
+      CASE
+        WHEN p.latitude < 40.65 THEN 'severe'
+        WHEN p.latitude < 40.68 THEN 'high'
+        WHEN p.latitude < 40.72 THEN 'moderate'
+        ELSE 'minimal'
+      END,
+      0, 0, 0, 0, 0,
+      CASE
+        WHEN p.bbl IS NOT NULL AND (COALESCE(dp.permit_count, 0) > 0 OR COALESCE(hv.total_violations, 0) > 0 OR COALESCE(c3.complaint_count, 0) > 0) THEN 'high'
+        WHEN p.bbl IS NOT NULL THEN 'medium'
+        ELSE 'low'
+      END,
+      CASE
+        WHEN p.bbl IS NOT NULL AND (COALESCE(dp.permit_count, 0) > 0 OR COALESCE(hv.total_violations, 0) > 0) THEN 80
+        WHEN p.bbl IS NOT NULL THEN 60
+        ELSE 40
+      END,
+      true, ARRAY['dob', 'hpd', '311', 'fema'], NOW()
+    FROM properties p
+    LEFT JOIN (SELECT bbl, COUNT(*) as permit_count FROM dob_permits_raw WHERE bbl IS NOT NULL GROUP BY bbl) dp ON dp.bbl = p.bbl
+    LEFT JOIN (SELECT bbl, SUM(open_violations) as open_violations, SUM(total_violations) as total_violations FROM hpd_raw WHERE bbl IS NOT NULL GROUP BY bbl) hv ON hv.bbl = p.bbl
+    LEFT JOIN (SELECT bbl, COUNT(*) as complaint_count FROM complaints_311_raw WHERE bbl IS NOT NULL GROUP BY bbl) c3 ON c3.bbl = p.bbl
+    WHERE p.state = 'NY' AND p.city IN ('Manhattan', 'Brooklyn', 'Bronx', 'Queens', 'Staten Island')
+    ON CONFLICT (property_id) DO UPDATE SET
+      active_permits = EXCLUDED.active_permits, permit_count_12m = EXCLUDED.permit_count_12m,
+      open_hpd_violations = EXCLUDED.open_hpd_violations, total_hpd_violations_12m = EXCLUDED.total_hpd_violations_12m,
+      complaints_311_12m = EXCLUDED.complaints_311_12m,
+      building_health_score = EXCLUDED.building_health_score, health_risk_level = EXCLUDED.health_risk_level,
+      flood_zone = EXCLUDED.flood_zone, is_flood_high_risk = EXCLUDED.is_flood_high_risk,
+      is_flood_moderate_risk = EXCLUDED.is_flood_moderate_risk, flood_risk_level = EXCLUDED.flood_risk_level,
+      signal_confidence = EXCLUDED.signal_confidence, data_completeness = EXCLUDED.data_completeness,
+      updated_at = EXCLUDED.updated_at
+  `);
 
-  console.log(`  Processing ${nycProperties.length} NYC properties for signals...`);
-
-  let processed = 0;
-  const batchSize = 200;
-
-  for (let i = 0; i < nycProperties.length; i += batchSize) {
-    const batch = nycProperties.slice(i, i + batchSize);
-
-    for (const property of batch) {
-      try {
-        const bbl = property.bbl;
-        let activePermits = 0;
-        let openHpdViolations = 0;
-        let openDobComplaints = 0;
-        let recent311Complaints = 0;
-
-        if (bbl) {
-          const [permitResult] = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(dobPermitsRaw)
-            .where(eq(dobPermitsRaw.bbl, bbl));
-          activePermits = permitResult?.count || 0;
-
-          const [hpdResult] = await db
-            .select({ total: sql<number>`coalesce(sum(open_violations), 0)::int` })
-            .from(hpdRaw)
-            .where(eq(hpdRaw.bbl, bbl));
-          openHpdViolations = hpdResult?.total || 0;
-
-          const [complaints311Result] = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(complaints311Raw)
-            .where(eq(complaints311Raw.bbl, bbl));
-          recent311Complaints = complaints311Result?.count || 0;
-        }
-
-        const buildingHealthScore = Math.max(
-          0,
-          100 - openHpdViolations * 5 - openDobComplaints * 3 - recent311Complaints * 2
-        );
-
-        const healthRiskLevel = buildingHealthScore >= 80 ? "low"
-          : buildingHealthScore >= 60 ? "medium"
-          : buildingHealthScore >= 40 ? "high" : "critical";
-
-        let floodZone = "X";
-        let isFloodHighRisk = false;
-        let isFloodModerateRisk = false;
-        let floodRiskLevel = "minimal";
-
-        if (property.latitude) {
-          const lat = property.latitude;
-          if (lat < 40.65) {
-            floodZone = "VE"; isFloodHighRisk = true; floodRiskLevel = "severe";
-          } else if (lat < 40.68) {
-            floodZone = "AE"; isFloodHighRisk = true; floodRiskLevel = "high";
-          } else if (lat < 40.72) {
-            floodZone = "X-SHADED"; isFloodModerateRisk = true; floodRiskLevel = "moderate";
-          }
-        }
-
-        let dataPoints = 0;
-        const totalDataPoints = 5;
-        if (bbl) dataPoints++;
-        dataPoints++;
-        if (bbl && (openHpdViolations > 0 || openDobComplaints > 0 || activePermits > 0)) {
-          dataPoints++;
-        } else if (bbl) {
-          dataPoints += 0.5;
-        }
-        dataPoints++;
-        dataPoints += 0.5;
-
-        const dataCompleteness = Math.round((dataPoints / totalDataPoints) * 100);
-        const signalConfidence = dataCompleteness >= 80 ? "high"
-          : dataCompleteness >= 50 ? "medium"
-          : "low";
-
-        const signalSummary = {
-          id: `signal-${property.id}`,
-          propertyId: property.id,
-          bbl: property.bbl,
-          activePermits,
-          permitCount12m: activePermits,
-          openHpdViolations,
-          totalHpdViolations12m: openHpdViolations,
-          activeDobComplaints: openDobComplaints,
-          dobComplaints12m: openDobComplaints,
-          complaints31112m: recent311Complaints,
-          buildingHealthScore,
-          healthRiskLevel,
-          nearestSubwayMeters: null as number | null,
-          nearestSubwayStation: null as string | null,
-          nearestSubwayLines: null as string[] | null,
-          hasAccessibleTransit: false,
-          transitScore: 0,
-          floodZone,
-          isFloodHighRisk,
-          isFloodModerateRisk,
-          floodRiskLevel,
-          amenities400m: 0,
-          amenities800m: 0,
-          parks400m: 0,
-          groceries800m: 0,
-          amenityScore: 0,
-          signalConfidence,
-          dataCompleteness,
-          hasDeepCoverage: true,
-          signalDataSources: ["dob", "hpd", "311", "fema"],
-          updatedAt: new Date(),
-        };
-
-        await db
-          .insert(propertySignalSummary)
-          .values(signalSummary)
-          .onConflictDoUpdate({
-            target: propertySignalSummary.propertyId,
-            set: signalSummary,
-          });
-
-        processed++;
-      } catch (error) {
-        // skip individual errors
-      }
-    }
-
-    if (processed % 1000 === 0 || processed === nycProperties.length) {
-      console.log(`    Signals computed: ${processed}/${nycProperties.length}`);
-    }
-  }
-
-  console.log(`  Completed: ${processed} property signals computed`);
+  const [result] = await db.select({ cnt: sql<number>`count(*)::int` }).from(propertySignalSummary);
+  const processed = result?.cnt || 0;
+  console.log(`  Computed ${processed} property signals via SQL`);
   return processed;
 }
 
@@ -1021,7 +982,7 @@ async function generateSalesForNewProperties(): Promise<number> {
 
       salesBatch.push({
         propertyId: prop.id,
-        salePrice: Math.round((prop.pricePerSqft || 300) * randomBetween(800, 2500) * (0.6 + yearsAgo * 0.03)),
+        salePrice: Math.min(2000000000, Math.round((prop.pricePerSqft || 200) * randomBetween(600, 1800) * (0.7 + yearsAgo * 0.02))),
         saleDate,
         armsLength: Math.random() > 0.1,
         deedType: randomFrom(["Warranty", "Quitclaim", "Grant"]),
