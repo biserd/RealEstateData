@@ -51,11 +51,18 @@ import { UpgradeModal, BlurredContent, ProBadge } from "@/components/UpgradeProm
 import { NycDeepInsights } from "@/components/NycDeepInsights";
 import { PropertyAIInsights } from "@/components/PropertyAIInsights";
 import { BuildingSalesHistory } from "@/components/BuildingSalesHistory";
+import { PropertyCard } from "@/components/PropertyCard";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import type { Property, OpportunityScoreBreakdown, Comp, MarketAggregate, AIResponse } from "@shared/schema";
+
+const STATE_NAMES: Record<string, string> = {
+  NY: "New York",
+  NJ: "New Jersey",
+  CT: "Connecticut",
+};
 
 interface PropertyWithDetails extends Property {
   scoreBreakdown?: OpportunityScoreBreakdown;
@@ -295,6 +302,16 @@ export default function PropertyDetail() {
         return [];
       }
       if (!res.ok) throw new Error("Failed to fetch comps");
+      return res.json();
+    },
+  });
+
+  const { data: similarProperties } = useQuery<Property[]>({
+    queryKey: ["/api/properties", id, "similar"],
+    enabled: !!id && !!property,
+    queryFn: async () => {
+      const res = await fetch(`/api/properties/${id}/similar?limit=6`);
+      if (!res.ok) return [];
       return res.json();
     },
   });
@@ -1074,6 +1091,28 @@ export default function PropertyDetail() {
         </Tabs>
       </div>
       
+      {similarProperties && similarProperties.length > 0 && (
+        <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+          <Separator className="mb-8" />
+          <h2 className="text-xl font-semibold mb-4" data-testid="text-similar-properties-title">Similar Properties Nearby</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {similarProperties.map(prop => (
+              <PropertyCard key={prop.id} property={prop} showOpportunityScore />
+            ))}
+          </div>
+          {property && (
+            <div className="mt-6 flex flex-wrap gap-3 text-sm">
+              <Link href={`/browse/${property.state.toLowerCase()}`} className="text-foreground hover:underline font-medium" data-testid="link-browse-state">
+                More properties in {STATE_NAMES[property.state] || property.state}
+              </Link>
+              <Link href={`/browse/${property.state.toLowerCase()}/${encodeURIComponent(property.city)}`} className="text-foreground hover:underline font-medium" data-testid="link-browse-city">
+                More properties in {property.city}
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
       <UpgradeModal
         open={showUpgradeModal}
         onOpenChange={setShowUpgradeModal}

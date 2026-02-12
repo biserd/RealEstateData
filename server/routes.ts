@@ -290,6 +290,12 @@ Sitemap: ${baseUrl}/sitemap.xml
   </sitemap>
 `;
       }
+
+      xml += `  <sitemap>
+    <loc>${baseUrl}/sitemap-browse.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+`;
       
       xml += `</sitemapindex>`;
       
@@ -338,6 +344,46 @@ Sitemap: ${baseUrl}/sitemap.xml
     
     res.type("application/xml");
     res.send(xml);
+  });
+
+  // SEO: Browse pages sitemap (state/city pages)
+  app.get("/sitemap-browse.xml", async (req, res) => {
+    try {
+      const baseUrl = `https://${req.get("host")}`;
+      const today = new Date().toISOString().split("T")[0];
+      const data = await storage.getStateCityList();
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+`;
+      
+      for (const stateData of data) {
+        const stateSlug = stateData.state.toLowerCase();
+        xml += `  <url>
+    <loc>${baseUrl}/browse/${stateSlug}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+`;
+        for (const city of stateData.cities) {
+          xml += `  <url>
+    <loc>${baseUrl}/browse/${stateSlug}/${encodeURIComponent(city)}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+`;
+        }
+      }
+      
+      xml += `</urlset>`;
+      res.type("application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating browse sitemap:", error);
+      res.status(500).send("Error generating browse sitemap");
+    }
   });
 
   // SEO: Property pages sitemap (paginated)
@@ -1210,6 +1256,108 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error fetching condo unit:", error);
       res.status(500).json({ message: "Failed to fetch condo unit" });
+    }
+  });
+
+  // Browse: List all states
+  app.get("/api/browse/states", async (req, res) => {
+    try {
+      const states = await storage.getDistinctStates();
+      res.json(states);
+    } catch (error) {
+      console.error("Error fetching states:", error);
+      res.status(500).json({ message: "Failed to fetch states" });
+    }
+  });
+
+  // Browse: State stats + cities
+  app.get("/api/browse/state/:state", async (req, res) => {
+    try {
+      const state = req.params.state.toUpperCase();
+      const stats = await storage.getStateStats(state);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching state stats:", error);
+      res.status(500).json({ message: "Failed to fetch state stats" });
+    }
+  });
+
+  // Browse: State properties (paginated)
+  app.get("/api/browse/state/:state/properties", async (req, res) => {
+    try {
+      const state = req.params.state.toUpperCase();
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 20;
+      const offset = (page - 1) * limit;
+      const [props, total] = await Promise.all([
+        storage.getPropertiesByState(state, limit, offset),
+        storage.getPropertyCountByState(state),
+      ]);
+      res.json({ properties: props, total, page, totalPages: Math.ceil(total / limit) });
+    } catch (error) {
+      console.error("Error fetching state properties:", error);
+      res.status(500).json({ message: "Failed to fetch state properties" });
+    }
+  });
+
+  // Browse: City stats + zips
+  app.get("/api/browse/state/:state/city/:city", async (req, res) => {
+    try {
+      const state = req.params.state.toUpperCase();
+      const city = decodeURIComponent(req.params.city);
+      const stats = await storage.getCityStats(state, city);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching city stats:", error);
+      res.status(500).json({ message: "Failed to fetch city stats" });
+    }
+  });
+
+  // Browse: City properties (paginated)
+  app.get("/api/browse/state/:state/city/:city/properties", async (req, res) => {
+    try {
+      const state = req.params.state.toUpperCase();
+      const city = decodeURIComponent(req.params.city);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 20;
+      const offset = (page - 1) * limit;
+      const [props, total] = await Promise.all([
+        storage.getPropertiesByCity(state, city, limit, offset),
+        storage.getPropertyCountByCity(state, city),
+      ]);
+      res.json({ properties: props, total, page, totalPages: Math.ceil(total / limit) });
+    } catch (error) {
+      console.error("Error fetching city properties:", error);
+      res.status(500).json({ message: "Failed to fetch city properties" });
+    }
+  });
+
+  // Browse: State/City list for sitemap
+  app.get("/api/browse/sitemap-data", async (req, res) => {
+    try {
+      const data = await storage.getStateCityList();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching sitemap data:", error);
+      res.status(500).json({ message: "Failed to fetch sitemap data" });
+    }
+  });
+
+  // Similar properties for a given property
+  app.get("/api/properties/:id/similar", async (req, res) => {
+    try {
+      const property = await storage.getProperty(req.params.id);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      const limit = Math.min(parseInt(req.query.limit as string) || 6, 12);
+      const similar = await storage.getSimilarProperties(
+        property.id, property.zipCode, property.propertyType, property.estimatedValue, limit
+      );
+      res.json(similar);
+    } catch (error) {
+      console.error("Error fetching similar properties:", error);
+      res.status(500).json({ message: "Failed to fetch similar properties" });
     }
   });
 

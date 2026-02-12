@@ -33,6 +33,8 @@ import Activate from "@/pages/Activate";
 import BuildingDetail from "@/pages/BuildingDetail";
 import UnitDetail from "@/pages/UnitDetail";
 import PropertyResolver from "@/pages/PropertyResolver";
+import StateBrowse from "@/pages/StateBrowse";
+import CityBrowse from "@/pages/CityBrowse";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -72,6 +74,8 @@ function Router() {
       <Route path="/developers" component={Developers} />
       <Route path="/api-access" component={ApiAccess} />
       <Route path="/release-notes" component={ReleaseNotes} />
+      <Route path="/browse/:state" component={StateBrowse} />
+      <Route path="/browse/:state/:city" component={CityBrowse} />
       <Route component={NotFound} />
     </Switch>
   );

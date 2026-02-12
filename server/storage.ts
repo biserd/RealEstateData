@@ -87,6 +87,17 @@ export interface IStorage {
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property | undefined>;
   
+  getStateStats(state: string): Promise<{ totalProperties: number; cities: { city: string; count: number; medianPrice: number }[]; medianPrice: number; propertyTypes: { type: string; count: number }[] }>;
+  getCityStats(state: string, city: string): Promise<{ totalProperties: number; zips: { zipCode: string; count: number; medianPrice: number }[]; medianPrice: number; propertyTypes: { type: string; count: number }[] }>;
+  getPropertiesByState(state: string, limit: number, offset: number): Promise<Property[]>;
+  getPropertiesByCity(state: string, city: string, limit: number, offset: number): Promise<Property[]>;
+  getPropertyCountByState(state: string): Promise<number>;
+  getPropertyCountByCity(state: string, city: string): Promise<number>;
+  getDistinctCities(state: string): Promise<string[]>;
+  getDistinctStates(): Promise<string[]>;
+  getSimilarProperties(propertyId: string, zipCode: string, propertyType: string | null, estimatedValue: number | null, limit?: number): Promise<Property[]>;
+  getStateCityList(): Promise<{ state: string; cities: string[] }[]>;
+
   // Sales operations
   getSalesForProperty(propertyId: string): Promise<Sale[]>;
   getRecentSalesForArea(geoType: string, geoId: string, limit?: number): Promise<(Sale & { property: Property })[]>;
@@ -616,6 +627,134 @@ export class DatabaseStorage implements IStorage {
       .where(eq(properties.id, id))
       .returning();
     return updated;
+  }
+
+  async getStateStats(state: string) {
+    const upperState = state.toUpperCase();
+    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(eq(properties.state, upperState));
+    const [medianResult] = await db.select({ median: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int` }).from(properties).where(and(eq(properties.state, upperState), gte(properties.estimatedValue, 1)));
+    
+    const cityRows = await db.execute(sql`
+      SELECT city, COUNT(*)::int as count, 
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median_price
+      FROM properties WHERE state = ${upperState} AND city IS NOT NULL AND estimated_value > 0
+      GROUP BY city ORDER BY count DESC LIMIT 50
+    `);
+    
+    const typeRows = await db.execute(sql`
+      SELECT property_type as type, COUNT(*)::int as count
+      FROM properties WHERE state = ${upperState} AND property_type IS NOT NULL
+      GROUP BY property_type ORDER BY count DESC
+    `);
+    
+    return {
+      totalProperties: totalResult?.count || 0,
+      medianPrice: medianResult?.median || 0,
+      cities: (cityRows.rows as any[]).map(r => ({ city: r.city, count: parseInt(r.count), medianPrice: parseInt(r.median_price) || 0 })),
+      propertyTypes: (typeRows.rows as any[]).map(r => ({ type: r.type, count: parseInt(r.count) })),
+    };
+  }
+
+  async getCityStats(state: string, city: string) {
+    const upperState = state.toUpperCase();
+    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city)));
+    const [medianResult] = await db.select({ median: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city), gte(properties.estimatedValue, 1)));
+    
+    const zipRows = await db.execute(sql`
+      SELECT zip_code, COUNT(*)::int as count,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median_price
+      FROM properties WHERE state = ${upperState} AND city = ${city} AND zip_code IS NOT NULL AND estimated_value > 0
+      GROUP BY zip_code ORDER BY count DESC
+    `);
+    
+    const typeRows = await db.execute(sql`
+      SELECT property_type as type, COUNT(*)::int as count
+      FROM properties WHERE state = ${upperState} AND city = ${city} AND property_type IS NOT NULL
+      GROUP BY property_type ORDER BY count DESC
+    `);
+    
+    return {
+      totalProperties: totalResult?.count || 0,
+      medianPrice: medianResult?.median || 0,
+      zips: (zipRows.rows as any[]).map(r => ({ zipCode: r.zip_code, count: parseInt(r.count), medianPrice: parseInt(r.median_price) || 0 })),
+      propertyTypes: (typeRows.rows as any[]).map(r => ({ type: r.type, count: parseInt(r.count) })),
+    };
+  }
+
+  async getPropertiesByState(state: string, limit: number, offset: number): Promise<Property[]> {
+    return await db.select().from(properties)
+      .where(eq(properties.state, state.toUpperCase()))
+      .orderBy(desc(properties.opportunityScore))
+      .limit(limit).offset(offset);
+  }
+
+  async getPropertiesByCity(state: string, city: string, limit: number, offset: number): Promise<Property[]> {
+    return await db.select().from(properties)
+      .where(and(eq(properties.state, state.toUpperCase()), eq(properties.city, city)))
+      .orderBy(desc(properties.opportunityScore))
+      .limit(limit).offset(offset);
+  }
+
+  async getPropertyCountByState(state: string): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(eq(properties.state, state.toUpperCase()));
+    return result?.count || 0;
+  }
+
+  async getPropertyCountByCity(state: string, city: string): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, state.toUpperCase()), eq(properties.city, city)));
+    return result?.count || 0;
+  }
+
+  async getDistinctCities(state: string): Promise<string[]> {
+    const rows = await db.execute(sql`SELECT DISTINCT city FROM properties WHERE state = ${state.toUpperCase()} AND city IS NOT NULL ORDER BY city`);
+    return (rows.rows as any[]).map(r => r.city);
+  }
+
+  async getDistinctStates(): Promise<string[]> {
+    const rows = await db.execute(sql`SELECT DISTINCT state FROM properties WHERE state IS NOT NULL ORDER BY state`);
+    return (rows.rows as any[]).map(r => r.state);
+  }
+
+  async getSimilarProperties(propertyId: string, zipCode: string, propertyType: string | null, estimatedValue: number | null, limit = 6): Promise<Property[]> {
+    const conditions = [
+      eq(properties.zipCode, zipCode),
+      sql`${properties.id} != ${propertyId}`,
+    ];
+    if (propertyType) {
+      conditions.push(eq(properties.propertyType, propertyType));
+    }
+    if (estimatedValue && estimatedValue > 0) {
+      const low = Math.round(estimatedValue * 0.5);
+      const high = Math.round(estimatedValue * 1.5);
+      conditions.push(gte(properties.estimatedValue, low));
+      conditions.push(lte(properties.estimatedValue, high));
+    }
+    
+    let results = await db.select().from(properties)
+      .where(and(...conditions))
+      .orderBy(desc(properties.opportunityScore))
+      .limit(limit);
+    
+    if (results.length < 3 && propertyType) {
+      results = await db.select().from(properties)
+        .where(and(
+          eq(properties.zipCode, zipCode),
+          sql`${properties.id} != ${propertyId}`
+        ))
+        .orderBy(desc(properties.opportunityScore))
+        .limit(limit);
+    }
+    
+    return results;
+  }
+
+  async getStateCityList(): Promise<{ state: string; cities: string[] }[]> {
+    const rows = await db.execute(sql`
+      SELECT state, array_agg(DISTINCT city ORDER BY city) as cities
+      FROM properties WHERE state IS NOT NULL AND city IS NOT NULL
+      GROUP BY state ORDER BY state
+    `);
+    return (rows.rows as any[]).map(r => ({ state: r.state, cities: r.cities }));
   }
 
   // Sales operations

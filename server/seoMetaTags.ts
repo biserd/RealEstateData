@@ -216,11 +216,75 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
   }
 }
 
+const STATE_NAMES: Record<string, string> = {
+  NY: 'New York',
+  NJ: 'New Jersey',
+  CT: 'Connecticut',
+};
+
+async function getBrowseStateMeta(state: string): Promise<PageMeta | null> {
+  try {
+    const upperState = state.toUpperCase();
+    const stateName = STATE_NAMES[upperState] || upperState;
+    const result = await db.execute(sql`
+      SELECT COUNT(*)::int as total,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median
+      FROM properties WHERE state = ${upperState} AND estimated_value > 0
+    `);
+    const row = result.rows[0] as any;
+    const total = row?.total || 0;
+    const median = row?.median ? formatPrice(row.median) : '';
+    return {
+      title: `${stateName} Real Estate - ${total.toLocaleString()} Properties | Realtors Dashboard`,
+      description: `Browse ${total.toLocaleString()} properties in ${stateName}. ${median ? `Median price: ${median}. ` : ''}Explore cities, neighborhoods, and find investment opportunities.`,
+      ogType: 'website',
+      canonicalPath: `/browse/${state.toLowerCase()}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getBrowseCityMeta(state: string, city: string): Promise<PageMeta | null> {
+  try {
+    const upperState = state.toUpperCase();
+    const stateName = STATE_NAMES[upperState] || upperState;
+    const result = await db.execute(sql`
+      SELECT COUNT(*)::int as total,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median
+      FROM properties WHERE state = ${upperState} AND city = ${city} AND estimated_value > 0
+    `);
+    const row = result.rows[0] as any;
+    const total = row?.total || 0;
+    const median = row?.median ? formatPrice(row.median) : '';
+    return {
+      title: `${city}, ${stateName} Real Estate - ${total.toLocaleString()} Properties | Realtors Dashboard`,
+      description: `Browse ${total.toLocaleString()} properties in ${city}, ${stateName}. ${median ? `Median price: ${median}. ` : ''}View ZIP codes, property types, and investment opportunities.`,
+      ogType: 'website',
+      canonicalPath: `/browse/${state.toLowerCase()}/${encodeURIComponent(city)}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getMetaForUrl(url: string): Promise<PageMeta> {
   const path = url.split('?')[0];
 
   if (STATIC_PAGES[path]) {
     return STATIC_PAGES[path];
+  }
+
+  const browseStateMatch = path.match(/^\/browse\/([a-zA-Z]{2})$/);
+  if (browseStateMatch) {
+    const meta = await getBrowseStateMeta(browseStateMatch[1]);
+    if (meta) return meta;
+  }
+
+  const browseCityMatch = path.match(/^\/browse\/([a-zA-Z]{2})\/(.+)$/);
+  if (browseCityMatch) {
+    const meta = await getBrowseCityMeta(browseCityMatch[1], decodeURIComponent(browseCityMatch[2]));
+    if (meta) return meta;
   }
 
   const unitMatch = path.match(/^\/unit\/(.+)$/);
