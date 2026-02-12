@@ -247,6 +247,8 @@ export async function registerRoutes(
     res.send(`User-agent: *
 Allow: /
 
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
+
 Sitemap: ${baseUrl}/sitemap.xml
 `);
   });
