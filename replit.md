@@ -42,7 +42,14 @@ The platform uses username/password authentication with Passport Local Strategy 
 
 ### Real Data & ETL Pipeline
 
-The platform integrates real estate data from Zillow Research, NYC Open Data (PLUTO, Sales, Condo Registry), and NYC Geoclient API. ETL scripts process this data to populate the database with comprehensive property and market information, including detailed condo unit data and transaction matching.
+The platform integrates real estate data from multiple public sources:
+- **NYC Open Data** (free, no auth): PLUTO (176K properties), DOB Permits (20K), 311 Complaints (20K), HPD Violations (4.4K), Sales, Condo Registry
+- **CT Open Data** (free SODA API at data.ct.gov): CAMA property data from 25 towns (12K properties) with assessed values, sale history, and building details
+- **NJ Properties** (4.6K): Generated from real municipality data (40 municipalities) with realistic values based on NJ MOD-IV assessment ranges
+- **Zillow Research**: ZHVI market trends by ZIP, city, county, and metro
+- **NYC Geoclient API**: Address normalization and geocoding
+
+The comprehensive refresh script (`scripts/refresh-all-data.ts`) handles all ETL: NYC data refresh, NJ/CT imports, fast SQL-based signal computation (176K signals), market aggregate refresh (1.6K aggregates across ZIP/city/county/neighborhood levels), and data source/coverage matrix updates. CT import uses zip_code fallback mapping for records missing zip codes. Signal computation uses a single SQL INSERT...SELECT with JOINs on DOB/HPD/311 tables for performance.
 
 ### Condo Units Data
 
