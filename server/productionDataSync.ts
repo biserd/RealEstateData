@@ -5,7 +5,7 @@ import path from "path";
 
 export async function checkAndSyncProductionData() {
   try {
-    const [result] = await db.execute(sql`
+    const result = await db.execute(sql`
       SELECT 
         (SELECT COUNT(*)::int FROM properties) as total_properties,
         (SELECT COUNT(*)::int FROM properties WHERE state = 'NJ') as nj_count,
@@ -14,7 +14,7 @@ export async function checkAndSyncProductionData() {
         (SELECT COUNT(*)::int FROM property_signal_summary) as signals
     `);
 
-    const row = result as any;
+    const row = result.rows[0] as any;
     const totalProperties = parseInt(row.total_properties) || 0;
     const njCount = parseInt(row.nj_count) || 0;
     const ctCount = parseInt(row.ct_count) || 0;
