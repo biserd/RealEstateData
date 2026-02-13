@@ -30,6 +30,8 @@ import ApiAccess from "@/pages/ApiAccess";
 import ReleaseNotes from "@/pages/ReleaseNotes";
 import Portfolio from "@/pages/Portfolio";
 import Activate from "@/pages/Activate";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import BuildingDetail from "@/pages/BuildingDetail";
 import UnitDetail from "@/pages/UnitDetail";
 import PropertyResolver from "@/pages/PropertyResolver";
@@ -45,6 +47,8 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/activate" component={Activate} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/market-intelligence" component={MarketExplorer} />
       <Route path="/investment-opportunities" component={OpportunityScreener} />
       <Route path="/up-and-coming" component={UpAndComingZips} />

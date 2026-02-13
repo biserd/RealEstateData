@@ -74,6 +74,9 @@ export interface IStorage {
   getUserByActivationToken(tokenHash: string): Promise<User | undefined>;
   activateUser(userId: string, passwordHash: string): Promise<User | undefined>;
   updateActivationToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void>;
+  setResetToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void>;
+  getUserByResetToken(tokenHash: string): Promise<User | undefined>;
+  resetPassword(userId: string, passwordHash: string): Promise<User | undefined>;
   
   // Property operations
   getProperty(id: string): Promise<Property | undefined>;
@@ -451,6 +454,39 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
+  }
+
+  async setResetToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        resetTokenHash: tokenHash,
+        resetTokenExpiresAt: expiresAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async getUserByResetToken(tokenHash: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.resetTokenHash, tokenHash));
+    return user;
+  }
+
+  async resetPassword(userId: string, passwordHash: string): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        passwordHash,
+        resetTokenHash: null,
+        resetTokenExpiresAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updatedUser;
   }
 
   // Property operations

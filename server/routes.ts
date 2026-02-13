@@ -10,7 +10,7 @@ import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
-import { sendWelcomeEmail, sendNewUserNotificationToAdmin, sendActivationEmail } from "./emailService";
+import { sendWelcomeEmail, sendNewUserNotificationToAdmin, sendActivationEmail, sendPasswordResetEmail } from "./emailService";
 import { usageService, ActionType } from "./usageService";
 import { processDailyDigest, processInstantAlerts, recordPropertyChange } from "./savedSearchService";
 
@@ -570,6 +570,66 @@ Sitemap: ${baseUrl}/sitemap.xml
         res.json({ message: "Logged out successfully" });
       });
     });
+  });
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+
+      if (user && user.passwordHash) {
+        const crypto = await import("crypto");
+        const token = crypto.randomBytes(32).toString("hex");
+        const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+        await storage.setResetToken(user.id, tokenHash, expiresAt);
+        sendPasswordResetEmail(user.email, token).catch((err) => {
+          console.error("[ForgotPassword] Failed to send reset email:", err);
+        });
+      }
+
+      res.json({ message: "If an account with that email exists, we've sent a password reset link." });
+    } catch (error) {
+      console.error("Error in forgot-password:", error);
+      res.status(500).json({ message: "Something went wrong. Please try again." });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and password are required" });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+
+      const crypto = await import("crypto");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      const user = await storage.getUserByResetToken(tokenHash);
+
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired reset link" });
+      }
+
+      if (user.resetTokenExpiresAt && new Date() > new Date(user.resetTokenExpiresAt)) {
+        return res.status(410).json({ message: "Reset link has expired. Please request a new one.", expired: true });
+      }
+
+      const newPasswordHash = await hashPassword(password);
+      await storage.resetPassword(user.id, newPasswordHash);
+
+      res.json({ message: "Password reset successfully. You can now log in with your new password." });
+    } catch (error) {
+      console.error("Error in reset-password:", error);
+      res.status(500).json({ message: "Something went wrong. Please try again." });
+    }
   });
 
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {

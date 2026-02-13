@@ -216,6 +216,77 @@ export async function sendActivationEmail(userEmail: string, activationToken: st
   }
 }
 
+export async function sendPasswordResetEmail(userEmail: string, resetToken: string) {
+  try {
+    const client = getResendClient();
+    const resetUrl = `https://realtorsdashboard.com/reset-password?token=${resetToken}`;
+    const devResetUrl = process.env.NODE_ENV !== 'production' 
+      ? `http://localhost:5000/reset-password?token=${resetToken}` 
+      : resetUrl;
+    const linkUrl = process.env.NODE_ENV === 'production' ? resetUrl : devResetUrl;
+    
+    console.log(`[Resend] Attempting to send password reset email to ${userEmail}`);
+    
+    const result = await client.emails.send({
+      from: FROM_EMAIL,
+      to: userEmail,
+      subject: 'Reset your password - Realtors Dashboard',
+      html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="text-align: center; margin-bottom: 30px;">
+    <div style="display: inline-block; background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 12px 20px; border-radius: 8px;">
+      <span style="color: white; font-size: 24px; font-weight: bold;">RD</span>
+    </div>
+  </div>
+  
+  <h1 style="color: #1e293b; font-size: 24px; margin-bottom: 16px;">Reset your password</h1>
+  
+  <p style="color: #475569; font-size: 16px; margin-bottom: 20px;">
+    We received a request to reset the password for your Realtors Dashboard account. Click the button below to choose a new password.
+  </p>
+  
+  <div style="text-align: center; margin: 32px 0;">
+    <a href="${linkUrl}" style="display: inline-block; background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">Reset My Password</a>
+  </div>
+  
+  <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">
+    This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+  </p>
+  
+  <p style="color: #94a3b8; font-size: 12px;">
+    If the button doesn't work, copy and paste this link into your browser:<br>
+    <a href="${linkUrl}" style="color: #2563eb; word-break: break-all;">${linkUrl}</a>
+  </p>
+  
+  <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+  
+  <p style="color: #94a3b8; font-size: 14px; text-align: center;">
+    <a href="https://realtorsdashboard.com" style="color: #2563eb;">Realtors Dashboard</a>
+  </p>
+</body>
+</html>
+      `,
+    });
+    
+    if (result.error) {
+      console.error(`[Resend] Error sending password reset email:`, result.error);
+      return false;
+    }
+    
+    console.log(`[Resend] Password reset email sent to ${userEmail}, id: ${result.data?.id}`);
+    return true;
+  } catch (error) {
+    console.error('[Resend] Failed to send password reset email:', error);
+    return false;
+  }
+}
+
 export async function sendNewUserNotificationToAdmin(userEmail: string, firstName?: string | null, lastName?: string | null) {
   try {
     const client = getResendClient();
