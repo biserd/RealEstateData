@@ -43,8 +43,10 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").default("user"), // user, admin
   status: varchar("status").default("active"), // active, pending_activation
-  activationTokenHash: varchar("activation_token_hash"), // Hashed activation token
-  activationTokenExpiresAt: timestamp("activation_token_expires_at"), // Token expiry
+  activationTokenHash: varchar("activation_token_hash"),
+  activationTokenExpiresAt: timestamp("activation_token_expires_at"),
+  resetTokenHash: varchar("reset_token_hash"),
+  resetTokenExpiresAt: timestamp("reset_token_expires_at"),
   subscriptionTier: varchar("subscription_tier").default("free"), // free, pro, premium
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
