@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search } from "lucide-react";
+import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "./GlobalSearch";
 import {
@@ -97,6 +97,29 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                   </Link>
                 );
               })}
+              <div className="px-3 pt-4 pb-1">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Browse by State</span>
+              </div>
+              {[
+                { href: "/browse/ny", label: "New York" },
+                { href: "/browse/nj", label: "New Jersey" },
+                { href: "/browse/ct", label: "Connecticut" },
+              ].map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <Button
+                    variant={location === item.href ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full justify-start gap-3 h-10 text-sm",
+                      location === item.href && "bg-muted"
+                    )}
+                    onClick={() => setMobileMenuOpen(false)}
+                    data-testid={`mobile-nav-browse-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    {item.label}
+                  </Button>
+                </Link>
+              ))}
             </nav>
             <div className="absolute bottom-0 left-0 right-0 border-t p-4">
               <div className="flex items-center justify-between">
@@ -141,6 +164,37 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 </Button>
               </Link>
             ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={location.startsWith("/browse") ? "secondary" : "ghost"}
+                  size="sm"
+                  className="text-sm gap-1"
+                  data-testid="nav-browse"
+                >
+                  <MapPin className="h-4 w-4" />
+                  Browse
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <Link href="/browse/ny">
+                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-browse-ny">
+                    New York
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/browse/nj">
+                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-browse-nj">
+                    New Jersey
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/browse/ct">
+                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-browse-ct">
+                    Connecticut
+                  </DropdownMenuItem>
+                </Link>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
 
           <div className="flex items-center gap-2">
