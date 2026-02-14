@@ -830,21 +830,11 @@ export default function PropertyDetail() {
                   <Lock className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Unlock Full Property Insights</h3>
                   <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-                    {!isAuthenticated
-                      ? "Sign up for free to unlock property insights."
-                      : canUnlockProperty 
-                        ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
-                        : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                    {canUnlockProperty 
+                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                      : "Upgrade to Pro for unlimited access to property insights, comps, and investment analysis."}
                   </p>
-                  {!isAuthenticated ? (
-                    <Button
-                      onClick={() => navigate("/register")}
-                      data-testid="button-signup-property"
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Sign Up to Unlock
-                    </Button>
-                  ) : canUnlockProperty ? (
+                  {canUnlockProperty ? (
                     <Button
                       onClick={() => unlockMutation.mutate()}
                       disabled={unlockMutation.isPending}
@@ -855,10 +845,7 @@ export default function PropertyDetail() {
                     </Button>
                   ) : (
                     <Button
-                      onClick={() => {
-                        setUpgradeFeature("Full Property Insights");
-                        setShowUpgradeModal(true);
-                      }}
+                      onClick={() => navigate("/pricing")}
                       data-testid="button-upgrade-property"
                     >
                       <Crown className="mr-2 h-4 w-4" />
@@ -937,21 +924,11 @@ export default function PropertyDetail() {
                   <Lock className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Unlock Comps & Market Data</h3>
                   <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-                    {!isAuthenticated
-                      ? "Sign up for free to unlock comps and market data."
-                      : canUnlockProperty 
-                        ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
-                        : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                    {canUnlockProperty 
+                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                      : "Upgrade to Pro for unlimited access to comparable sales and market data."}
                   </p>
-                  {!isAuthenticated ? (
-                    <Button
-                      onClick={() => navigate("/register")}
-                      data-testid="button-signup-comps"
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Sign Up to Unlock
-                    </Button>
-                  ) : canUnlockProperty ? (
+                  {canUnlockProperty ? (
                     <Button
                       onClick={() => unlockMutation.mutate()}
                       disabled={unlockMutation.isPending}
@@ -962,10 +939,7 @@ export default function PropertyDetail() {
                     </Button>
                   ) : (
                     <Button
-                      onClick={() => {
-                        setUpgradeFeature("Full Property Insights");
-                        setShowUpgradeModal(true);
-                      }}
+                      onClick={() => navigate("/pricing")}
                       data-testid="button-upgrade-comps"
                     >
                       <Crown className="mr-2 h-4 w-4" />
@@ -1000,21 +974,11 @@ export default function PropertyDetail() {
                   <Lock className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Unlock Investment Analysis</h3>
                   <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-                    {!isAuthenticated
-                      ? "Sign up for free to unlock investment analysis."
-                      : canUnlockProperty 
-                        ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
-                        : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                    {canUnlockProperty 
+                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                      : "Upgrade to Pro for unlimited access to investment analysis tools."}
                   </p>
-                  {!isAuthenticated ? (
-                    <Button
-                      onClick={() => navigate("/register")}
-                      data-testid="button-signup-investment"
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Sign Up to Unlock
-                    </Button>
-                  ) : canUnlockProperty ? (
+                  {canUnlockProperty ? (
                     <Button
                       onClick={() => unlockMutation.mutate()}
                       disabled={unlockMutation.isPending}
@@ -1025,10 +989,7 @@ export default function PropertyDetail() {
                     </Button>
                   ) : (
                     <Button
-                      onClick={() => {
-                        setUpgradeFeature("Full Property Insights");
-                        setShowUpgradeModal(true);
-                      }}
+                      onClick={() => navigate("/pricing")}
                       data-testid="button-upgrade-investment"
                     >
                       <Crown className="mr-2 h-4 w-4" />
