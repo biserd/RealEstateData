@@ -19,6 +19,7 @@ interface PropertyMapProps {
   showClustering?: boolean;
   onPropertySelect?: (property: Property) => void;
   selectedPropertyId?: string;
+  getMarkerUrl?: (property: Property) => string;
 }
 
 const defaultCenter = { lat: 40.7128, lng: -74.006 };
@@ -52,6 +53,7 @@ export function PropertyMap({
   showClustering = true,
   onPropertySelect,
   selectedPropertyId,
+  getMarkerUrl,
 }: PropertyMapProps) {
   const { isLoaded, loadError, hasApiKey, authError } = useMap();
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -241,7 +243,7 @@ export function PropertyMap({
                   </span>
                 )}
               </div>
-              <Link href={getPropertyUrl(selectedProperty)}>
+              <Link href={getMarkerUrl ? getMarkerUrl(selectedProperty) : getPropertyUrl(selectedProperty)}>
                 <Button size="sm" className="w-full text-xs">
                   View Details
                   <ExternalLink className="ml-1 h-3 w-3" />

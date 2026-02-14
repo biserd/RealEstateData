@@ -319,6 +319,7 @@ export default function UpAndComingZips() {
                       properties={mapProperties as any}
                       height="350px"
                       showClustering={false}
+                      getMarkerUrl={(p) => `/investment-opportunities?zipCodes=${p.zipCode}`}
                     />
                   </CardContent>
                 </Card>
