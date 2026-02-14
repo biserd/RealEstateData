@@ -188,7 +188,108 @@ export function PropertyAIInsights({ propertyId, onUpgrade }: PropertyAIInsights
     },
     staleTime: 5 * 60 * 1000,
     retry: false,
+    enabled: isPro,
   });
+
+  if (!isPro) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">AI Property Insights</CardTitle>
+              <Badge variant="secondary" className="bg-primary/10 text-primary">
+                Pro
+              </Badge>
+            </div>
+            <CardDescription>
+              AI-powered analysis of this property's investment potential
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <BlurredSection label="Upgrade to Pro for AI-powered insights">
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm leading-relaxed">This property shows strong investment potential based on market signals and comparable sales in the area. Key factors include location, building condition, and recent neighborhood development trends.</p>
+              </div>
+            </BlurredSection>
+
+            <BlurredSection label="Upgrade to Pro to see full risk analysis">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Target className="h-4 w-4 text-primary" />
+                    Risk Assessment
+                  </div>
+                  <RiskLevelIndicator level="Medium" />
+                  <ul className="text-sm space-y-2 pl-4">
+                    <li className="list-disc">Sample risk factor 1</li>
+                    <li className="list-disc">Sample risk factor 2</li>
+                  </ul>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <User className="h-4 w-4 text-primary" />
+                    Best Suited For
+                  </div>
+                  <p className="text-sm text-muted-foreground">First-time investor profile...</p>
+                </div>
+              </div>
+            </BlurredSection>
+
+            <BlurredSection label="Upgrade to Pro to see value drivers & concerns">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-emerald-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Value Drivers
+                  </div>
+                  <ul className="text-sm space-y-2">
+                    <li>+ Good transit access</li>
+                    <li>+ Market appreciation</li>
+                  </ul>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-orange-600">
+                    <AlertTriangle className="h-4 w-4" />
+                    Concerns
+                  </div>
+                  <ul className="text-sm space-y-2">
+                    <li>- Building issues</li>
+                    <li>- Flood risk</li>
+                  </ul>
+                </div>
+              </div>
+            </BlurredSection>
+
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg text-center">
+              <h4 className="font-medium mb-2">Unlock Full AI Analysis</h4>
+              <p className="text-sm text-muted-foreground mb-4">
+                Get detailed risk factors, value drivers, neighborhood trends, and personalized action plan.
+              </p>
+              <Button onClick={onUpgrade} data-testid="button-upgrade-insights">
+                <Sparkles className="mr-2 h-4 w-4" />
+                Upgrade to Pro
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-dashed border-muted-foreground/30">
+          <CardContent className="py-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <span className="font-medium text-muted-foreground">Action Plan</span>
+              <Lock className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Pro subscribers get a personalized action plan with prioritized next steps.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
