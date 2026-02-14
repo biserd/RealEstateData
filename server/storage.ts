@@ -910,6 +910,25 @@ export class DatabaseStorage implements IStorage {
     };
 
     const queryLower = query.toLowerCase();
+    
+    const stateSearchMap: Record<string, { id: string; name: string }> = {
+      "new york": { id: "NY", name: "New York" },
+      "ny": { id: "NY", name: "New York" },
+      "new jersey": { id: "NJ", name: "New Jersey" },
+      "nj": { id: "NJ", name: "New Jersey" },
+      "jersey": { id: "NJ", name: "New Jersey" },
+      "connecticut": { id: "CT", name: "Connecticut" },
+      "ct": { id: "CT", name: "Connecticut" },
+    };
+    const stateMatches: Array<{ type: string; id: string; name: string; state: string }> = [];
+    for (const [key, value] of Object.entries(stateSearchMap)) {
+      if (key.startsWith(queryLower) || queryLower.startsWith(key)) {
+        if (!stateMatches.find(m => m.id === value.id)) {
+          stateMatches.push({ type: "state", id: value.id, name: value.name, state: value.id });
+        }
+      }
+    }
+
     const neighborhoodMatches: Array<{ type: string; id: string; name: string; state: string }> = [];
     
     // Check for neighborhood name matches
@@ -947,6 +966,7 @@ export class DatabaseStorage implements IStorage {
       .limit(5);
 
     return [
+      ...stateMatches,
       ...neighborhoodMatches.slice(0, 5),
       ...zipMatches.map((z) => ({ type: "zip", id: z.id, name: z.name, state: z.state })),
       ...cityMatches.map((c) => ({ type: "city", id: c.id, name: c.name, state: c.state })),
