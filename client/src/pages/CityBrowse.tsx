@@ -145,17 +145,22 @@ export default function CityBrowse() {
               <h2 className="text-xl font-semibold mb-4">ZIP Codes in {city}</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {stats.zips.map(z => (
-                  <Card key={z.zipCode} className="hover-elevate" data-testid={`card-zip-${z.zipCode}`}>
-                    <CardContent className="py-4">
-                      <p className="font-medium">{z.zipCode}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {z.count.toLocaleString()} properties
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Median {formatPrice(z.medianPrice)}
-                      </p>
-                    </CardContent>
-                  </Card>
+                  <Link key={z.zipCode} href={`/neighborhood/${z.zipCode}`}>
+                    <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-zip-${z.zipCode}`}>
+                      <CardContent className="py-4">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium">{z.zipCode}</p>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {z.count.toLocaleString()} properties
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Median {formatPrice(z.medianPrice)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))}
               </div>
             </div>
