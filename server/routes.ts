@@ -2843,12 +2843,30 @@ Sitemap: ${baseUrl}/sitemap.xml
       }
 
       const baseUrl = getBaseUrl(req);
-      const session = await stripeService.createCheckoutSession(
-        customerId,
-        priceId,
-        `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        `${baseUrl}/pricing`
-      );
+      let session;
+      try {
+        session = await stripeService.createCheckoutSession(
+          customerId,
+          priceId,
+          `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+          `${baseUrl}/pricing`
+        );
+      } catch (stripeError: any) {
+        if (stripeError?.message?.includes("No such customer")) {
+          const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined;
+          const newCustomer = await stripeService.createCustomer(user.email, user.id, fullName);
+          await storage.updateUserStripeInfo(user.id, { stripeCustomerId: newCustomer.id });
+          customerId = newCustomer.id;
+          session = await stripeService.createCheckoutSession(
+            customerId,
+            priceId,
+            `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+            `${baseUrl}/pricing`
+          );
+        } else {
+          throw stripeError;
+        }
+      }
 
       res.json({ url: session.url });
     } catch (error) {
