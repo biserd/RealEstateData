@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map, Crown, Lock, Home, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +97,9 @@ export default function OpportunityScreener() {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const { isPro, isPremium, isFree } = useSubscription();
+  const searchString = useSearch();
+  
+  const [urlInitialized, setUrlInitialized] = useState(false);
   const [filters, setFilters] = useState<ScreenerFilters>(defaultFilters);
   const [sortBy, setSortBy] = useState("score");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
@@ -107,6 +110,22 @@ export default function OpportunityScreener() {
   const [upgradeFeature, setUpgradeFeature] = useState("");
   const [upgradeDescription, setUpgradeDescription] = useState("");
   const [entityType, setEntityType] = useState<"properties" | "units">("units");
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const zipCodes = params.get("zipCodes");
+    const state = params.get("state");
+    const cities = params.get("cities");
+    if (zipCodes || state || cities) {
+      const urlFilters: ScreenerFilters = {};
+      if (zipCodes) urlFilters.zipCodes = zipCodes.split(",");
+      if (state && ["NY", "NJ", "CT"].includes(state)) urlFilters.state = state as "NY" | "NJ" | "CT";
+      if (cities) urlFilters.cities = cities.split(",");
+      setFilters(urlFilters);
+      setEntityType("properties");
+    }
+    setUrlInitialized(true);
+  }, []);
 
   interface ScreenerResponse {
     properties: Property[];
@@ -120,6 +139,8 @@ export default function OpportunityScreener() {
     queryKey: [
       "/api/properties/screener", 
       filters.state || "", 
+      filters.zipCodes?.join(",") || "",
+      filters.cities?.join(",") || "",
       filters.propertyTypes?.join(",") || "",
       filters.priceMin?.toString() || "",
       filters.priceMax?.toString() || "",
@@ -132,6 +153,8 @@ export default function OpportunityScreener() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.state) params.append("state", filters.state);
+      if (filters.zipCodes?.length) params.append("zipCodes", filters.zipCodes.join(","));
+      if (filters.cities?.length) params.append("cities", filters.cities.join(","));
       if (filters.propertyTypes?.length) {
         params.append("propertyTypes", filters.propertyTypes.join(","));
       }
@@ -154,6 +177,7 @@ export default function OpportunityScreener() {
       if (!res.ok) throw new Error("Failed to fetch properties");
       return res.json();
     },
+    enabled: urlInitialized,
   });
 
   const properties = screenerData?.properties;
@@ -208,6 +232,8 @@ export default function OpportunityScreener() {
     try {
       const params = new URLSearchParams({ format: "csv" });
       if (filters.state) params.append("state", filters.state);
+      if (filters.zipCodes?.length) params.append("zipCodes", filters.zipCodes.join(","));
+      if (filters.cities?.length) params.append("cities", filters.cities.join(","));
       if (filters.propertyTypes?.length) params.append("propertyTypes", filters.propertyTypes.join(","));
       if (filters.priceMin) params.append("priceMin", filters.priceMin.toString());
       if (filters.priceMax) params.append("priceMax", filters.priceMax.toString());
@@ -395,6 +421,38 @@ export default function OpportunityScreener() {
                     </button>
                   </Badge>
                 )}
+                {filters.zipCodes?.map((zip) => (
+                  <Badge key={zip} variant="secondary" className="gap-1">
+                    ZIP: {zip}
+                    <button
+                      onClick={() =>
+                        setFilters({
+                          ...filters,
+                          zipCodes: filters.zipCodes?.filter((z) => z !== zip),
+                        })
+                      }
+                      className="ml-1 rounded-full hover:bg-muted"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                {filters.cities?.map((city) => (
+                  <Badge key={city} variant="secondary" className="gap-1">
+                    City: {city}
+                    <button
+                      onClick={() =>
+                        setFilters({
+                          ...filters,
+                          cities: filters.cities?.filter((c) => c !== city),
+                        })
+                      }
+                      className="ml-1 rounded-full hover:bg-muted"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
                 {filters.propertyTypes?.map((type) => (
                   <Badge key={type} variant="secondary" className="gap-1">
                     {type}
