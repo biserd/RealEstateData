@@ -37,6 +37,9 @@ import UnitDetail from "@/pages/UnitDetail";
 import PropertyResolver from "@/pages/PropertyResolver";
 import StateBrowse from "@/pages/StateBrowse";
 import CityBrowse from "@/pages/CityBrowse";
+import PropertyComparison from "@/pages/PropertyComparison";
+import NeighborhoodReport from "@/pages/NeighborhoodReport";
+import InvestmentCalculator from "@/pages/InvestmentCalculator";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -78,6 +81,9 @@ function Router() {
       <Route path="/developers" component={Developers} />
       <Route path="/api-access" component={ApiAccess} />
       <Route path="/release-notes" component={ReleaseNotes} />
+      <Route path="/compare" component={PropertyComparison} />
+      <Route path="/neighborhood/:geoId" component={NeighborhoodReport} />
+      <Route path="/calculator" component={InvestmentCalculator} />
       <Route path="/browse/:state" component={StateBrowse} />
       <Route path="/browse/:state/:city" component={CityBrowse} />
       <Route component={NotFound} />

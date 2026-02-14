@@ -5,7 +5,9 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, optionalAuth, hashPassword, hashActivationToken, generateActivationToken } from "./auth";
 import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, generatePropertyInsights, type ScenarioInputs, type PropertyInsights } from "./openai";
-import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema, type ScreenerFilters } from "@shared/schema";
+import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema, type ScreenerFilters, properties, propertySignalSummary } from "@shared/schema";
+import { db } from "./db";
+import { sql, eq } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
@@ -1973,6 +1975,151 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error updating notification:", error);
       res.status(500).json({ message: "Failed to update notification" });
+    }
+  });
+
+  app.get("/api/neighborhood/:geoId/report", optionalAuth, async (req: any, res) => {
+    try {
+      const { geoId } = req.params;
+      const geoType = (req.query.geoType as string) || "zip";
+
+      const marketData = await storage.getMarketAggregates(geoType, geoId, {});
+      const market = marketData.length > 0 ? marketData[0] : null;
+
+      const propertiesRes = await db.select().from(properties)
+        .where(geoType === "zip" ? eq(properties.zipCode, geoId) : sql`1=1`)
+        .limit(500);
+
+      const signalAgg = await db.select({
+        totalProperties: sql<number>`count(*)`,
+        avgPermits12m: sql<number>`COALESCE(avg(permit_count_12m), 0)`,
+        totalPermits12m: sql<number>`COALESCE(sum(permit_count_12m), 0)`,
+        totalNewConstruction: sql<number>`COALESCE(sum(CASE WHEN new_construction = true THEN 1 ELSE 0 END), 0)`,
+        totalMajorAlteration: sql<number>`COALESCE(sum(CASE WHEN major_alteration = true THEN 1 ELSE 0 END), 0)`,
+        avgHpdViolations: sql<number>`COALESCE(avg(total_hpd_violations_12m), 0)`,
+        totalHpdViolations: sql<number>`COALESCE(sum(total_hpd_violations_12m), 0)`,
+        totalHazardous: sql<number>`COALESCE(sum(hazardous_violations), 0)`,
+        avgComplaints311: sql<number>`COALESCE(avg(complaints_311_12m), 0)`,
+        totalComplaints311: sql<number>`COALESCE(sum(complaints_311_12m), 0)`,
+        avgNoiseComplaints: sql<number>`COALESCE(avg(noise_complaints_12m), 0)`,
+        avgBuildingHealth: sql<number>`COALESCE(avg(building_health_score), 0)`,
+        avgTransitScore: sql<number>`COALESCE(avg(transit_score), 0)`,
+        avgAmenityScore: sql<number>`COALESCE(avg(amenity_score), 0)`,
+        avgFloodRisk: sql<number>`COALESCE(avg(CASE WHEN is_flood_high_risk = true THEN 1 WHEN is_flood_moderate_risk = true THEN 0.5 ELSE 0 END), 0)`,
+      })
+      .from(propertySignalSummary)
+      .innerJoin(properties, eq(propertySignalSummary.propertyId, properties.id))
+      .where(geoType === "zip" ? eq(properties.zipCode, geoId) : sql`1=1`);
+
+      const signals = signalAgg[0] || {};
+
+      const typeDistribution: Record<string, number> = {};
+      const bedDistribution: Record<string, number> = {};
+      let totalSqft = 0, sqftCount = 0;
+      let totalPrice = 0, priceCount = 0;
+
+      for (const p of propertiesRes) {
+        const type = p.propertyType || "Other";
+        typeDistribution[type] = (typeDistribution[type] || 0) + 1;
+
+        const beds = p.beds ? `${p.beds} BR` : "Unknown";
+        bedDistribution[beds] = (bedDistribution[beds] || 0) + 1;
+
+        if (p.sqft && p.sqft > 0) { totalSqft += p.sqft; sqftCount++; }
+        const price = p.estimatedValue || p.lastSalePrice || 0;
+        if (price > 0) { totalPrice += Number(price); priceCount++; }
+      }
+
+      const avgHealth = Number(signals.avgBuildingHealth) || 50;
+      const avgTransit = Number(signals.avgTransitScore) || 50;
+      const avgAmenity = Number(signals.avgAmenityScore) || 50;
+      const complaintRate = Number(signals.avgComplaints311) || 0;
+      const violationRate = Number(signals.avgHpdViolations) || 0;
+
+      const gradeScore = Math.min(100, Math.max(0,
+        (avgHealth * 0.3) + (avgTransit * 0.2) + (avgAmenity * 0.2) +
+        (Math.max(0, 100 - complaintRate * 10) * 0.15) +
+        (Math.max(0, 100 - violationRate * 5) * 0.15)
+      ));
+
+      const grade = gradeScore >= 90 ? "A" : gradeScore >= 80 ? "B+" : gradeScore >= 70 ? "B" : gradeScore >= 60 ? "C+" : gradeScore >= 50 ? "C" : gradeScore >= 40 ? "D" : "F";
+
+      const userId = req.user?.id;
+      const user = userId ? await storage.getUser(userId) : null;
+      const isPro = user?.subscriptionTier === "pro" || user?.subscriptionTier === "premium";
+
+      const report = {
+        geoId,
+        geoType,
+        geoName: market?.geoName || geoId,
+        state: market?.state || propertiesRes[0]?.state || "",
+        grade,
+        gradeScore: Math.round(gradeScore),
+        market: market ? {
+          medianPrice: market.medianPrice,
+          medianPricePerSqft: market.medianPricePerSqft,
+          p25Price: market.p25Price,
+          p75Price: market.p75Price,
+          transactionCount: market.transactionCount,
+          trend3m: market.trend3m,
+          trend6m: market.trend6m,
+          trend12m: market.trend12m,
+          turnoverRate: market.turnoverRate,
+        } : null,
+        propertyCount: propertiesRes.length,
+        avgPrice: priceCount > 0 ? Math.round(totalPrice / priceCount) : null,
+        avgSqft: sqftCount > 0 ? Math.round(totalSqft / sqftCount) : null,
+        typeDistribution,
+        bedDistribution,
+        indicators: {
+          development: {
+            totalPermits12m: Number(signals.totalPermits12m) || 0,
+            newConstruction: Number(signals.totalNewConstruction) || 0,
+            majorAlterations: Number(signals.totalMajorAlteration) || 0,
+            avgPermitsPerProperty: Number(signals.avgPermits12m)?.toFixed(1) || "0",
+            level: (Number(signals.totalPermits12m) || 0) > 50 ? "High" : (Number(signals.totalPermits12m) || 0) > 10 ? "Moderate" : "Low",
+          },
+          safety: isPro ? {
+            totalViolations12m: Number(signals.totalHpdViolations) || 0,
+            hazardousViolations: Number(signals.totalHazardous) || 0,
+            avgViolationsPerProperty: Number(signals.avgHpdViolations)?.toFixed(1) || "0",
+            totalComplaints311: Number(signals.totalComplaints311) || 0,
+            noiseComplaints: Number(signals.avgNoiseComplaints)?.toFixed(1) || "0",
+            level: (Number(signals.avgHpdViolations) || 0) > 3 ? "Concerning" : (Number(signals.avgHpdViolations) || 0) > 1 ? "Moderate" : "Good",
+          } : {
+            level: (Number(signals.avgHpdViolations) || 0) > 3 ? "Concerning" : (Number(signals.avgHpdViolations) || 0) > 1 ? "Moderate" : "Good",
+            locked: true,
+          },
+          transit: isPro ? {
+            avgScore: Number(signals.avgTransitScore) || 0,
+            level: (Number(signals.avgTransitScore) || 0) > 70 ? "Excellent" : (Number(signals.avgTransitScore) || 0) > 40 ? "Good" : "Limited",
+          } : {
+            level: (Number(signals.avgTransitScore) || 0) > 70 ? "Excellent" : (Number(signals.avgTransitScore) || 0) > 40 ? "Good" : "Limited",
+            locked: true,
+          },
+          amenities: isPro ? {
+            avgScore: Number(signals.avgAmenityScore) || 0,
+            level: (Number(signals.avgAmenityScore) || 0) > 70 ? "Excellent" : (Number(signals.avgAmenityScore) || 0) > 40 ? "Good" : "Limited",
+          } : {
+            level: (Number(signals.avgAmenityScore) || 0) > 70 ? "Excellent" : (Number(signals.avgAmenityScore) || 0) > 40 ? "Good" : "Limited",
+            locked: true,
+          },
+          floodRisk: {
+            avgRisk: Number(signals.avgFloodRisk) || 0,
+            level: (Number(signals.avgFloodRisk) || 0) > 0.5 ? "High" : (Number(signals.avgFloodRisk) || 0) > 0.1 ? "Moderate" : "Low",
+          },
+          buildingHealth: {
+            avgScore: Math.round(Number(signals.avgBuildingHealth) || 0),
+            level: (Number(signals.avgBuildingHealth) || 0) > 70 ? "Good" : (Number(signals.avgBuildingHealth) || 0) > 40 ? "Fair" : "Poor",
+          },
+        },
+        isPro,
+      };
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating neighborhood report:", error);
+      res.status(500).json({ message: "Failed to generate neighborhood report" });
     }
   });
 
