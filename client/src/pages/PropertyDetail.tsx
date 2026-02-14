@@ -47,7 +47,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { DealMemo } from "@/components/DealMemo";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
-import { UpgradeModal, BlurredContent, ProBadge } from "@/components/UpgradePrompt";
+import { BlurredContent, ProBadge } from "@/components/UpgradePrompt";
 import { NycDeepInsights } from "@/components/NycDeepInsights";
 import { PropertyAIInsights } from "@/components/PropertyAIInsights";
 import { BuildingSalesHistory } from "@/components/BuildingSalesHistory";
@@ -227,8 +227,6 @@ export default function PropertyDetail() {
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [upgradeFeature, setUpgradeFeature] = useState("");
   
   const id = useMemo(() => {
     if (!slug) return undefined;
@@ -324,8 +322,7 @@ export default function PropertyDetail() {
       return;
     }
     if (isFree && !subLoading) {
-      setUpgradeFeature("PDF Reports");
-      setShowUpgradeModal(true);
+      navigate("/pricing");
       return;
     }
     setIsExportingReport(true);
@@ -368,8 +365,7 @@ export default function PropertyDetail() {
       return;
     }
     if (isFree && !subLoading) {
-      setUpgradeFeature("CSV Exports");
-      setShowUpgradeModal(true);
+      navigate("/pricing");
       return;
     }
     setIsExportingCsv(true);
@@ -1021,8 +1017,7 @@ export default function PropertyDetail() {
               <PropertyAIInsights 
                 propertyId={id!}
                 onUpgrade={() => {
-                  setUpgradeFeature("AI Property Insights");
-                  setShowUpgradeModal(true);
+                  navigate("/pricing");
                 }}
               />
               
@@ -1105,12 +1100,6 @@ export default function PropertyDetail() {
         </div>
       )}
 
-      <UpgradeModal
-        open={showUpgradeModal}
-        onOpenChange={setShowUpgradeModal}
-        feature={upgradeFeature}
-        description={`${upgradeFeature} is a Pro feature. Upgrade to unlock unlimited exports and more.`}
-      />
       
       </AppLayout>
     </>

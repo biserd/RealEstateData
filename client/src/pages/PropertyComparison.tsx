@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useSearch } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { Search, X, Plus, ArrowUpDown, Share2, MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AppLayout } from "@/components/layouts";
-import { UpgradeModal } from "@/components/UpgradePrompt";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { generatePropertySlug } from "@/lib/propertySlug";
@@ -40,7 +39,7 @@ export default function PropertyComparison() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedGeo, setSelectedGeo] = useState<{ type: string; id: string; name: string; state: string } | null>(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [, navigate] = useLocation();
   const [initialIdsLoaded, setInitialIdsLoaded] = useState(false);
 
   const maxProperties = isFree ? 2 : 4;
@@ -107,7 +106,7 @@ export default function PropertyComparison() {
     if (selectedProperties.find((p) => p.id === property.id)) return;
     if (selectedProperties.length >= maxProperties) {
       if (isFree) {
-        setShowUpgradeModal(true);
+        navigate("/pricing");
       }
       return;
     }
@@ -368,13 +367,6 @@ export default function PropertyComparison() {
           </Card>
         )}
 
-        <UpgradeModal
-          open={showUpgradeModal}
-          onOpenChange={setShowUpgradeModal}
-          feature="Compare More Properties"
-          description="Free users can compare up to 2 properties. Upgrade to Pro to compare up to 4 properties side by side."
-          requiredTier="pro"
-        />
       </div>
     </AppLayout>
   );

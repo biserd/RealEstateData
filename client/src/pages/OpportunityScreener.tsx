@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useSearch } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map, Crown, Lock, Home, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ import { PropertyMap } from "@/components/PropertyMap";
 import { UnitOpportunityCard } from "@/components/UnitOpportunityCard";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
-import { UpgradeModal, ProBadge, PremiumBadge } from "@/components/UpgradePrompt";
+import { ProBadge, PremiumBadge } from "@/components/UpgradePrompt";
 import { SaveSearchDialog } from "@/components/SaveSearchDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -106,9 +106,7 @@ export default function OpportunityScreener() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | undefined>(undefined);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [upgradeFeature, setUpgradeFeature] = useState("");
-  const [upgradeDescription, setUpgradeDescription] = useState("");
+  const [, navigate] = useLocation();
   const [entityType, setEntityType] = useState<"properties" | "units">("units");
 
   useEffect(() => {
@@ -215,16 +213,8 @@ export default function OpportunityScreener() {
   };
 
   const handleExportResults = async () => {
-    if (!isAuthenticated) {
-      setUpgradeFeature("Export Results");
-      setUpgradeDescription("Create a free account to export screener results and access more features.");
-      setShowUpgradeModal(true);
-      return;
-    }
-    if (isFree) {
-      setUpgradeFeature("CSV Export");
-      setUpgradeDescription("Export screener results to CSV. Upgrade to Pro for unlimited exports.");
-      setShowUpgradeModal(true);
+    if (!isAuthenticated || isFree) {
+      navigate("/pricing");
       return;
     }
     
@@ -626,11 +616,7 @@ export default function OpportunityScreener() {
                       </p>
                       <Button
                         className="mt-4"
-                        onClick={() => {
-                          setUpgradeFeature("Full Screener Access");
-                          setUpgradeDescription(`See all ${properties.length} properties that match your criteria.`);
-                          setShowUpgradeModal(true);
-                        }}
+                        onClick={() => navigate("/pricing")}
                         data-testid="button-upgrade-screener"
                       >
                         <Crown className="mr-2 h-4 w-4" />
@@ -655,12 +641,6 @@ export default function OpportunityScreener() {
         </main>
       </div>
       
-      <UpgradeModal
-        open={showUpgradeModal}
-        onOpenChange={setShowUpgradeModal}
-        feature={upgradeFeature}
-        description={upgradeDescription}
-      />
     </AppLayout>
   );
 }
