@@ -1,4 +1,4 @@
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Home, 
@@ -31,6 +31,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ScoreDriversList, type ScoreDriver } from "@/components/ScoreDriversList";
+import { Button } from "@/components/ui/button";
+import { Crown, Lock } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 
 interface CondoUnit {
   unitBbl: string;
@@ -504,6 +508,10 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
 
 export default function UnitDetail() {
   const { unitBbl: idOrSlug } = useParams<{ unitBbl: string }>();
+  const [, navigate] = useLocation();
+  const { isAuthenticated } = useAuth();
+  const { isPro, isPremium } = useSubscription();
+  const hasPro = isPro || isPremium;
 
   // First resolve the slug/id to get the actual unit data
   const { data: unit, isLoading, error } = useQuery<CondoUnit>({
@@ -766,7 +774,23 @@ export default function UnitDetail() {
               </TabsContent>
 
               <TabsContent value="ai">
-                <AIInsightsSection unitBbl={unit.unitBbl} />
+                {hasPro ? (
+                  <AIInsightsSection unitBbl={unit.unitBbl} />
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                      <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2" data-testid="text-ai-locked-title">AI Analysis is a Pro Feature</h3>
+                      <p className="text-sm text-muted-foreground max-w-md mb-6" data-testid="text-ai-locked-description">
+                        Upgrade to Pro for AI-powered investment analysis, market insights, and personalized recommendations for every property.
+                      </p>
+                      <Button onClick={() => navigate("/pricing")} data-testid="button-upgrade-ai">
+                        <Crown className="mr-2 h-4 w-4" />
+                        Upgrade to Pro
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
             </Tabs>
           </div>

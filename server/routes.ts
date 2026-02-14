@@ -977,9 +977,17 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  app.get("/api/units/:unitBbl/insights", optionalAuth, async (req: any, res) => {
+  app.get("/api/units/:unitBbl/insights", isAuthenticated, async (req: any, res) => {
     try {
       const { unitBbl } = req.params;
+      
+      const user = req.user;
+      const tier = user?.subscriptionTier || "free";
+      const subStatus = user?.subscriptionStatus;
+      const hasPro = (tier === "pro" || tier === "premium") && subStatus === "active";
+      if (!hasPro) {
+        return res.status(403).json({ message: "Pro subscription required for AI analysis" });
+      }
       
       const unit = await storage.getCondoUnit(unitBbl);
       if (!unit) {
