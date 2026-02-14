@@ -28,7 +28,7 @@ import {
   Eye,
   History
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation as useWouterLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -223,6 +223,7 @@ export default function PropertyDetail() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { isPro, isFree, isLoading: subLoading } = useSubscription();
+  const [, navigate] = useWouterLocation();
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -829,11 +830,21 @@ export default function PropertyDetail() {
                   <Lock className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Unlock Full Property Insights</h3>
                   <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-                    {canUnlockProperty 
-                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
-                      : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                    {!isAuthenticated
+                      ? "Sign up for free to unlock property insights."
+                      : canUnlockProperty 
+                        ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                        : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
                   </p>
-                  {canUnlockProperty ? (
+                  {!isAuthenticated ? (
+                    <Button
+                      onClick={() => navigate("/register")}
+                      data-testid="button-signup-property"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Sign Up to Unlock
+                    </Button>
+                  ) : canUnlockProperty ? (
                     <Button
                       onClick={() => unlockMutation.mutate()}
                       disabled={unlockMutation.isPending}
@@ -926,11 +937,21 @@ export default function PropertyDetail() {
                   <Lock className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Unlock Comps & Market Data</h3>
                   <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-                    {canUnlockProperty 
-                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
-                      : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                    {!isAuthenticated
+                      ? "Sign up for free to unlock comps and market data."
+                      : canUnlockProperty 
+                        ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                        : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
                   </p>
-                  {canUnlockProperty ? (
+                  {!isAuthenticated ? (
+                    <Button
+                      onClick={() => navigate("/register")}
+                      data-testid="button-signup-comps"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Sign Up to Unlock
+                    </Button>
+                  ) : canUnlockProperty ? (
                     <Button
                       onClick={() => unlockMutation.mutate()}
                       disabled={unlockMutation.isPending}
@@ -979,11 +1000,21 @@ export default function PropertyDetail() {
                   <Lock className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Unlock Investment Analysis</h3>
                   <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-                    {canUnlockProperty 
-                      ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
-                      : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
+                    {!isAuthenticated
+                      ? "Sign up for free to unlock investment analysis."
+                      : canUnlockProperty 
+                        ? `You have ${remainingUnlocks} free unlock${remainingUnlocks !== 1 ? 's' : ''} remaining today.` 
+                        : "You've used all 3 free unlocks today. Upgrade to Pro for unlimited access."}
                   </p>
-                  {canUnlockProperty ? (
+                  {!isAuthenticated ? (
+                    <Button
+                      onClick={() => navigate("/register")}
+                      data-testid="button-signup-investment"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Sign Up to Unlock
+                    </Button>
+                  ) : canUnlockProperty ? (
                     <Button
                       onClick={() => unlockMutation.mutate()}
                       disabled={unlockMutation.isPending}
