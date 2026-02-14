@@ -9,6 +9,8 @@ export function Footer() {
     { href: "/market-intelligence", label: "Market Explorer" },
     { href: "/investment-opportunities", label: "Opportunity Screener" },
     { href: "/up-and-coming", label: "Trending Areas" },
+    { href: "/compare", label: "Property Comparison" },
+    { href: "/calculator", label: "Investment Calculator" },
     { href: "/saved-properties", label: "Watchlists" },
     { href: "/pricing", label: "Pricing" },
     { href: "/api-access", label: "API Access" },
@@ -26,6 +28,7 @@ export function Footer() {
     { href: "/browse/ny", label: "New York" },
     { href: "/browse/nj", label: "New Jersey" },
     { href: "/browse/ct", label: "Connecticut" },
+    { href: "/neighborhood/10001", label: "Neighborhood Reports" },
   ];
 
   const legalLinks = [

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search, MapPin } from "lucide-react";
+import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search, MapPin, Calculator, GitCompare, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "./GlobalSearch";
 import {
@@ -98,6 +98,31 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 );
               })}
               <div className="px-3 pt-4 pb-1">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tools</span>
+              </div>
+              {[
+                { href: "/compare", label: "Property Comparison", icon: GitCompare },
+                { href: "/calculator", label: "Investment Calculator", icon: Calculator },
+                { href: "/neighborhood/10001", label: "Neighborhood Reports", icon: MapPin },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <Button
+                      variant={location === item.href || location.startsWith(item.href.split("/").slice(0, 2).join("/")) ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full justify-start gap-3 h-10 text-sm"
+                      )}
+                      onClick={() => setMobileMenuOpen(false)}
+                      data-testid={`mobile-nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </Button>
+                  </Link>
+                );
+              })}
+              <div className="px-3 pt-4 pb-1">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Browse by State</span>
               </div>
               {[
@@ -164,6 +189,40 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 </Button>
               </Link>
             ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={["/compare", "/calculator", "/neighborhood"].some(p => location.startsWith(p)) ? "secondary" : "ghost"}
+                  size="sm"
+                  className="text-sm gap-1"
+                  data-testid="nav-tools"
+                >
+                  <Wrench className="h-4 w-4" />
+                  Tools
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <Link href="/compare">
+                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-tools-compare">
+                    <GitCompare className="mr-2 h-4 w-4" />
+                    Property Comparison
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/calculator">
+                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-tools-calculator">
+                    <Calculator className="mr-2 h-4 w-4" />
+                    Investment Calculator
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/neighborhood/10001">
+                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-tools-neighborhood">
+                    <MapPin className="mr-2 h-4 w-4" />
+                    Neighborhood Reports
+                  </DropdownMenuItem>
+                </Link>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
