@@ -310,6 +310,8 @@ export interface IStorage {
     buildingDisplayAddress: string | null;
     borough: string | null;
     zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
     lastSalePrice: number;
     lastSaleDate: Date;
     opportunityScore: number;
@@ -2177,6 +2179,8 @@ export class DatabaseStorage implements IStorage {
         buildingDisplayAddress: condoUnits.buildingDisplayAddress,
         borough: condoUnits.borough,
         zipCode: condoUnits.zipCode,
+        latitude: condoUnits.latitude,
+        longitude: condoUnits.longitude,
         lastSalePrice: sql<number>`MAX(${sales.salePrice})`,
         lastSaleDate: sql<Date>`MAX(${sales.saleDate})`,
       })
@@ -2191,7 +2195,9 @@ export class DatabaseStorage implements IStorage {
         condoUnits.unitDisplayAddress,
         condoUnits.buildingDisplayAddress,
         condoUnits.borough,
-        condoUnits.zipCode
+        condoUnits.zipCode,
+        condoUnits.latitude,
+        condoUnits.longitude
       )
       .orderBy(desc(sql`MAX(${sales.saleDate})`))
       .limit(limit * 2);
@@ -2205,6 +2211,8 @@ export class DatabaseStorage implements IStorage {
       buildingDisplayAddress: string | null;
       borough: string | null;
       zipCode: string | null;
+      latitude: number | null;
+      longitude: number | null;
       lastSalePrice: number;
       lastSaleDate: Date;
       opportunityScore: number;
@@ -2273,6 +2281,8 @@ export class DatabaseStorage implements IStorage {
           buildingDisplayAddress: unit.buildingDisplayAddress,
           borough: unit.borough,
           zipCode: unit.zipCode,
+          latitude: unit.latitude,
+          longitude: unit.longitude,
           lastSalePrice: Number(unit.lastSalePrice),
           lastSaleDate: new Date(unit.lastSaleDate),
           opportunityScore: oppData.opportunityScore,

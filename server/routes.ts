@@ -812,6 +812,8 @@ Sitemap: ${baseUrl}/sitemap.xml
         opportunityScore: number;
         confidenceLevel?: string | null;
         scoreDrivers?: ScoreDriver[];
+        latitude?: number | null;
+        longitude?: number | null;
         // Unit-specific fields
         unitBbl?: string;
         unitSlug?: string | null;
@@ -873,6 +875,8 @@ Sitemap: ${baseUrl}/sitemap.xml
           opportunityScore: b.opportunityScore || 0,
           confidenceLevel: b.confidenceLevel,
           propertyId: b.id,
+          latitude: b.latitude,
+          longitude: b.longitude,
           scoreDrivers: drivers,
         };
       });
@@ -893,6 +897,8 @@ Sitemap: ${baseUrl}/sitemap.xml
         unitDesignation: u.unitDesignation,
         baseBbl: u.baseBbl,
         lastSaleDate: u.lastSaleDate?.toISOString() || null,
+        latitude: u.latitude,
+        longitude: u.longitude,
         scoreDrivers: u.scoreDrivers,
         buildingMedianPrice: u.buildingMedianPrice,
         buildingSalesCount: u.buildingSalesCount,

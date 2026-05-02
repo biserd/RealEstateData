@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Building2, Receipt, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon } from "lucide-react";
+import { ArrowRight, BarChart3, Target, Shield, Zap, MapPin, TrendingUp, Building2, Receipt, Database, Loader2, Code, Heart, FileText, Crown, Bell, CheckCircle, Home as HomeIcon, Flame, Activity, Sparkles, ArrowUpRight } from "lucide-react";
 import { ScoreDriversList } from "@/components/ScoreDriversList";
 import { SmartAddressSearch } from "@/components/SmartAddressSearch";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
 import { OrganizationJsonLd, WebSiteJsonLd } from "@/components/JsonLd";
 import { StaticMapImage } from "@/components/StaticMapImage";
+import { StreetViewImage } from "@/components/StreetViewImage";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +56,24 @@ interface TopOpportunity {
   unitSlug?: string | null;
   unitBbl?: string;
   propertyId?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+interface TrendingArea {
+  zipCode: string;
+  city: string;
+  state: string;
+  trendScore: number;
+  trend12m: number;
+  trend6m: number;
+  trend3m: number;
+  medianPrice: number;
+  transactionCount: number;
+  avgOpportunityScore: number;
+  momentum: "accelerating" | "steady" | "decelerating";
+  latitude: number;
+  longitude: number;
 }
 
 export default function Landing() {
@@ -65,10 +84,19 @@ export default function Landing() {
   });
 
   const { data: topOpportunities, isLoading: opportunitiesLoading } = useQuery<TopOpportunity[]>({
-    queryKey: ["/api/opportunities/top"],
+    queryKey: ["/api/opportunities/top", { limit: 9 }],
     queryFn: async () => {
-      const res = await fetch("/api/opportunities/top?limit=3");
+      const res = await fetch("/api/opportunities/top?limit=9");
       if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
+  const { data: trendingAreas, isLoading: trendingLoading } = useQuery<TrendingArea[]>({
+    queryKey: ["/api/market/up-and-coming", { limit: 6 }],
+    queryFn: async () => {
+      const res = await fetch("/api/market/up-and-coming?limit=6");
+      if (!res.ok) throw new Error("Failed to fetch trending areas");
       return res.json();
     },
   });
@@ -382,13 +410,19 @@ export default function Landing() {
             <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h2 className="mb-2 text-2xl font-bold tracking-tight md:text-3xl flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white">
-                    <TrendingUp className="h-4 w-4" />
+                  <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                    <Flame className="h-4 w-4 relative" />
                   </span>
                   Live Top Opportunities
                 </h2>
-                <p className="text-muted-foreground">
-                  Properties with strong potential highlighted in green
+                <p className="text-muted-foreground flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Refreshed in real time</span>
+                  </span>
+                  <span aria-hidden>·</span>
+                  <span>Underpriced properties scored 70+</span>
                 </p>
               </div>
               <Link href="/investment-opportunities">
@@ -399,48 +433,20 @@ export default function Landing() {
               </Link>
             </div>
             {opportunitiesLoading ? (
-              <div className="grid gap-4 md:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="hover-elevate h-full">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="text-base truncate">
-                            <span className="block h-6 w-3/4 rounded bg-muted animate-pulse" aria-hidden />
-                          </CardTitle>
-                          <p className="text-sm text-muted-foreground">
-                            <span className="block h-5 w-1/2 rounded bg-muted animate-pulse" aria-hidden />
-                          </p>
-                        </div>
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted animate-pulse" />
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-lg font-bold">
-                          <span className="inline-block h-7 w-16 bg-muted rounded animate-pulse" aria-hidden />
-                        </span>
-                        <Badge variant="secondary" className="text-xs animate-pulse opacity-60 pointer-events-none select-none" aria-hidden>
-                          <CheckCircle className="h-3 w-3 mr-1 invisible" />
-                          <span className="invisible">Verified</span>
-                        </Badge>
-                      </div>
-                      <div className="min-h-[2.5rem] space-y-1">
-                        <div className="flex items-center gap-1 text-xs">
-                          <span className="h-3 w-3 rounded-full bg-muted animate-pulse shrink-0" aria-hidden />
-                          <span className="h-3 w-36 rounded bg-muted animate-pulse" aria-hidden />
-                        </div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <span className="h-3 w-3 rounded-full bg-muted animate-pulse shrink-0" aria-hidden />
-                          <span className="h-3 w-28 rounded bg-muted animate-pulse" aria-hidden />
-                        </div>
-                      </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                  <Card key={i} className="h-full overflow-hidden">
+                    <div className="aspect-[16/9] bg-muted animate-pulse" />
+                    <CardContent className="pt-4 space-y-2">
+                      <div className="h-5 w-3/4 rounded bg-muted animate-pulse" />
+                      <div className="h-4 w-1/2 rounded bg-muted animate-pulse" />
+                      <div className="h-6 w-20 rounded bg-muted animate-pulse" />
                     </CardContent>
                   </Card>
                 ))}
               </div>
             ) : topOpportunities && topOpportunities.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {topOpportunities.map((opp) => {
                   const isStrong = opp.opportunityScore >= 70;
                   const href = opp.entityType === "unit" 
@@ -449,34 +455,32 @@ export default function Landing() {
                   return (
                     <Link key={opp.id} href={href}>
                       <Card 
-                        className={`hover-elevate cursor-pointer h-full ${isStrong ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/30" : ""}`}
+                        className={`hover-elevate cursor-pointer h-full overflow-hidden ${isStrong ? "border-emerald-300 dark:border-emerald-700" : ""}`}
                         data-testid={`card-live-opportunity-${opp.id}`}
                       >
-                        <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <CardTitle className="text-base truncate">{opp.address}</CardTitle>
-                              <p className="text-sm text-muted-foreground">{opp.city}, {opp.zipCode}</p>
-                            </div>
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                        <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+                          <StreetViewImage
+                            lat={opp.latitude}
+                            lng={opp.longitude}
+                            address={opp.address}
+                            width={640}
+                            height={360}
+                            rounded={false}
+                            alt={`Photo of ${opp.address}`}
+                          />
+                          <div className="absolute top-2 right-2">
+                            <div className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold shadow-md ring-2 ring-background ${
                               isStrong 
                                 ? "bg-emerald-500 text-white" 
                                 : opp.opportunityScore >= 50 
-                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                                  ? "bg-amber-500 text-white"
                                   : "bg-muted text-muted-foreground"
-                            }`}>
+                            }`} title={`Opportunity Score ${opp.opportunityScore}/100`}>
                               {opp.opportunityScore}
                             </div>
                           </div>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-lg font-bold">
-                              ${opp.price >= 1000000 
-                                ? (opp.price / 1000000).toFixed(2) + "M" 
-                                : Math.round(opp.price / 1000) + "K"}
-                            </span>
-                            <Badge variant={opp.priceType === "verified" ? "default" : "secondary"} className="text-xs">
+                          <div className="absolute top-2 left-2">
+                            <Badge variant={opp.priceType === "verified" ? "default" : "secondary"} className="text-xs shadow-md">
                               {opp.priceType === "verified" ? (
                                 <>
                                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -485,6 +489,17 @@ export default function Landing() {
                               ) : "Estimated"}
                             </Badge>
                           </div>
+                        </div>
+                        <CardContent className="pt-4">
+                          <div className="flex items-baseline justify-between gap-2 mb-1">
+                            <span className="text-xl font-bold">
+                              ${opp.price >= 1000000 
+                                ? (opp.price / 1000000).toFixed(2) + "M" 
+                                : Math.round(opp.price / 1000) + "K"}
+                            </span>
+                          </div>
+                          <p className="font-medium truncate" title={opp.address}>{opp.address}</p>
+                          <p className="text-sm text-muted-foreground mb-3 truncate">{opp.city}, {opp.zipCode}</p>
                           <div className="min-h-[2.5rem]">
                             {opp.scoreDrivers && opp.scoreDrivers.length > 0 && (
                               <ScoreDriversList drivers={opp.scoreDrivers} mode="compact" maxItems={2} />
@@ -500,6 +515,120 @@ export default function Landing() {
               <Card>
                 <CardContent className="py-8 text-center">
                   <p className="text-muted-foreground">Loading opportunities...</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </section>
+
+        <section className="py-12 border-b bg-gradient-to-b from-amber-50/40 to-background dark:from-amber-950/20 dark:to-background">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h2 className="mb-2 text-2xl font-bold tracking-tight md:text-3xl flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-white">
+                    <TrendingUp className="h-4 w-4" />
+                  </span>
+                  Trending Neighborhoods
+                </h2>
+                <p className="text-muted-foreground">
+                  Up and coming ZIPs ranked by price momentum and sales activity
+                </p>
+              </div>
+              <Link href="/up-and-coming">
+                <Button variant="outline" data-testid="link-view-all-trending">
+                  View All
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            {trendingLoading ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Card key={i} className="h-full overflow-hidden">
+                    <div className="aspect-[16/9] bg-muted animate-pulse" />
+                    <CardContent className="pt-4 space-y-2">
+                      <div className="h-5 w-1/2 rounded bg-muted animate-pulse" />
+                      <div className="h-4 w-2/3 rounded bg-muted animate-pulse" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : trendingAreas && trendingAreas.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {trendingAreas.map((area) => {
+                  const trend12mPct = (area.trend12m * 100).toFixed(1);
+                  const isUp = area.trend12m >= 0;
+                  const momentumColor =
+                    area.momentum === "accelerating"
+                      ? "bg-emerald-500 text-white"
+                      : area.momentum === "decelerating"
+                        ? "bg-rose-500 text-white"
+                        : "bg-amber-500 text-white";
+                  return (
+                    <Link key={area.zipCode} href={`/neighborhood/${area.zipCode}?geoType=zip`}>
+                      <Card
+                        className="hover-elevate cursor-pointer h-full overflow-hidden"
+                        data-testid={`card-trending-zip-${area.zipCode}`}
+                      >
+                        <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+                          <StaticMapImage
+                            center={{ lat: area.latitude, lng: area.longitude }}
+                            zoom={12}
+                            markers={[{ lat: area.latitude, lng: area.longitude, color: "orange" }]}
+                            width={640}
+                            height={360}
+                            rounded={false}
+                            alt={`Map of ZIP ${area.zipCode} in ${area.city}, ${area.state}`}
+                          />
+                          <div className="absolute top-2 right-2">
+                            <Badge className={`text-xs shadow-md capitalize ${momentumColor}`}>
+                              <Activity className="h-3 w-3 mr-1" />
+                              {area.momentum}
+                            </Badge>
+                          </div>
+                          <div className="absolute top-2 left-2">
+                            <Badge variant="secondary" className="text-xs shadow-md font-mono">
+                              {area.zipCode}
+                            </Badge>
+                          </div>
+                        </div>
+                        <CardContent className="pt-4">
+                          <div className="flex items-baseline justify-between gap-2 mb-2">
+                            <p className="font-semibold truncate">{area.city}, {area.state}</p>
+                            <span
+                              className={`text-sm font-bold flex items-center gap-0.5 ${
+                                isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                              }`}
+                            >
+                              {isUp && "+"}{trend12mPct}%
+                              <ArrowUpRight className={`h-3 w-3 ${isUp ? "" : "rotate-90"}`} />
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div>
+                              <p className="text-muted-foreground">Sales</p>
+                              <p className="font-semibold">{area.transactionCount.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Trend Score</p>
+                              <p className="font-semibold">{area.trendScore}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Avg Score</p>
+                              <p className="font-semibold">{area.avgOpportunityScore}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground">No trending areas yet.</p>
                 </CardContent>
               </Card>
             )}
