@@ -23,6 +23,7 @@ import {
 import { SEO } from "@/components/SEO";
 import { ResidenceJsonLd, BreadcrumbsJsonLd } from "@/components/JsonLd";
 import { StreetViewImage } from "@/components/StreetViewImage";
+import { InteractiveStreetView } from "@/components/InteractiveStreetView";
 import { PropertyMap } from "@/components/PropertyMap";
 import type { Property } from "@shared/schema";
 import { AppLayout } from "@/components/layouts";
@@ -651,15 +652,10 @@ export default function UnitDetail() {
         {((unit as any).latitude && (unit as any).longitude) && (
           <div className="grid gap-4 md:grid-cols-3">
             <div className="md:col-span-2 aspect-[16/9] overflow-hidden rounded-lg border" data-testid="hero-streetview-unit">
-              <StreetViewImage
+              <InteractiveStreetView
                 lat={(unit as any).latitude}
                 lng={(unit as any).longitude}
                 address={unit.buildingDisplayAddress}
-                width={1200}
-                height={500}
-                loading="eager"
-                rounded={false}
-                alt={`Street view of ${unit.buildingDisplayAddress}`}
               />
             </div>
             <div className="aspect-[16/9] md:aspect-auto overflow-hidden rounded-lg border" data-testid="map-unit-location">

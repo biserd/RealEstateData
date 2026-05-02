@@ -15,7 +15,7 @@ const MapContext = createContext<MapContextType>({
   authError: false,
 });
 
-const libraries: ("places" | "geometry" | "drawing" | "visualization")[] = ["places"];
+const libraries: ("places" | "geometry" | "drawing" | "visualization")[] = ["places", "geometry"];
 
 interface MapProviderProps {
   children: ReactNode;
