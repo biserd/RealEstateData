@@ -1,12 +1,8 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams, useSearch } from "wouter";
+import { Link, useParams, useSearch, useLocation } from "wouter";
 import { Shield, HardHat, Train, Trees, Droplets, Building2, MapPin, ArrowRight, Lock, DollarSign, Home, Activity, TrendingUp, TrendingDown } from "lucide-react";
 import { AppLayout } from "@/components/layouts";
-import { useAuth } from "@/hooks/useAuth";
-import { useSubscription } from "@/hooks/useSubscription";
 import { MarketStatsCard } from "@/components/MarketStatsCard";
-import { UpgradeModal } from "@/components/UpgradePrompt";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -133,7 +129,7 @@ export default function NeighborhoodReport() {
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
   const geoType = params.get("geoType") || "zip";
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [, navigate] = useLocation();
 
   const { data, isLoading, error } = useQuery<NeighborhoodReport>({
     queryKey: ["/api/neighborhood", geoId, "report", geoType],
@@ -301,7 +297,7 @@ export default function NeighborhoodReport() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setUpgradeOpen(true)}
+                            onClick={() => navigate("/pricing")}
                             data-testid={`button-unlock-${key}`}
                           >
                             <Lock className="mr-1 h-3 w-3" />
@@ -453,13 +449,6 @@ export default function NeighborhoodReport() {
           </CardContent>
         </Card>
       </div>
-
-      <UpgradeModal
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        feature="Detailed Neighborhood Insights"
-        description="Unlock full safety, transit, and amenity data with a Pro subscription."
-      />
     </AppLayout>
   );
 }

@@ -87,6 +87,16 @@ The platform implements a three-tier freemium model (Free, Pro, Premium) managed
 
 Pro subscribers can generate API keys to programmatically access platform data via external API endpoints for properties, market stats, comps, and trending ZIP codes. API key management is available, including generation and revocation, with rate limiting enforced.
 
+### Tools Pages
+
+Three standalone power-user tools accessible via the Header "Tools" dropdown and Footer:
+
+-   **Property Comparison (`/compare`):** Side-by-side comparison table of up to 2 properties (Free) or 4 (Pro). Search by ZIP/city/address surfaces an area picker, then shows nearby properties to add. Compares address, location, type, price, $/sqft, beds, baths, sqft, year built, and opportunity score. Selected property IDs are persisted in the URL (`?ids=...`) for shareable comparisons via the Share button.
+-   **Neighborhood Report Cards (`/neighborhood/:geoId?geoType=zip|neighborhood`):** Letter grade (A–F) plus market stats (median price, $/sqft, count, 3mo trend) and six neighborhood indicators (Development, Safety, Transit, Amenities, Flood Risk, Building Health). Free tier sees Development/Flood/Building; Pro unlocks Safety/Transit/Amenities (locked cards blur and link to `/pricing`). Includes property type and bedroom distributions.
+-   **Investment Calculator (`/calculator`):** Real-time rental property analyzer. Inputs: purchase price, down payment, interest rate, loan term, closing costs, monthly rent, vacancy, property tax, insurance, maintenance, management fee, appreciation. Outputs: monthly cash flow, cap rate, cash-on-cash return, 5-year ROI, GRM, DSCR, break-even occupancy, and a monthly expense breakdown. Pro users see a Market Context card with NY median price/trend; Free users see a blurred preview that links to `/pricing`.
+
+All Pro upgrade paths on these tools navigate to `/pricing` rather than opening modals, consistent with the platform's monetization policy.
+
 ### Internal Linking & Browse Pages
 
 State and city browse pages (`/browse/:state` and `/browse/:state/:city`) provide SEO-friendly geographic navigation with:

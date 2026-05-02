@@ -14,8 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layouts";
 import { useSubscription } from "@/hooks/useSubscription";
-import { UpgradeModal } from "@/components/UpgradePrompt";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 interface CalculatorInputs {
   purchasePrice: number;
@@ -211,7 +210,7 @@ function InputField({ label, value, onChange, prefix, suffix, tooltip, min, max,
 
 export default function InvestmentCalculator() {
   const { isPro, isFree } = useSubscription();
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [, navigate] = useLocation();
 
   const [inputs, setInputs] = useState<CalculatorInputs>({
     purchasePrice: 500000,
@@ -609,7 +608,7 @@ export default function InvestmentCalculator() {
                       </div>
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Button variant="outline" size="sm" onClick={() => setUpgradeOpen(true)} data-testid="button-unlock-market-context">
+                      <Button variant="outline" size="sm" onClick={() => navigate("/pricing")} data-testid="button-unlock-market-context">
                         <Lock className="mr-1 h-3 w-3" />
                         Unlock Market Context
                       </Button>
@@ -639,13 +638,6 @@ export default function InvestmentCalculator() {
           </div>
         </div>
       </div>
-
-      <UpgradeModal
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        feature="Market Context"
-        description="Get real-time market data alongside your investment calculations, including median prices, trends, and comparable analysis for any area."
-      />
     </AppLayout>
   );
 }
