@@ -819,13 +819,21 @@ export class DatabaseStorage implements IStorage {
 
   async getRecentSalesForArea(geoType: string, geoId: string, limit = 20): Promise<(Sale & { property: Property })[]> {
     let whereCondition;
-    
+
     if (geoType === "zip") {
       whereCondition = eq(properties.zipCode, geoId);
     } else if (geoType === "city") {
-      whereCondition = eq(properties.city, geoId);
+      // Properties.city stores titlecase ("Hoboken") but the UI/popular chips
+      // use slugged lowercase ids ("hoboken"). Match case-insensitively.
+      whereCondition = ilike(properties.city, geoId);
     } else if (geoType === "neighborhood") {
-      whereCondition = eq(properties.neighborhood, geoId);
+      // Aggregates store kebab-case ("cd-108") while properties.neighborhood
+      // stores the original CD code with a space ("CD 108"). Try both.
+      const variants = [
+        geoId,
+        geoId.toUpperCase().replace(/-/g, " "),
+      ];
+      whereCondition = inArray(properties.neighborhood, variants);
     } else if (geoType === "state") {
       whereCondition = eq(properties.state, geoId);
     } else {
@@ -856,11 +864,19 @@ export class DatabaseStorage implements IStorage {
 
   // Market aggregate operations
   async getMarketAggregates(geoType: string, geoId: string, filters?: any): Promise<MarketAggregate[]> {
+    // City ids in the UI/popular chips are lowercase slugs ("hoboken") but
+    // most aggregate rows use the same case. Match case-insensitively for
+    // safety. Same for neighborhood (kebab-case "cd-108").
+    const idCondition =
+      geoType === "city" || geoType === "neighborhood"
+        ? ilike(marketAggregates.geoId, geoId)
+        : eq(marketAggregates.geoId, geoId);
+
     const conditions = [
       eq(marketAggregates.geoType, geoType),
-      eq(marketAggregates.geoId, geoId),
+      idCondition,
     ];
-    
+
     if (filters?.propertyType && filters.propertyType !== "all") {
       conditions.push(eq(marketAggregates.propertyType, filters.propertyType));
     }
@@ -871,12 +887,64 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(marketAggregates.yearBuiltBand, filters.yearBuiltBand));
     }
 
-    return await db
+    const rows = await db
       .select()
       .from(marketAggregates)
       .where(and(...conditions))
       .orderBy(desc(marketAggregates.computedAt))
       .limit(1);
+
+    if (rows.length > 0) return rows;
+
+    // Fall back: state-level aggregates aren't pre-computed, so synthesize one
+    // on the fly from the per-ZIP rows for that state. Uses median-of-medians
+    // for price stats and sums transaction counts; good enough for a
+    // state-overview number until we add a real state aggregator to the ETL.
+    if (geoType === "state") {
+      const zipRows = await db
+        .select()
+        .from(marketAggregates)
+        .where(and(eq(marketAggregates.geoType, "zip"), eq(marketAggregates.state, geoId)));
+
+      if (zipRows.length === 0) return [];
+
+      const median = (xs: number[]): number => {
+        const arr = xs.filter((v) => v !== null && v !== undefined && !Number.isNaN(v)).sort((a, b) => a - b);
+        if (arr.length === 0) return 0;
+        const mid = Math.floor(arr.length / 2);
+        return arr.length % 2 === 0 ? Math.round((arr[mid - 1] + arr[mid]) / 2) : arr[mid];
+      };
+
+      const synthetic: MarketAggregate = {
+        id: `state-synthetic-${geoId}`,
+        geoType: "state",
+        geoId,
+        geoName: geoId === "NY" ? "New York" : geoId === "NJ" ? "New Jersey" : geoId === "CT" ? "Connecticut" : geoId,
+        state: geoId,
+        propertyType: null,
+        bedsBand: null,
+        bathsBand: null,
+        yearBuiltBand: null,
+        sizeBand: null,
+        medianPrice: median(zipRows.map((r) => Number(r.medianPrice || 0))),
+        medianPricePerSqft: median(zipRows.map((r) => Number(r.medianPricePerSqft || 0))),
+        p25Price: median(zipRows.map((r) => Number(r.p25Price || 0))),
+        p75Price: median(zipRows.map((r) => Number(r.p75Price || 0))),
+        p25PricePerSqft: median(zipRows.map((r) => Number(r.p25PricePerSqft || 0))),
+        p75PricePerSqft: median(zipRows.map((r) => Number(r.p75PricePerSqft || 0))),
+        transactionCount: zipRows.reduce((sum, r) => sum + (r.transactionCount || 0), 0),
+        turnoverRate: median(zipRows.map((r) => Number(r.turnoverRate || 0))),
+        volatility: median(zipRows.map((r) => Number(r.volatility || 0))),
+        trend3m: median(zipRows.map((r) => Number(r.trend3m || 0))),
+        trend6m: median(zipRows.map((r) => Number(r.trend6m || 0))),
+        trend12m: median(zipRows.map((r) => Number(r.trend12m || 0))),
+        computedAt: new Date(),
+      };
+
+      return [synthetic];
+    }
+
+    return [];
   }
 
   async getMarketOverview(): Promise<MarketAggregate[]> {
@@ -946,12 +1014,14 @@ export class DatabaseStorage implements IStorage {
 
     const neighborhoodMatches: Array<{ type: string; id: string; name: string; state: string }> = [];
     
-    // Check for neighborhood name matches
+    // Check for neighborhood name matches.
+    // Aggregates are stored with kebab-case ids ("cd-108"), so we slug the
+    // mapping's CD code to the same format the API expects.
     for (const [key, value] of Object.entries(neighborhoodMappings)) {
       if (key.includes(queryLower) || queryLower.includes(key.split(" ")[0])) {
         neighborhoodMatches.push({
           type: "neighborhood",
-          id: value.code,
+          id: value.code.toLowerCase().replace(/\s+/g, "-"),
           name: `${value.name}, ${value.city}`,
           state: "NY",
         });
