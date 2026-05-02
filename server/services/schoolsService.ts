@@ -156,6 +156,11 @@ export async function getNearbySchools(
     });
   }
 
-  withDistance.sort((a, b) => a.distanceMiles - b.distanceMiles);
+  withDistance.sort((a, b) => {
+    const sa = a.overallScore ?? -1;
+    const sb = b.overallScore ?? -1;
+    if (sb !== sa) return sb - sa;
+    return a.distanceMiles - b.distanceMiles;
+  });
   return withDistance.slice(0, limit);
 }
