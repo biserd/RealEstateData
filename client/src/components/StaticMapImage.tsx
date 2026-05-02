@@ -58,8 +58,10 @@ export function StaticMapImage({
     );
   }
 
+  const reqW = Math.min(width, 640);
+  const reqH = Math.min(height, 640);
   const parts: string[] = [
-    `size=${width}x${height}`,
+    `size=${reqW}x${reqH}`,
     `maptype=${mapType}`,
     `scale=2`,
     `key=${encodeURIComponent(apiKey)}`,

@@ -48,9 +48,12 @@ export function StreetViewImage({
     );
   }
 
+  const reqW = Math.min(width, 640);
+  const reqH = Math.min(height, 640);
+
   if (streetErrored) {
     const mapParams = new URLSearchParams({
-      size: `${width}x${height}`,
+      size: `${reqW}x${reqH}`,
       center: `${lat},${lng}`,
       zoom: "17",
       maptype: "roadmap",
@@ -79,7 +82,7 @@ export function StreetViewImage({
   }
 
   const params = new URLSearchParams({
-    size: `${width}x${height}`,
+    size: `${reqW}x${reqH}`,
     location: `${lat},${lng}`,
     fov: "80",
     pitch: "0",
