@@ -3,7 +3,7 @@ import { stripeService } from './stripeService';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { generateActivationToken } from './auth';
-import { sendActivationEmail } from './emailService';
+import { sendActivationEmail, sendTrialStartedNotificationToAdmin } from './emailService';
 
 const APP_SLUG = process.env.APP_SLUG || 'realtorsdashboard';
 
@@ -214,7 +214,37 @@ async function syncUserSubscriptions(): Promise<void> {
       console.log(`[Webhook] Updated user ${(row as any).id}: tier=${(row as any).subscription_tier}, status=${(row as any).subscription_status}`);
     }
   }
-  
+
+  // Notify admin when a user enters the trialing state for the first time.
+  // Idempotent: trial_notification_sent_at is set after a successful send, so
+  // repeated webhook deliveries won't re-notify.
+  try {
+    const newTrials = await db.execute(sql`
+      SELECT id, email, first_name, last_name, subscription_tier
+      FROM users
+      WHERE subscription_status = 'trialing'
+        AND trial_notification_sent_at IS NULL
+        AND email IS NOT NULL
+    `);
+
+    for (const row of newTrials.rows) {
+      const u = row as any;
+      const sent = await sendTrialStartedNotificationToAdmin(
+        u.email,
+        u.subscription_tier || 'pro',
+        u.first_name,
+        u.last_name,
+      );
+      if (sent) {
+        await db.execute(sql`
+          UPDATE users SET trial_notification_sent_at = NOW() WHERE id = ${u.id}
+        `);
+      }
+    }
+  } catch (error: any) {
+    console.error(`[Webhook] Error sending trial-started notifications:`, error.message);
+  }
+
   // Also handle canceled subscriptions - find users whose subscriptions are no longer active
   // Include both 'active' and 'trialing' statuses, and clear stripe_subscription_id
   const canceledResult = await db.execute(sql`

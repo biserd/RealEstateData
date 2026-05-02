@@ -287,6 +287,82 @@ export async function sendPasswordResetEmail(userEmail: string, resetToken: stri
   }
 }
 
+export async function sendTrialStartedNotificationToAdmin(
+  userEmail: string,
+  tier: string,
+  firstName?: string | null,
+  lastName?: string | null,
+) {
+  try {
+    const client = getResendClient();
+
+    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Not provided';
+    const startTime = new Date().toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+    const tierLabel = tier === 'premium' ? 'Premium' : tier === 'pro' ? 'Pro' : tier;
+
+    console.log(`[Resend] Sending trial-started notification for ${userEmail} (${tierLabel}) to ${ADMIN_EMAIL}`);
+
+    const result = await client.emails.send({
+      from: FROM_EMAIL,
+      to: ADMIN_EMAIL,
+      subject: `New Trial Started: ${userEmail} (${tierLabel})`,
+      html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h2 style="color: #1e293b;">New Free Trial Started</h2>
+
+  <div style="background: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Email:</td>
+        <td style="padding: 8px 0; color: #1e293b;">${userEmail}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Name:</td>
+        <td style="padding: 8px 0; color: #1e293b;">${fullName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Plan:</td>
+        <td style="padding: 8px 0; color: #1e293b;">${tierLabel}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Trial started:</td>
+        <td style="padding: 8px 0; color: #1e293b;">${startTime} ET</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Trial length:</td>
+        <td style="padding: 8px 0; color: #1e293b;">14 days</td>
+      </tr>
+    </table>
+  </div>
+
+  <p style="color: #64748b; font-size: 14px;">
+    This is an automated notification from Realtors Dashboard.
+  </p>
+</body>
+</html>
+      `,
+    });
+
+    if (result.error) {
+      console.error(`[Resend] Error sending trial-started notification:`, result.error);
+      return false;
+    }
+
+    console.log(`[Resend] Trial-started notification sent for ${userEmail}, id: ${result.data?.id}`);
+    return true;
+  } catch (error) {
+    console.error('[Resend] Failed to send trial-started notification:', error);
+    return false;
+  }
+}
+
 export async function sendNewUserNotificationToAdmin(userEmail: string, firstName?: string | null, lastName?: string | null) {
   try {
     const client = getResendClient();
