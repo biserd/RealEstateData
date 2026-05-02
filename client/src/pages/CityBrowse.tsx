@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { SEO } from "@/components/SEO";
+import { BreadcrumbsJsonLd } from "@/components/JsonLd";
 import { AppLayout } from "@/components/layouts";
 import { PropertyCard } from "@/components/PropertyCard";
 import { LoadingState } from "@/components/LoadingState";
@@ -66,6 +67,13 @@ export default function CityBrowse() {
         title={`${city}, ${stateName} Real Estate - ${stats?.totalProperties?.toLocaleString() || ""} Properties | Realtors Dashboard`}
         description={`Browse ${stats?.totalProperties?.toLocaleString() || ""} properties in ${city}, ${stateName}. Median price: ${formatPrice(stats?.medianPrice || 0)}. View ZIP codes, property types, and investment opportunities.`}
         canonicalUrl={`/browse/${stateCode.toLowerCase()}/${encodeURIComponent(city)}`}
+      />
+      <BreadcrumbsJsonLd
+        items={[
+          { name: "Home", url: "/" },
+          { name: stateName, url: `/browse/${stateCode.toLowerCase()}` },
+          { name: city, url: `/browse/${stateCode.toLowerCase()}/${encodeURIComponent(city)}` },
+        ]}
       />
       <AppLayout>
         <div className="container mx-auto px-4 py-6">

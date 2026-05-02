@@ -5,6 +5,8 @@ import { extractPropertyIdFromSlug, extractLocationFromSlug, formatPropertyAddre
 import { getPropertyUrl } from "@/lib/propertySlug";
 import { SEO } from "@/components/SEO";
 import { PropertyJsonLd } from "@/components/PropertyJsonLd";
+import { BreadcrumbsJsonLd } from "@/components/JsonLd";
+import { StreetViewImage } from "@/components/StreetViewImage";
 import { 
   ArrowLeft, 
   Heart, 
@@ -499,8 +501,17 @@ export default function PropertyDetail() {
       <SEO 
         title={seoTitle}
         description={seoDescription}
+        canonicalUrl={`https://realtorsdashboard.com${getPropertyUrl(property)}`}
       />
       <PropertyJsonLd property={property} compsCount={comps?.length} />
+      <BreadcrumbsJsonLd
+        items={[
+          { name: "Home", url: "/" },
+          { name: STATE_NAMES[property.state] || property.state, url: `/browse/${property.state.toLowerCase()}` },
+          { name: property.city, url: `/browse/${property.state.toLowerCase()}/${encodeURIComponent(property.city)}` },
+          { name: formatPropertyAddress(property), url: getPropertyUrl(property) },
+        ]}
+      />
       <AppLayout showSearch={false}>
         <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
           <div className="mb-6">
@@ -511,6 +522,21 @@ export default function PropertyDetail() {
               </Button>
             </Link>
           </div>
+
+        {(property.latitude && property.longitude) && (
+          <div className="mb-6 aspect-[16/9] sm:aspect-[21/9] overflow-hidden rounded-lg border" data-testid="hero-streetview-property">
+            <StreetViewImage
+              lat={property.latitude}
+              lng={property.longitude}
+              address={formatFullAddress(property)}
+              width={1200}
+              height={500}
+              loading="eager"
+              rounded={false}
+              alt={`Street view of ${formatFullAddress(property)}`}
+            />
+          </div>
+        )}
 
         <Card className="mb-6">
           <CardHeader className="pb-3">

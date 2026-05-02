@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
+import { OrganizationJsonLd, WebSiteJsonLd } from "@/components/JsonLd";
+import { StaticMapImage } from "@/components/StaticMapImage";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -198,6 +200,8 @@ export default function Landing() {
         title="Realtors Dashboard - Real Estate Market Intelligence"
         description="AI-powered real estate intelligence for NY, NJ, and CT. Find underpriced properties, analyze market trends, and make data-driven investment decisions."
       />
+      <OrganizationJsonLd />
+      <WebSiteJsonLd searchUrlTemplate="https://realtorsdashboard.com/market-intelligence?q={search_term_string}" />
       <div className="min-h-screen bg-background">
         <MarketingHeader />
 
@@ -580,6 +584,106 @@ export default function Landing() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t bg-background py-16">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mb-10 text-center">
+              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">Coverage Across the Tri-State</h2>
+              <p className="text-muted-foreground">Comprehensive data across New York, New Jersey, and Connecticut</p>
+            </div>
+            <div className="grid gap-8 lg:grid-cols-5 items-center">
+              <div className="lg:col-span-3 aspect-[16/10] overflow-hidden rounded-lg border" data-testid="map-coverage">
+                <StaticMapImage
+                  center={{ lat: 40.95, lng: -73.85 }}
+                  zoom={8}
+                  markers={[
+                    { lat: 40.7128, lng: -74.0060, color: "blue", label: "N" },
+                    { lat: 40.7357, lng: -74.1724, color: "blue", label: "J" },
+                    { lat: 41.7658, lng: -72.6734, color: "blue", label: "C" },
+                  ]}
+                  width={1000}
+                  height={625}
+                  rounded={false}
+                  alt="Coverage map of NY, NJ, and CT"
+                />
+              </div>
+              <div className="lg:col-span-2 space-y-5">
+                {coverageAreas.map((area) => (
+                  <div key={area.state} className="flex items-start gap-3" data-testid={`coverage-row-${area.state.toLowerCase().replace(/\s+/g, "-")}`}>
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <MapPin className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">{area.state}</p>
+                      <p className="text-sm text-muted-foreground">{area.areas}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t bg-muted/30 py-12">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <p className="mb-6 text-center text-sm font-medium uppercase tracking-wide text-muted-foreground">Powered by data from</p>
+            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-muted-foreground">
+              {[
+                "NYC Open Data",
+                "PLUTO",
+                "DOB Permits",
+                "311 Complaints",
+                "HPD Violations",
+                "CT Open Data (CAMA)",
+                "NJ MOD-IV",
+                "Zillow Research",
+              ].map((src) => (
+                <div key={src} className="flex items-center gap-2 text-sm font-medium" data-testid={`source-${src.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+                  <Database className="h-4 w-4" />
+                  <span>{src}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t py-20">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mb-12 text-center">
+              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">What Our Users Say</h2>
+              <p className="text-muted-foreground">Investors, agents, and analysts using Realtors Dashboard</p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-3">
+              {[
+                {
+                  quote: "The Opportunity Score helps me cut through hundreds of listings to find the ones actually worth a closer look.",
+                  name: "Jordan M.",
+                  role: "Multi-family Investor, NJ",
+                },
+                {
+                  quote: "Having permits, violations, and 311 complaints layered onto market data in one place is a real time-saver.",
+                  name: "Priya R.",
+                  role: "Buyer's Agent, NYC",
+                },
+                {
+                  quote: "I use the Investment Calculator and Neighborhood Report Cards to vet every deal before I underwrite it.",
+                  name: "Daniel K.",
+                  role: "Analyst, CT",
+                },
+              ].map((t) => (
+                <Card key={t.name} className="h-full" data-testid={`testimonial-${t.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+                  <CardContent className="p-6">
+                    <p className="mb-4 text-sm leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
+                    <div className="border-t pt-3">
+                      <p className="text-sm font-semibold">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">{t.role}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         </section>

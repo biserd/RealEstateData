@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layouts";
+import { SEO } from "@/components/SEO";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Link, useLocation } from "wouter";
 
@@ -252,6 +253,11 @@ export default function InvestmentCalculator() {
 
   return (
     <AppLayout>
+      <SEO
+        title="Real Estate Investment Calculator - Cash Flow, Cap Rate, ROI"
+        description="Free rental property investment calculator. Compute monthly cash flow, cap rate, cash-on-cash return, 5-year ROI, GRM, and DSCR with full expense breakdown."
+        canonicalUrl="https://realtorsdashboard.com/calculator"
+      />
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">

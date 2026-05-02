@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layouts";
+import { SEO } from "@/components/SEO";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { PropertyMap } from "@/components/PropertyMap";
@@ -146,6 +147,11 @@ export default function UpAndComingZips() {
 
   return (
     <AppLayout>
+      <SEO
+        title="Up & Coming ZIP Codes - Trending Real Estate Markets"
+        description="Discover trending neighborhoods with rising property values across NY, NJ, and CT. Data-driven trend scores reveal up-and-coming ZIP codes with strong appreciation potential."
+        canonicalUrl="https://realtorsdashboard.com/up-and-coming"
+      />
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

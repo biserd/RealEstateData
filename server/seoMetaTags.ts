@@ -76,6 +76,30 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     ogType: 'website',
     canonicalPath: '/developers',
   },
+  '/api-access': {
+    title: 'API Access - Manage Your Keys | Realtors Dashboard',
+    description: 'Generate and manage API keys for the Realtors Dashboard Developer API. Pro and Premium subscribers only.',
+    ogType: 'website',
+    canonicalPath: '/api-access',
+  },
+  '/release-notes': {
+    title: 'Release Notes - Realtors Dashboard',
+    description: 'Latest updates, new features, and improvements to the Realtors Dashboard real estate intelligence platform.',
+    ogType: 'website',
+    canonicalPath: '/release-notes',
+  },
+  '/compare': {
+    title: 'Property Comparison Tool - Realtors Dashboard',
+    description: 'Compare up to 4 properties side-by-side. Analyze price, opportunity score, beds, baths, square footage, and more across NY, NJ, and CT listings.',
+    ogType: 'website',
+    canonicalPath: '/compare',
+  },
+  '/calculator': {
+    title: 'Investment Property Calculator - Realtors Dashboard',
+    description: 'Free rental property analyzer. Calculate cap rate, cash-on-cash return, cash flow, GRM, DSCR, break-even occupancy, and 5-year ROI in seconds.',
+    ogType: 'website',
+    canonicalPath: '/calculator',
+  },
 };
 
 function titleCase(str: string): string {
@@ -222,6 +246,70 @@ const STATE_NAMES: Record<string, string> = {
   CT: 'Connecticut',
 };
 
+async function getBuildingMeta(rawBaseBbl: string): Promise<PageMeta | null> {
+  try {
+    const baseBbl = rawBaseBbl.match(/(\d{10})$/)?.[1] || rawBaseBbl;
+    const result = await db.execute(sql`
+      SELECT base_bbl, building_display_address, borough, zip_code,
+        COUNT(*) FILTER (WHERE unit_classification = 'residential')::int AS res_units
+      FROM condo_units
+      WHERE base_bbl = ${baseBbl}
+      GROUP BY base_bbl, building_display_address, borough, zip_code
+      LIMIT 1
+    `);
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0] as any;
+    const address = row.building_display_address ? titleCase(row.building_display_address) : 'Building';
+    const borough = row.borough ? titleCase(row.borough) : '';
+    const zip = row.zip_code || '';
+    const units = Number(row.res_units || 0);
+    const locParts = [borough, zip].filter(Boolean).join(' ');
+    return {
+      title: `${address}${locParts ? ` - ${locParts}` : ''} | Realtors Dashboard`,
+      description: `View ${address}, a condo building${units ? ` with ${units} residential units` : ''}${borough ? ` in ${borough}` : ''}. Browse units, sales history, and detailed building information.`,
+      ogType: 'website',
+      canonicalPath: `/building/${baseBbl}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getNeighborhoodMeta(geoId: string, geoType: string): Promise<PageMeta | null> {
+  try {
+    if (geoType === 'zip') {
+      const result = await db.execute(sql`
+        SELECT zip_code, COUNT(*)::int AS total,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int AS median,
+          MAX(state) AS state, MAX(city) AS city
+        FROM properties
+        WHERE zip_code = ${geoId} AND estimated_value > 0
+        GROUP BY zip_code
+        LIMIT 1
+      `);
+      if (result.rows.length === 0) return null;
+      const row = result.rows[0] as any;
+      const total = Number(row?.total || 0);
+      const median = row?.median ? formatPrice(row.median) : '';
+      const city = row?.city ? titleCase(row.city) : '';
+      return {
+        title: `${geoId} ZIP Code Report${city ? ` - ${city}` : ''} | Realtors Dashboard`,
+        description: `Neighborhood report card for ZIP ${geoId}${city ? ` (${city})` : ''}. ${total.toLocaleString()} properties${median ? `, median price ${median}` : ''}. Indicators include development, safety, transit, amenities, flood risk, and building health.`,
+        ogType: 'website',
+        canonicalPath: `/neighborhood/${encodeURIComponent(geoId)}?geoType=zip`,
+      };
+    }
+    return {
+      title: `${geoId} Neighborhood Report | Realtors Dashboard`,
+      description: `Neighborhood report card for ${geoId}. Letter grade, market stats, and six neighborhood indicators including development, safety, transit, amenities, flood risk, and building health.`,
+      ogType: 'website',
+      canonicalPath: `/neighborhood/${encodeURIComponent(geoId)}?geoType=${encodeURIComponent(geoType)}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function getBrowseStateMeta(state: string): Promise<PageMeta | null> {
   try {
     const upperState = state.toUpperCase();
@@ -296,6 +384,21 @@ export async function getMetaForUrl(url: string): Promise<PageMeta> {
   const propertyMatch = path.match(/^\/properties\/(.+)$/);
   if (propertyMatch) {
     const meta = await getPropertyMeta(propertyMatch[1]);
+    if (meta) return meta;
+  }
+
+  const buildingMatch = path.match(/^\/building\/(.+)$/);
+  if (buildingMatch) {
+    const meta = await getBuildingMeta(buildingMatch[1]);
+    if (meta) return meta;
+  }
+
+  const neighborhoodMatch = path.match(/^\/neighborhood\/([^/]+)$/);
+  if (neighborhoodMatch) {
+    const queryStr = url.includes('?') ? url.split('?')[1] : '';
+    const geoTypeMatch = queryStr.match(/(?:^|&)geoType=([^&]+)/);
+    const geoType = geoTypeMatch ? decodeURIComponent(geoTypeMatch[1]) : 'zip';
+    const meta = await getNeighborhoodMeta(decodeURIComponent(neighborhoodMatch[1]), geoType);
     if (meta) return meta;
   }
 

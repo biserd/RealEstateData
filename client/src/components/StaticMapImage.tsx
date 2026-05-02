@@ -1,0 +1,98 @@
+import { useState } from "react";
+import { MapPin } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface MapMarker {
+  lat: number;
+  lng: number;
+  color?: string;
+  label?: string;
+}
+
+interface StaticMapImageProps {
+  center?: { lat: number; lng: number } | null;
+  zoom?: number;
+  markers?: MapMarker[];
+  width?: number;
+  height?: number;
+  mapType?: "roadmap" | "satellite" | "hybrid" | "terrain";
+  className?: string;
+  alt?: string;
+  rounded?: boolean;
+  loading?: "lazy" | "eager";
+}
+
+export function StaticMapImage({
+  center,
+  zoom = 15,
+  markers = [],
+  width = 640,
+  height = 360,
+  mapType = "roadmap",
+  className,
+  alt = "Map view",
+  rounded = true,
+  loading = "lazy",
+}: StaticMapImageProps) {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+  const [errored, setErrored] = useState(false);
+
+  const validMarkers = markers.filter(
+    (m) => m.lat !== null && m.lng !== null && !Number.isNaN(m.lat) && !Number.isNaN(m.lng),
+  );
+  const hasCenter = center && !Number.isNaN(center.lat) && !Number.isNaN(center.lng);
+
+  if (!apiKey || (!hasCenter && validMarkers.length === 0) || errored) {
+    return (
+      <div
+        className={cn(
+          "flex items-center justify-center bg-muted text-muted-foreground",
+          rounded && "rounded-lg",
+          className,
+        )}
+        style={{ aspectRatio: `${width} / ${height}` }}
+        data-testid="img-staticmap-fallback"
+      >
+        <MapPin className="h-10 w-10 opacity-50" />
+      </div>
+    );
+  }
+
+  const parts: string[] = [
+    `size=${width}x${height}`,
+    `maptype=${mapType}`,
+    `scale=2`,
+    `key=${encodeURIComponent(apiKey)}`,
+  ];
+
+  if (hasCenter) {
+    parts.push(`center=${center!.lat},${center!.lng}`);
+    parts.push(`zoom=${zoom}`);
+  }
+
+  validMarkers.forEach((m) => {
+    const color = m.color || "red";
+    const label = m.label ? `|label:${m.label}` : "";
+    parts.push(`markers=color:${color}${label}|${m.lat},${m.lng}`);
+  });
+
+  const src = `https://maps.googleapis.com/maps/api/staticmap?${parts.join("&")}`;
+
+  return (
+    <img
+      src={src}
+      width={width}
+      height={height}
+      loading={loading}
+      decoding="async"
+      alt={alt}
+      className={cn(
+        "w-full h-full object-cover",
+        rounded && "rounded-lg",
+        className,
+      )}
+      onError={() => setErrored(true)}
+      data-testid="img-staticmap"
+    />
+  );
+}

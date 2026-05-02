@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { HelpCircle, Mail } from "lucide-react";
+import { SEO } from "@/components/SEO";
+import { FAQJsonLd } from "@/components/JsonLd";
 
 export default function FAQ() {
   const generalFAQs = [
@@ -64,8 +66,16 @@ export default function FAQ() {
     },
   ];
 
+  const allFAQs = [...generalFAQs, ...featureFAQs, ...pricingFAQs];
+
   return (
     <MarketingLayout showBackButton={false}>
+      <SEO
+        title="Frequently Asked Questions - Realtors Dashboard"
+        description="Answers to common questions about Realtors Dashboard, our real estate data sources, AI features, pricing, billing, and more."
+        canonicalUrl="https://realtorsdashboard.com/faq"
+      />
+      <FAQJsonLd items={allFAQs} />
       <div className="mx-auto max-w-4xl px-4 py-12 md:px-6">
         <div className="mb-12">
           <h1 className="text-3xl font-bold tracking-tight mb-4 md:text-4xl">

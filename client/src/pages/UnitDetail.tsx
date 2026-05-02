@@ -21,6 +21,9 @@ import {
   XCircle
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
+import { ResidenceJsonLd, BreadcrumbsJsonLd } from "@/components/JsonLd";
+import { StreetViewImage } from "@/components/StreetViewImage";
+import { StaticMapImage } from "@/components/StaticMapImage";
 import { AppLayout } from "@/components/layouts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -587,8 +590,28 @@ export default function UnitDetail() {
       <SEO
         title={seoTitle}
         description={seoDescription}
+        canonicalUrl={`https://realtorsdashboard.com${(unit as any).slug ? `/unit/${(unit as any).slug}` : `/unit/${unit.unitBbl}`}`}
       />
-      
+      <ResidenceJsonLd
+        name={unit.unitDisplayAddress || `${unit.buildingDisplayAddress}, ${unitTitle}`}
+        description={seoDescription}
+        streetAddress={unit.buildingDisplayAddress || undefined}
+        addressLocality={unit.borough || undefined}
+        addressRegion="NY"
+        postalCode={unit.zipCode || undefined}
+        latitude={(unit as any).latitude}
+        longitude={(unit as any).longitude}
+        url={`https://realtorsdashboard.com${(unit as any).slug ? `/unit/${(unit as any).slug}` : `/unit/${unit.unitBbl}`}`}
+      />
+      <BreadcrumbsJsonLd
+        items={[
+          { name: "Home", url: "/" },
+          { name: unit.borough || "NYC", url: `/browse/ny` },
+          { name: unit.buildingDisplayAddress || "Building", url: `/building/${unit.baseBbl}` },
+          { name: unitTitle, url: `/unit/${(unit as any).slug || unit.unitBbl}` },
+        ]}
+      />
+
       <div className="container max-w-6xl mx-auto px-4 py-6 space-y-6">
         <PropertyBreadcrumbs
           borough={unit.borough}
@@ -596,6 +619,34 @@ export default function UnitDetail() {
           buildingBbl={unit.baseBbl}
           unitDesignation={unit.unitDesignation}
         />
+
+        {((unit as any).latitude && (unit as any).longitude) && (
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-2 aspect-[16/9] overflow-hidden rounded-lg border" data-testid="hero-streetview-unit">
+              <StreetViewImage
+                lat={(unit as any).latitude}
+                lng={(unit as any).longitude}
+                address={unit.buildingDisplayAddress}
+                width={1200}
+                height={500}
+                loading="eager"
+                rounded={false}
+                alt={`Street view of ${unit.buildingDisplayAddress}`}
+              />
+            </div>
+            <div className="aspect-[16/9] md:aspect-auto overflow-hidden rounded-lg border" data-testid="map-unit-location">
+              <StaticMapImage
+                center={{ lat: (unit as any).latitude, lng: (unit as any).longitude }}
+                zoom={15}
+                markers={[{ lat: (unit as any).latitude, lng: (unit as any).longitude, color: "red" }]}
+                width={600}
+                height={400}
+                rounded={false}
+                alt={`Map of ${unit.buildingDisplayAddress}`}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">

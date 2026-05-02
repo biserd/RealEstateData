@@ -298,6 +298,12 @@ Sitemap: ${baseUrl}/sitemap.xml
     <lastmod>${today}</lastmod>
   </sitemap>
 `;
+
+      xml += `  <sitemap>
+    <loc>${baseUrl}/sitemap-neighborhoods.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+`;
       
       xml += `</sitemapindex>`;
       
@@ -385,6 +391,98 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error generating browse sitemap:", error);
       res.status(500).send("Error generating browse sitemap");
+    }
+  });
+
+  // SEO: Neighborhood report sitemap (ZIPs from market aggregates)
+  app.get("/sitemap-neighborhoods.xml", async (req, res) => {
+    try {
+      const baseUrl = `https://${req.get("host")}`;
+      const today = new Date().toISOString().split("T")[0];
+      const result = await db.execute(sql`
+        SELECT DISTINCT geo_id AS zip
+        FROM market_aggregates
+        WHERE geo_type = 'zip' AND geo_id IS NOT NULL AND geo_id <> ''
+        UNION
+        SELECT DISTINCT zip_code AS zip
+        FROM properties
+        WHERE zip_code IS NOT NULL AND zip_code <> ''
+        ORDER BY zip
+        LIMIT 50000
+      `);
+
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+`;
+
+      for (const row of result.rows) {
+        const zip = (row as any).zip;
+        if (!zip) continue;
+        xml += `  <url>
+    <loc>${baseUrl}/neighborhood/${encodeURIComponent(zip)}?geoType=zip</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+`;
+      }
+
+      xml += `</urlset>`;
+      res.type("application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating neighborhoods sitemap:", error);
+      res.status(500).send("Error generating neighborhoods sitemap");
+    }
+  });
+
+  app.get("/api/og/property/:id.png", async (req, res) => {
+    try {
+      const apiKey = process.env.VITE_GOOGLE_MAPS_API_KEY || "";
+      if (!apiKey) return res.status(404).send("Maps key unavailable");
+      const property = await storage.getProperty(req.params.id);
+      if (!property || !property.latitude || !property.longitude) {
+        return res.status(404).send("Property not found");
+      }
+      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${property.latitude},${property.longitude}&zoom=16&size=1200x630&maptype=roadmap&markers=color:red%7C${property.latitude},${property.longitude}&key=${apiKey}`;
+      const upstream = await fetch(url);
+      if (!upstream.ok) return res.status(502).send("Upstream error");
+      res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      res.send(buf);
+    } catch (e) {
+      console.error("OG property error:", e);
+      res.status(500).send("OG render failed");
+    }
+  });
+
+  app.get("/api/og/neighborhood/:geoId.png", async (req, res) => {
+    try {
+      const apiKey = process.env.VITE_GOOGLE_MAPS_API_KEY || "";
+      if (!apiKey) return res.status(404).send("Maps key unavailable");
+      const geoId = req.params.geoId;
+      const result = await db.execute(sql`
+        SELECT latitude, longitude
+        FROM properties
+        WHERE zip_code = ${geoId} AND latitude IS NOT NULL AND longitude IS NOT NULL
+        LIMIT 12
+      `);
+      if (result.rows.length === 0) return res.status(404).send("Neighborhood not found");
+      const first = result.rows[0] as any;
+      const markerStr = result.rows
+        .map((r: any) => `${r.latitude},${r.longitude}`)
+        .join("|");
+      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${first.latitude},${first.longitude}&zoom=13&size=1200x630&maptype=roadmap&markers=color:blue%7C${markerStr}&key=${apiKey}`;
+      const upstream = await fetch(url);
+      if (!upstream.ok) return res.status(502).send("Upstream error");
+      res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      res.send(buf);
+    } catch (e) {
+      console.error("OG neighborhood error:", e);
+      res.status(500).send("OG render failed");
     }
   });
 

@@ -13,6 +13,7 @@ import { getPropertyUrl, formatFullAddress } from "@/lib/propertySlug";
 import type { Property, ConfidenceLevel } from "@shared/schema";
 import { EntityTypeBadge, PriceTypeBadge } from "./UnitOpportunityCard";
 import { ScoreDriversList, type ScoreDriver } from "@/components/ScoreDriversList";
+import { StreetViewImage } from "@/components/StreetViewImage";
 
 interface PropertyCardProps {
   property: Property;
@@ -142,6 +143,18 @@ export function PropertyCard({
       <CardContent className="pt-0">
         <Link href={getPropertyUrl(property)}>
           <div className="space-y-3">
+            {(property.latitude && property.longitude) && (
+              <div className="aspect-[16/9] -mx-1 overflow-hidden rounded-md" data-testid={`img-card-streetview-${property.id}`}>
+                <StreetViewImage
+                  lat={property.latitude}
+                  lng={property.longitude}
+                  address={formatFullAddress(property)}
+                  width={480}
+                  height={270}
+                  rounded={false}
+                />
+              </div>
+            )}
             <div>
               <p className="text-sm text-muted-foreground">
                 {property.lastSalePrice ? "Sale Price" : "Estimated Value"}

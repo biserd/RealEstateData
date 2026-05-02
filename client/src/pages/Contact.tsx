@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MarketingLayout } from "@/components/layouts";
+import { SEO } from "@/components/SEO";
 import {
   Select,
   SelectContent,
@@ -57,6 +58,11 @@ export default function Contact() {
 
   return (
     <MarketingLayout>
+      <SEO
+        title="Contact Us - Realtors Dashboard"
+        description="Get in touch with the Realtors Dashboard team. Reach us at hello@realtorsdashboard.com or send a message — we typically reply within 1-2 business days."
+        canonicalUrl="https://realtorsdashboard.com/contact"
+      />
       <div className="mx-auto max-w-7xl px-4 py-12 md:px-6">
         <div className="max-w-3xl mb-12">
           <h1 className="text-3xl font-bold tracking-tight mb-4 md:text-4xl">

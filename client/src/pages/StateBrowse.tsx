@@ -1,6 +1,7 @@
 import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { SEO } from "@/components/SEO";
+import { BreadcrumbsJsonLd } from "@/components/JsonLd";
 import { AppLayout } from "@/components/layouts";
 import { PropertyCard } from "@/components/PropertyCard";
 import { LoadingState } from "@/components/LoadingState";
@@ -59,6 +60,12 @@ export default function StateBrowse() {
         title={`${stateName} Real Estate - ${stats?.totalProperties?.toLocaleString() || ""} Properties | Realtors Dashboard`}
         description={`Browse ${stats?.totalProperties?.toLocaleString() || ""} properties in ${stateName}. Median price: ${formatPrice(stats?.medianPrice || 0)}. Explore cities, neighborhoods, and find investment opportunities.`}
         canonicalUrl={`/browse/${stateCode.toLowerCase()}`}
+      />
+      <BreadcrumbsJsonLd
+        items={[
+          { name: "Home", url: "/" },
+          { name: stateName, url: `/browse/${stateCode.toLowerCase()}` },
+        ]}
       />
       <AppLayout>
         <div className="container mx-auto px-4 py-6">

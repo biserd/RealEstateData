@@ -2,6 +2,8 @@ import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, MapPin, TrendingUp, History } from "lucide-react";
 import { SEO } from "@/components/SEO";
+import { BuildingJsonLd, BreadcrumbsJsonLd } from "@/components/JsonLd";
+import { StreetViewImage } from "@/components/StreetViewImage";
 import { AppLayout } from "@/components/layouts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,19 +67,57 @@ export default function BuildingDetail() {
     );
   }
 
+  const buildingUrl = `https://realtorsdashboard.com/building/${building.baseBbl}`;
+  const buildingDesc = `View ${building.displayAddress}, a condo building with ${building.residentialUnitCount} residential units in ${building.borough || "NYC"}${building.zipCode ? `, ZIP ${building.zipCode}` : ""}. Browse units, sales history, and building details.`;
+
   return (
     <AppLayout>
       <SEO
         title={`${building.displayAddress} - Condo Building | Realtors Dashboard`}
-        description={`View details for ${building.displayAddress}, a condo building with ${building.residentialUnitCount} residential units in ${building.borough || "NYC"}.`}
+        description={buildingDesc}
+        canonicalUrl={buildingUrl}
       />
-      
+      <BuildingJsonLd
+        name={building.displayAddress}
+        description={buildingDesc}
+        streetAddress={building.displayAddress}
+        addressLocality={building.borough || undefined}
+        addressRegion="NY"
+        postalCode={building.zipCode || undefined}
+        latitude={building.latitude}
+        longitude={building.longitude}
+        numberOfUnits={building.residentialUnitCount}
+        url={buildingUrl}
+      />
+      <BreadcrumbsJsonLd
+        items={[
+          { name: "Home", url: "/" },
+          { name: building.borough || "NYC", url: `/browse/ny` },
+          { name: building.displayAddress, url: `/building/${building.baseBbl}` },
+        ]}
+      />
+
       <div className="container max-w-5xl mx-auto px-4 py-6 space-y-6">
         <PropertyBreadcrumbs
           borough={building.borough}
           buildingAddress={building.displayAddress}
           buildingBbl={building.baseBbl}
         />
+
+        {(building.latitude && building.longitude) && (
+          <div className="aspect-[16/9] sm:aspect-[21/9] overflow-hidden rounded-lg border" data-testid="hero-streetview-building">
+            <StreetViewImage
+              lat={building.latitude}
+              lng={building.longitude}
+              address={building.displayAddress}
+              width={1200}
+              height={500}
+              loading="eager"
+              rounded={false}
+              alt={`Street view of ${building.displayAddress}`}
+            />
+          </div>
+        )}
 
         <Card data-testid="card-building-header">
           <CardHeader>

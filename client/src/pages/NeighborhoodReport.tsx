@@ -2,6 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearch, useLocation } from "wouter";
 import { Shield, HardHat, Train, Trees, Droplets, Building2, MapPin, ArrowRight, Lock, DollarSign, Home, Activity, TrendingUp, TrendingDown } from "lucide-react";
 import { AppLayout } from "@/components/layouts";
+import { SEO } from "@/components/SEO";
+import { PlaceJsonLd } from "@/components/JsonLd";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { StaticMapImage } from "@/components/StaticMapImage";
 import { MarketStatsCard } from "@/components/MarketStatsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -131,6 +135,17 @@ export default function NeighborhoodReport() {
   const geoType = params.get("geoType") || "zip";
   const [, navigate] = useLocation();
 
+  const { data: areaProperties = [] } = useQuery<Array<{ id: string; latitude: number | null; longitude: number | null; address: string }>>({
+    queryKey: ["/api/properties/area", { geoType, geoId, limit: 24 }],
+    queryFn: async () => {
+      if (!geoId) return [];
+      const res = await fetch(`/api/properties/area?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=24`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!geoId,
+  });
+
   const { data, isLoading, error } = useQuery<NeighborhoodReport>({
     queryKey: ["/api/neighborhood", geoId, "report", geoType],
     queryFn: async () => {
@@ -179,17 +194,28 @@ export default function NeighborhoodReport() {
     return numA - numB;
   });
 
+  const seoTitle = `${data.geoName} ${data.geoType === "zip" ? "ZIP Code" : "Neighborhood"} Report - Grade ${data.grade} | Realtors Dashboard`;
+  const seoDesc = `${data.geoName} neighborhood report card. Grade ${data.grade} (${data.gradeScore}/100) based on ${data.propertyCount} properties.${data.market?.medianPrice ? ` Median price ${formatPrice(data.market.medianPrice)}.` : ""} Development, safety, transit, amenities, flood risk, and building health indicators.`;
+  const canonicalPath = `/neighborhood/${encodeURIComponent(data.geoId)}?geoType=${encodeURIComponent(data.geoType)}`;
+
   return (
     <AppLayout>
+      <SEO title={seoTitle} description={seoDesc} canonicalUrl={`https://realtorsdashboard.com${canonicalPath}`} />
+      <PlaceJsonLd
+        name={data.geoName}
+        description={seoDesc}
+        addressRegion={data.state || undefined}
+        postalCode={data.geoType === "zip" ? data.geoId : undefined}
+        url={`https://realtorsdashboard.com${canonicalPath}`}
+      />
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-        <div className="mb-4">
-          <Link href="/market-intelligence">
-            <Button variant="ghost" size="sm" data-testid="button-back-market">
-              <ArrowRight className="mr-1 h-3 w-3 rotate-180" />
-              Back to Market Explorer
-            </Button>
-          </Link>
-        </div>
+        <Breadcrumbs
+          className="mb-4"
+          items={[
+            { name: "Market Intelligence", url: "/market-intelligence" },
+            { name: data.geoName, url: canonicalPath },
+          ]}
+        />
 
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -263,6 +289,36 @@ export default function NeighborhoodReport() {
             />
           </div>
         )}
+
+        {(() => {
+          const mapped = areaProperties.filter((p) => p.latitude && p.longitude);
+          if (mapped.length === 0) return null;
+          const firstWithCoord = mapped[0];
+          return (
+            <Card className="mb-8" data-testid="card-neighborhood-map">
+              <CardHeader>
+                <CardTitle className="text-base">Area Map</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="aspect-[16/9] overflow-hidden rounded-md border">
+                  <StaticMapImage
+                    center={{ lat: firstWithCoord.latitude!, lng: firstWithCoord.longitude! }}
+                    zoom={13}
+                    markers={mapped.slice(0, 12).map((p) => ({
+                      lat: p.latitude!,
+                      lng: p.longitude!,
+                      color: "blue",
+                    }))}
+                    width={1200}
+                    height={600}
+                    rounded={false}
+                    alt={`Map of ${data.geoName}`}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <div className="mb-8">
           <h2 className="mb-4 text-lg font-semibold" data-testid="text-indicators-heading">Neighborhood Indicators</h2>

@@ -1,6 +1,7 @@
 import { Target, BarChart3, Users, Shield, MapPin, TrendingUp, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { MarketingLayout } from "@/components/layouts";
+import { SEO } from "@/components/SEO";
 
 export default function About() {
   const values = [
@@ -34,6 +35,11 @@ export default function About() {
 
   return (
     <MarketingLayout>
+      <SEO
+        title="About Realtors Dashboard - Real Estate Intelligence Platform"
+        description="Learn about Realtors Dashboard's mission to democratize real estate intelligence. Transparent scoring, accurate data, and AI-powered insights for NY, NJ, and CT."
+        canonicalUrl="https://realtorsdashboard.com/about"
+      />
       <section className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
         <div className="max-w-3xl">
           <h1 className="text-3xl font-bold tracking-tight mb-4 md:text-4xl">

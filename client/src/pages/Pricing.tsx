@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
+import { ProductJsonLd, FAQJsonLd } from "@/components/JsonLd";
 
 interface SubscriptionData {
   tier: string;
@@ -322,6 +323,34 @@ export default function Pricing() {
       <SEO 
         title="Pricing - Plans for Every Real Estate Professional"
         description="Choose the plan that fits your needs. Free to get started, Pro for full access, or Premium for power users. Starting at $29/month."
+        canonicalUrl="https://realtorsdashboard.com/pricing"
+      />
+      <ProductJsonLd
+        name="Realtors Dashboard Pro"
+        description="Full access to AI Assistant, Deal Memo Generator, unlimited Property Insights, and unlimited Watchlists for real estate investors and agents."
+        url="https://realtorsdashboard.com/pricing"
+        offers={[
+          { name: "Pro Monthly", price: proMonthlyAmount, url: "https://realtorsdashboard.com/pricing" },
+          { name: "Pro Yearly", price: proYearlyAmount, url: "https://realtorsdashboard.com/pricing" },
+        ]}
+      />
+      <ProductJsonLd
+        name="Realtors Dashboard Premium"
+        description="Premium tier including unlimited alerts, portfolio dashboard, bulk CSV exports, branded client reports, and Developer API access."
+        url="https://realtorsdashboard.com/pricing"
+        offers={[
+          { name: "Premium Monthly", price: premiumMonthlyAmount, url: "https://realtorsdashboard.com/pricing" },
+          { name: "Premium Yearly", price: premiumYearlyAmount, url: "https://realtorsdashboard.com/pricing" },
+        ]}
+      />
+      <FAQJsonLd
+        items={[
+          { question: "Is there a free trial?", answer: "Yes — every Pro and Premium plan starts with a 14-day free trial. We collect your card up front to reserve your spot, but you won't be charged until the trial ends. Cancel anytime during the trial and you pay nothing." },
+          { question: "Can I cancel anytime?", answer: "Yes. Cancel from the billing portal in one click — during your trial or after. If you cancel mid-cycle after the trial, you keep access until the end of the period you've already paid for." },
+          { question: "What payment methods do you accept?", answer: "We accept all major credit cards through Stripe, our secure payment processor." },
+          { question: "What's the difference between Pro and Premium?", answer: "Pro gives you unlimited access to all core features including AI assistant, Deal Memo, and 5 active alerts. Premium adds unlimited alerts, portfolio dashboard, bulk exports, Developer API access, and priority support for power users." },
+          { question: "Can I upgrade or downgrade later?", answer: "Absolutely! You can change your plan at any time through the billing portal. When upgrading, you'll be charged a prorated amount." },
+        ]}
       />
       <div className="min-h-screen bg-background">
       <MarketingHeader />
