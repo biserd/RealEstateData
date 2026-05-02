@@ -84,11 +84,41 @@ export default function Landing() {
   });
 
   const { data: topOpportunities, isLoading: opportunitiesLoading } = useQuery<TopOpportunity[]>({
-    queryKey: ["/api/opportunities/top", { limit: 9 }],
+    queryKey: ["/api/units/top-opportunities", { borough: "Manhattan", limit: 9 }],
     queryFn: async () => {
-      const res = await fetch("/api/opportunities/top?limit=9");
+      const res = await fetch("/api/units/top-opportunities?borough=Manhattan&limit=9");
       if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
+      const data: {
+        units: Array<{
+          unitBbl: string;
+          slug: string | null;
+          unitDesignation: string | null;
+          unitDisplayAddress: string | null;
+          buildingDisplayAddress: string | null;
+          borough: string | null;
+          zipCode: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          lastSalePrice: number;
+          opportunityScore: number;
+          scoreDrivers?: ScoreDriver[];
+        }>;
+      } = await res.json();
+      return (data.units || []).map((u) => ({
+        id: u.unitBbl,
+        entityType: "unit" as const,
+        address: u.unitDisplayAddress || u.buildingDisplayAddress || "",
+        city: u.borough || "Manhattan",
+        zipCode: u.zipCode || "",
+        price: u.lastSalePrice,
+        priceType: "verified" as const,
+        opportunityScore: u.opportunityScore,
+        scoreDrivers: u.scoreDrivers,
+        unitSlug: u.slug,
+        unitBbl: u.unitBbl,
+        latitude: u.latitude,
+        longitude: u.longitude,
+      }));
     },
   });
 
