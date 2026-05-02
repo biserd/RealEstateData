@@ -23,7 +23,8 @@ import {
 import { SEO } from "@/components/SEO";
 import { ResidenceJsonLd, BreadcrumbsJsonLd } from "@/components/JsonLd";
 import { StreetViewImage } from "@/components/StreetViewImage";
-import { StaticMapImage } from "@/components/StaticMapImage";
+import { PropertyMap } from "@/components/PropertyMap";
+import type { Property } from "@shared/schema";
 import { AppLayout } from "@/components/layouts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -552,6 +553,19 @@ export default function UnitDetail() {
     enabled: !!resolvedUnitBbl,
   });
 
+  const nearbyZip = unit?.zipCode || "";
+  const { data: nearbyProperties = [] } = useQuery<Property[]>({
+    queryKey: ["/api/properties/area", { geoType: "zip", geoId: nearbyZip, limit: 50 }],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/properties/area?geoType=zip&geoId=${encodeURIComponent(nearbyZip)}&limit=50`,
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!nearbyZip,
+  });
+
   if (isLoading) {
     return (
       <AppLayout>
@@ -635,14 +649,17 @@ export default function UnitDetail() {
               />
             </div>
             <div className="aspect-[16/9] md:aspect-auto overflow-hidden rounded-lg border" data-testid="map-unit-location">
-              <StaticMapImage
+              <PropertyMap
+                properties={nearbyProperties}
+                subjectProperty={{
+                  id: unit.unitBbl,
+                  address: unit.buildingDisplayAddress || "",
+                  latitude: (unit as any).latitude,
+                  longitude: (unit as any).longitude,
+                } as Property}
                 center={{ lat: (unit as any).latitude, lng: (unit as any).longitude }}
                 zoom={15}
-                markers={[{ lat: (unit as any).latitude, lng: (unit as any).longitude, color: "red" }]}
-                width={600}
-                height={400}
-                rounded={false}
-                alt={`Map of ${unit.buildingDisplayAddress}`}
+                height="100%"
               />
             </div>
           </div>
