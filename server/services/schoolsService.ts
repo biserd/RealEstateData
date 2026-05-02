@@ -2,19 +2,21 @@ interface SchoolRaw {
   dbn: string;
   name: string;
   district: number | null;
+  borough?: string | null;
   address: string | null;
   grade_band: string | null;
+  overall_score?: number | null;
   academics_score: number | null;
   climate_score: number | null;
   progress_score: number | null;
   enrollment: number | null;
   student_teacher_ratio: number | null;
-  graduation_rate_4yr: number | null;
+  graduation_rate_4yr?: number | null;
   ela_proficiency: number | null;
   math_proficiency: number | null;
   latitude: number | null;
   longitude: number | null;
-  zip_code: string | null;
+  zip_code?: string | null;
   has_prek?: boolean;
   has_3k?: boolean;
   has_gifted_talented?: boolean;
@@ -49,11 +51,46 @@ export interface NearbySchool {
   hasDualLanguage: boolean;
 }
 
-const SOURCE_URL = "https://nycschoolsratings.com/api/schools";
+const BASE = "https://nycschoolsratings.com";
+const PUBLIC_URL = `${BASE}/api/schools`;
+const V1_URL = `${BASE}/api/v1/schools`;
+const V1_PAGE_SIZE = 200;
 const TTL_MS = 24 * 60 * 60 * 1000;
 
-let cache: { fetchedAt: number; schools: SchoolRaw[] } | null = null;
+let cache: { fetchedAt: number; schools: SchoolRaw[]; source: "v1" | "public" } | null = null;
 let inFlight: Promise<SchoolRaw[]> | null = null;
+
+async function fetchV1(apiKey: string): Promise<SchoolRaw[]> {
+  const all: SchoolRaw[] = [];
+  let offset = 0;
+  while (true) {
+    const res = await fetch(`${V1_URL}?limit=${V1_PAGE_SIZE}&offset=${offset}`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`v1 schools API ${res.status} at offset ${offset}`);
+    }
+    const json = (await res.json()) as {
+      data: SchoolRaw[];
+      pagination: { total: number; limit: number; offset: number };
+    };
+    all.push(...json.data);
+    const total = json.pagination?.total ?? all.length;
+    offset += json.data.length;
+    if (!json.data.length || all.length >= total) break;
+    if (offset > 50000) break;
+  }
+  return all;
+}
+
+async function fetchPublic(): Promise<SchoolRaw[]> {
+  const res = await fetch(PUBLIC_URL, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`public schools API ${res.status}`);
+  return (await res.json()) as SchoolRaw[];
+}
 
 async function loadSchools(): Promise<SchoolRaw[]> {
   if (cache && Date.now() - cache.fetchedAt < TTL_MS) {
@@ -62,20 +99,29 @@ async function loadSchools(): Promise<SchoolRaw[]> {
   if (inFlight) return inFlight;
 
   inFlight = (async () => {
+    const apiKey = process.env.NYC_SCHOOLS_API_KEY;
     try {
-      const res = await fetch(SOURCE_URL, {
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) {
-        throw new Error(`Schools API ${res.status}`);
+      let schools: SchoolRaw[];
+      let source: "v1" | "public";
+      if (apiKey) {
+        try {
+          schools = await fetchV1(apiKey);
+          source = "v1";
+        } catch (err) {
+          console.warn("[schoolsService] v1 fetch failed, falling back to public:", err);
+          schools = await fetchPublic();
+          source = "public";
+        }
+      } else {
+        schools = await fetchPublic();
+        source = "public";
       }
-      const data = (await res.json()) as SchoolRaw[];
-      cache = { fetchedAt: Date.now(), schools: data };
-      return data;
+      cache = { fetchedAt: Date.now(), schools, source };
+      console.log(`[schoolsService] cached ${schools.length} schools from ${source}`);
+      return schools;
     } catch (err) {
       console.error("[schoolsService] failed to refresh:", err);
-      // Serve stale on failure if we have it
-      if (cache) return cache.schools;
+      if (cache) return cache.schools; // serve stale
       throw err;
     } finally {
       inFlight = null;
@@ -138,7 +184,7 @@ export async function getNearbySchools(
       academicsScore: s.academics_score,
       climateScore: s.climate_score,
       progressScore: s.progress_score,
-      overallScore: average(s.academics_score, s.climate_score, s.progress_score),
+      overallScore: s.overall_score ?? average(s.academics_score, s.climate_score, s.progress_score),
       enrollment: s.enrollment,
       studentTeacherRatio: s.student_teacher_ratio,
       graduationRate4yr: s.graduation_rate_4yr,
