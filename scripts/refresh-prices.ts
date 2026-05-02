@@ -399,7 +399,10 @@ async function refreshAggregates(): Promise<number> {
       trend3m, trend6m, trend12m, computed_at
     )
     SELECT
-      'zip', zip_code, MAX(city) || ' ' || zip_code, MAX(state),
+      'zip',
+      zip_code,
+      MODE() WITHIN GROUP (ORDER BY city) || ' ' || zip_code,
+      MODE() WITHIN GROUP (ORDER BY state),
       ROUND(PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY estimated_value))::bigint,
       ROUND(AVG(price_per_sqft))::int,
       ROUND(COALESCE(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY estimated_value),

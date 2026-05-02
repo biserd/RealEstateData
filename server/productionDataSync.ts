@@ -504,7 +504,11 @@ async function refreshAggregates() {
   await db.delete(marketAggregates);
 
   const zipStats = await db.execute(sql`
-    SELECT zip_code, city, state, county, neighborhood,
+    SELECT zip_code,
+      MODE() WITHIN GROUP (ORDER BY city) AS city,
+      MODE() WITHIN GROUP (ORDER BY state) AS state,
+      MODE() WITHIN GROUP (ORDER BY county) AS county,
+      MODE() WITHIN GROUP (ORDER BY neighborhood) AS neighborhood,
       COUNT(*) as cnt,
       PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY estimated_value) as p25,
       PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY estimated_value) as median,
@@ -513,7 +517,7 @@ async function refreshAggregates() {
       PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY price_per_sqft) as p25_ppsf,
       PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY price_per_sqft) as p75_ppsf
     FROM properties WHERE zip_code IS NOT NULL AND estimated_value > 0
-    GROUP BY zip_code, city, state, county, neighborhood HAVING COUNT(*) >= 3
+    GROUP BY zip_code HAVING COUNT(*) >= 3
   `);
 
   let aggCount = 0;
