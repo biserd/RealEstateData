@@ -7,6 +7,7 @@ import { SEO } from "@/components/SEO";
 import { PropertyJsonLd } from "@/components/PropertyJsonLd";
 import { BreadcrumbsJsonLd } from "@/components/JsonLd";
 import { StreetViewImage } from "@/components/StreetViewImage";
+import { InteractiveStreetView } from "@/components/InteractiveStreetView";
 import { 
   ArrowLeft, 
   Heart, 
@@ -526,15 +527,10 @@ export default function PropertyDetail() {
 
         {(property.latitude && property.longitude) && (
           <div className="mb-6 aspect-[16/9] sm:aspect-[21/9] overflow-hidden rounded-lg border" data-testid="hero-streetview-property">
-            <StreetViewImage
+            <InteractiveStreetView
               lat={property.latitude}
               lng={property.longitude}
               address={formatFullAddress(property)}
-              width={1200}
-              height={500}
-              loading="eager"
-              rounded={false}
-              alt={`Street view of ${formatFullAddress(property)}`}
             />
           </div>
         )}
