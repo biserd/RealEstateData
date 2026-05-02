@@ -1806,6 +1806,105 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Calculator: live mortgage rate + smart defaults
+  let _mortgageRateCache: { rate: number; date: string; fetchedAt: number } | null = null;
+  const MORTGAGE_RATE_TTL_MS = 24 * 60 * 60 * 1000;
+
+  async function fetchMortgageRate(): Promise<{ rate: number; date: string }> {
+    if (_mortgageRateCache && Date.now() - _mortgageRateCache.fetchedAt < MORTGAGE_RATE_TTL_MS) {
+      return { rate: _mortgageRateCache.rate, date: _mortgageRateCache.date };
+    }
+    try {
+      const csvUrl = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=MORTGAGE30US";
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      const resp = await fetch(csvUrl, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!resp.ok) throw new Error(`FRED ${resp.status}`);
+      const text = await resp.text();
+      const lines = text.trim().split("\n");
+      let lastDate = "";
+      let lastVal = NaN;
+      for (let i = 1; i < lines.length; i++) {
+        const [d, v] = lines[i].split(",");
+        const num = parseFloat(v);
+        if (!isNaN(num)) { lastDate = d; lastVal = num; }
+      }
+      if (!isNaN(lastVal) && lastVal > 0) {
+        _mortgageRateCache = { rate: lastVal, date: lastDate, fetchedAt: Date.now() };
+        return { rate: lastVal, date: lastDate };
+      }
+    } catch (e) {
+      console.warn("[calculator] mortgage rate fetch failed:", (e as Error).message);
+    }
+    return { rate: 6.5, date: "fallback" };
+  }
+
+  app.get("/api/calculator/defaults", async (req, res) => {
+    try {
+      const state = ((req.query.state as string) || "NY").toUpperCase();
+      const [{ rate, date }, overview] = await Promise.all([
+        fetchMortgageRate(),
+        storage.getMarketOverview(),
+      ]);
+      const stateRow = (overview as any[]).find((s) => s.geoId === state) || (overview as any[])[0];
+      const taxRateByState: Record<string, number> = { NY: 1.4, NJ: 2.2, CT: 2.0 };
+      res.json({
+        mortgageRate: { value: rate, asOf: date, source: "FRED MORTGAGE30US" },
+        market: stateRow ? {
+          state,
+          medianPrice: stateRow.medianPrice,
+          medianPricePerSqft: stateRow.medianPricePerSqft,
+          trend3m: stateRow.trend3m,
+          trend12m: stateRow.trend12m,
+        } : null,
+        defaults: {
+          purchasePrice: stateRow?.medianPrice || 500000,
+          propertyTaxRate: taxRateByState[state] ?? 1.5,
+          insuranceAnnualPer1k: 4.5,
+          maintenancePercent: 1,
+          managementPercent: 8,
+          vacancyRate: 5,
+          closingCostPercent: 3,
+          appreciationRate: 3,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching calculator defaults:", error);
+      res.status(500).json({ message: "Failed to fetch defaults" });
+    }
+  });
+
+  // Calculator: lightweight property autofill (price, sqft, tax estimate)
+  app.get("/api/calculator/property/:id", async (req, res) => {
+    try {
+      const property = await storage.getProperty(req.params.id);
+      if (!property) return res.status(404).json({ message: "Property not found" });
+      const taxRateByState: Record<string, number> = { NY: 1.4, NJ: 2.2, CT: 2.0 };
+      const ppsf = property.pricePerSqft || (property.estimatedValue && property.sqft ? property.estimatedValue / property.sqft : null);
+      const estRent = property.estimatedValue ? Math.round((property.estimatedValue * 0.007)) : null; // 0.7% rule
+      res.json({
+        id: property.id,
+        address: property.address,
+        city: property.city,
+        state: property.state,
+        zipCode: property.zipCode,
+        propertyType: property.propertyType,
+        beds: property.beds,
+        baths: property.baths,
+        sqft: property.sqft,
+        yearBuilt: property.yearBuilt,
+        estimatedValue: property.estimatedValue,
+        pricePerSqft: ppsf ? Math.round(ppsf) : null,
+        estimatedMonthlyRent: estRent,
+        suggestedPropertyTaxRate: taxRateByState[property.state] ?? 1.5,
+      });
+    } catch (error) {
+      console.error("Error fetching property for calculator:", error);
+      res.status(500).json({ message: "Failed to fetch property" });
+    }
+  });
+
   app.get("/api/market/aggregates", async (req, res) => {
     try {
       const { geoType, geoId, propertyType, bedsBand, yearBuiltBand } = req.query;
