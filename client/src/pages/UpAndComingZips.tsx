@@ -44,8 +44,10 @@ import type { UpAndComingZip } from "@shared/schema";
 
 export default function UpAndComingZips() {
   const [stateFilter, setStateFilter] = useState<string>("all");
+  const [momentumFilter, setMomentumFilter] = useState<string>("all");
+  const [trendFilter, setTrendFilter] = useState<string>("all");
 
-  const { data: upAndComingZips, isLoading, error } = useQuery<UpAndComingZip[]>({
+  const { data: rawZips, isLoading, error } = useQuery<UpAndComingZip[]>({
     queryKey: ["/api/market/up-and-coming", stateFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -61,6 +63,16 @@ export default function UpAndComingZips() {
       return res.json();
     },
   });
+
+  const upAndComingZips = (rawZips || []).filter((z) => {
+    if (momentumFilter !== "all" && z.momentum !== momentumFilter) return false;
+    if (trendFilter === "rising" && !((z.trend12m ?? 0) > 0)) return false;
+    if (trendFilter === "hot" && z.trendScore < 75) return false;
+    if (trendFilter === "warming" && z.trendScore < 50) return false;
+    return true;
+  });
+  const hasActiveFilters = momentumFilter !== "all" || trendFilter !== "all";
+  const filteredOutCount = (rawZips?.length ?? 0) - upAndComingZips.length;
 
   const formatPrice = (price: number | null) => {
     if (!price) return "N/A";
@@ -169,7 +181,7 @@ export default function UpAndComingZips() {
               </p>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Select value={stateFilter} onValueChange={setStateFilter}>
                 <SelectTrigger className="w-[140px]" data-testid="select-state-filter">
                   <SelectValue placeholder="All States" />
@@ -181,6 +193,44 @@ export default function UpAndComingZips() {
                   <SelectItem value="CT">Connecticut</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select value={momentumFilter} onValueChange={setMomentumFilter}>
+                <SelectTrigger className="w-[170px]" data-testid="select-momentum-filter">
+                  <SelectValue placeholder="All momentum" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All momentum</SelectItem>
+                  <SelectItem value="accelerating">Accelerating</SelectItem>
+                  <SelectItem value="steady">Steady</SelectItem>
+                  <SelectItem value="decelerating">Decelerating</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={trendFilter} onValueChange={setTrendFilter}>
+                <SelectTrigger className="w-[170px]" data-testid="select-trend-filter">
+                  <SelectValue placeholder="All trends" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All trends</SelectItem>
+                  <SelectItem value="rising">Rising (12M &gt; 0)</SelectItem>
+                  <SelectItem value="warming">Warming (50+)</SelectItem>
+                  <SelectItem value="hot">Hot (75+)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setMomentumFilter("all");
+                    setTrendFilter("all");
+                  }}
+                  data-testid="button-reset-filters"
+                >
+                  Reset
+                </Button>
+              )}
             </div>
           </div>
 
@@ -195,8 +245,12 @@ export default function UpAndComingZips() {
           ) : !upAndComingZips || upAndComingZips.length === 0 ? (
             <EmptyState
               icon={<TrendingUp className="h-8 w-8" />}
-              title="No trending areas found"
-              description="No ZIP codes with positive growth trends found in the selected area."
+              title="No trending areas match these filters"
+              description={
+                hasActiveFilters
+                  ? `${filteredOutCount} area${filteredOutCount === 1 ? "" : "s"} hidden by your momentum/trend filters. Try resetting them.`
+                  : "No ZIP codes with positive growth trends found in the selected area."
+              }
             />
           ) : (
             <>
