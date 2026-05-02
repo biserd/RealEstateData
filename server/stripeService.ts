@@ -4,7 +4,9 @@ import { db } from './db';
 import { sql } from 'drizzle-orm';
 
 // Determine if we're in live mode (sk_live_*) or test mode (sk_test_*).
-// Falls back to NODE_ENV/REPLIT_DEPLOYMENT when the key prefix can't be inspected.
+// STRIPE_SECRET_KEY_REAL is the canonical secret name; STRIPE_SECRET_KEY is a
+// legacy fallback. Falls back to NODE_ENV/REPLIT_DEPLOYMENT when the key prefix
+// can't be inspected.
 function isLiveMode(): boolean {
   const secretKey = process.env.STRIPE_SECRET_KEY_REAL || process.env.STRIPE_SECRET_KEY;
   if (secretKey?.startsWith('sk_live_')) return true;
