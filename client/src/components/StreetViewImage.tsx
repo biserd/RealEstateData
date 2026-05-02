@@ -86,6 +86,7 @@ export function StreetViewImage({
     location: `${lat},${lng}`,
     fov: "80",
     pitch: "0",
+    source: "outdoor",
     key: apiKey,
   });
   const src = `https://maps.googleapis.com/maps/api/streetview?${params.toString()}`;
