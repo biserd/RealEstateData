@@ -15,6 +15,7 @@ import { CoverageBadge } from "@/components/CoverageBadge";
 import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
+import { SearchLimitUpgradeCard } from "@/components/SearchLimitUpgradeCard";
 import { useToast } from "@/hooks/use-toast";
 import { propertyTypes, bedsBands, yearBuiltBands } from "@shared/schema";
 import type { MarketAggregate, Property, Sale } from "@shared/schema";
@@ -145,11 +146,6 @@ export default function MarketExplorer() {
       });
       if (res.status === 429) {
         setSearchLimitReached(true);
-        toast({
-          title: "Daily search limit reached",
-          description: "You've reached your limit of 5 searches per day. Upgrade to Pro for unlimited searches.",
-          variant: "destructive",
-        });
         return [];
       }
       if (!res.ok) throw new Error("Search failed");
@@ -330,7 +326,7 @@ export default function MarketExplorer() {
               </div>
             )}
 
-            {searchFocused && searchQuery.length >= 2 && searching && (
+            {searchFocused && searchQuery.length >= 2 && searching && !searchLimitReached && (
               <div className="absolute left-0 right-0 top-full z-10 mt-2 rounded-lg border bg-popover shadow-lg p-4">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Activity className="h-4 w-4 animate-spin" />
@@ -339,12 +335,30 @@ export default function MarketExplorer() {
               </div>
             )}
 
-            {searchFocused && searchQuery.length >= 2 && !searching && searchResults && searchResults.length === 0 && (
+            {searchFocused && searchQuery.length >= 2 && searchLimitReached && (
+              <div
+                className="absolute left-0 right-0 top-full z-10 mt-2 rounded-lg border bg-popover shadow-lg overflow-hidden"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <SearchLimitUpgradeCard
+                  variant="compact"
+                  onDismiss={() => setSearchFocused(false)}
+                />
+              </div>
+            )}
+
+            {searchFocused && searchQuery.length >= 2 && !searching && !searchLimitReached && searchResults && searchResults.length === 0 && (
               <div className="absolute left-0 right-0 top-full z-10 mt-2 rounded-lg border bg-popover shadow-lg p-4">
                 <p className="text-sm text-muted-foreground">No results found. Try a different search term.</p>
               </div>
             )}
           </div>
+
+          {searchLimitReached && (
+            <div className="mt-4">
+              <SearchLimitUpgradeCard variant="full" />
+            </div>
+          )}
         </div>
 
         {selectedGeo ? (

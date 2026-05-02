@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Search, Building2, Home, Loader2, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SearchLimitUpgradeCard } from "@/components/SearchLimitUpgradeCard";
 import { cn } from "@/lib/utils";
 
 type BuildingResult = {
@@ -50,6 +51,7 @@ export function SmartAddressSearch({
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [rateLimitInfo, setRateLimitInfo] = useState<{ limit: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -77,8 +79,14 @@ export function SmartAddressSearch({
         if (response.ok) {
           const data = await response.json();
           setResults(data);
+          setRateLimitInfo(null);
           setShowDropdown(true);
           setSelectedIndex(-1);
+        } else if (response.status === 429) {
+          const data = await response.json().catch(() => ({}));
+          setResults(null);
+          setRateLimitInfo({ limit: data.limit ?? 5 });
+          setShowDropdown(true);
         }
       } catch (error) {
         console.error("Search error:", error);
@@ -301,7 +309,17 @@ export function SmartAddressSearch({
         </div>
       )}
 
-      {showDropdown && query.length >= 2 && allResults.length === 0 && !isLoading && (
+      {showDropdown && rateLimitInfo && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-2 rounded-lg border bg-background shadow-lg overflow-hidden">
+          <SearchLimitUpgradeCard
+            variant="compact"
+            limit={rateLimitInfo.limit}
+            onDismiss={() => setShowDropdown(false)}
+          />
+        </div>
+      )}
+
+      {showDropdown && !rateLimitInfo && query.length >= 2 && allResults.length === 0 && !isLoading && (
         <div className="absolute top-full left-0 right-0 z-50 mt-2 rounded-lg border bg-background p-4 shadow-lg text-center text-muted-foreground">
           No properties found for "{query}"
         </div>

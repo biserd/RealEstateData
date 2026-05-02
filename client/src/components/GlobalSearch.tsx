@@ -4,6 +4,7 @@ import { Search, Building2, Home, MapPin, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchLimitUpgradeCard } from "@/components/SearchLimitUpgradeCard";
 import { cn } from "@/lib/utils";
 
 interface SearchResult {
@@ -32,6 +33,7 @@ interface RateLimitError {
   message: string;
   upgrade: boolean;
   upgradeUrl: string;
+  limit?: number;
 }
 
 type EntityFilter = "all" | "buildings" | "units";
@@ -184,21 +186,11 @@ export function GlobalSearch() {
                 Searching...
               </div>
             ) : rateLimitError ? (
-              <div className="p-4 text-center">
-                <p className="text-sm text-muted-foreground mb-2">{rateLimitError.message}</p>
-                {rateLimitError.upgrade && (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setIsOpen(false);
-                      navigate(rateLimitError.upgradeUrl);
-                    }}
-                    data-testid="button-upgrade-search"
-                  >
-                    Upgrade Now
-                  </Button>
-                )}
-              </div>
+              <SearchLimitUpgradeCard
+                variant="compact"
+                limit={rateLimitError.limit ?? 5}
+                onDismiss={() => setIsOpen(false)}
+              />
             ) : totalResults === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
                 No results found for "{query}"
