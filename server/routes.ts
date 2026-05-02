@@ -975,10 +975,6 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(400).json({ message: "geoType and geoId are required" });
       }
       
-      if (!(await checkUsageLimit(req, res, "search"))) {
-        return;
-      }
-      
       const properties = await storage.getPropertiesByArea(
         geoType as string,
         geoId as string,

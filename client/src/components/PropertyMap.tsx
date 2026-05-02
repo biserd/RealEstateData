@@ -250,57 +250,72 @@ export function PropertyMap({
           );
         })}
 
-        {selectedProperty && (
-          <InfoWindow
-            position={{
-              lat: selectedProperty.latitude!,
-              lng: selectedProperty.longitude!,
-            }}
-            onCloseClick={() => setSelectedProperty(null)}
-          >
-            <div className="p-2 min-w-[200px] max-w-[280px]">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <p className="font-semibold text-base">
-                  {formatPrice(selectedProperty.estimatedValue || selectedProperty.lastSalePrice)}
-                </p>
-                {selectedProperty.opportunityScore && (
-                  <span className={cn("font-bold text-sm", getScoreColor(selectedProperty.opportunityScore))}>
-                    {selectedProperty.opportunityScore}
-                  </span>
+        {selectedProperty && (() => {
+          const isSubject = subjectProperty?.id === selectedProperty.id;
+          const priceValue = selectedProperty.estimatedValue || selectedProperty.lastSalePrice;
+          const headlineTitle = priceValue
+            ? formatPrice(priceValue)
+            : isSubject
+              ? "This unit"
+              : selectedProperty.address || "Property";
+          const locationLine = [selectedProperty.address, selectedProperty.city, selectedProperty.state]
+            .filter((part) => part && String(part).trim().length > 0)
+            .join(", ");
+          return (
+            <InfoWindow
+              position={{
+                lat: selectedProperty.latitude!,
+                lng: selectedProperty.longitude!,
+              }}
+              onCloseClick={() => setSelectedProperty(null)}
+            >
+              <div className="p-2 min-w-[200px] max-w-[280px]">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <p className="font-semibold text-base">{headlineTitle}</p>
+                  {selectedProperty.opportunityScore && (
+                    <span className={cn("font-bold text-sm", getScoreColor(selectedProperty.opportunityScore))}>
+                      {selectedProperty.opportunityScore}
+                    </span>
+                  )}
+                </div>
+                {locationLine && (
+                  <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                    {locationLine}
+                    {selectedProperty.zipCode ? ` ${selectedProperty.zipCode}` : ""}
+                  </p>
+                )}
+                <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+                  {selectedProperty.beds !== null && selectedProperty.beds !== undefined && (
+                    <span className="flex items-center gap-1">
+                      <Bed className="h-3 w-3" />
+                      {selectedProperty.beds}
+                    </span>
+                  )}
+                  {selectedProperty.baths !== null && selectedProperty.baths !== undefined && (
+                    <span className="flex items-center gap-1">
+                      <Bath className="h-3 w-3" />
+                      {selectedProperty.baths}
+                    </span>
+                  )}
+                  {selectedProperty.sqft && (
+                    <span className="flex items-center gap-1">
+                      <Square className="h-3 w-3" />
+                      {selectedProperty.sqft.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                {!isSubject && (
+                  <Link href={getMarkerUrl ? getMarkerUrl(selectedProperty) : getPropertyUrl(selectedProperty)}>
+                    <Button size="sm" className="w-full text-xs">
+                      View Details
+                      <ExternalLink className="ml-1 h-3 w-3" />
+                    </Button>
+                  </Link>
                 )}
               </div>
-              <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                {selectedProperty.address}, {selectedProperty.city}, {selectedProperty.state}
-              </p>
-              <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
-                {selectedProperty.beds !== null && (
-                  <span className="flex items-center gap-1">
-                    <Bed className="h-3 w-3" />
-                    {selectedProperty.beds}
-                  </span>
-                )}
-                {selectedProperty.baths !== null && (
-                  <span className="flex items-center gap-1">
-                    <Bath className="h-3 w-3" />
-                    {selectedProperty.baths}
-                  </span>
-                )}
-                {selectedProperty.sqft && (
-                  <span className="flex items-center gap-1">
-                    <Square className="h-3 w-3" />
-                    {selectedProperty.sqft.toLocaleString()}
-                  </span>
-                )}
-              </div>
-              <Link href={getMarkerUrl ? getMarkerUrl(selectedProperty) : getPropertyUrl(selectedProperty)}>
-                <Button size="sm" className="w-full text-xs">
-                  View Details
-                  <ExternalLink className="ml-1 h-3 w-3" />
-                </Button>
-              </Link>
-            </div>
-          </InfoWindow>
-        )}
+            </InfoWindow>
+          );
+        })()}
       </GoogleMap>
 
       {subjectProperty && (

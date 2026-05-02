@@ -667,6 +667,14 @@ export default function UnitDetail() {
                 subjectProperty={{
                   id: unit.unitBbl,
                   address: unit.buildingDisplayAddress || "",
+                  unit: unit.unitDesignation || null,
+                  city: unit.borough || "",
+                  state: "NY",
+                  zipCode: unit.zipCode || "",
+                  propertyType: "Condo",
+                  beds: (unit as any).beds ?? null,
+                  baths: (unit as any).baths ?? null,
+                  sqft: (unit as any).sqft ?? null,
                   latitude: (unit as any).latitude,
                   longitude: (unit as any).longitude,
                 } as Property}
