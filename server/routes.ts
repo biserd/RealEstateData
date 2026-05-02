@@ -445,12 +445,8 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(404).send("Property not found");
       }
       const url = `https://maps.googleapis.com/maps/api/staticmap?center=${property.latitude},${property.longitude}&zoom=16&size=1200x630&maptype=roadmap&markers=color:red%7C${property.latitude},${property.longitude}&key=${apiKey}`;
-      const upstream = await fetch(url);
-      if (!upstream.ok) return res.status(502).send("Upstream error");
-      res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/png");
       res.setHeader("Cache-Control", "public, max-age=86400");
-      const buf = Buffer.from(await upstream.arrayBuffer());
-      res.send(buf);
+      return res.redirect(302, url);
     } catch (e) {
       console.error("OG property error:", e);
       res.status(500).send("OG render failed");
@@ -474,12 +470,8 @@ Sitemap: ${baseUrl}/sitemap.xml
         .map((r: any) => `${r.latitude},${r.longitude}`)
         .join("|");
       const url = `https://maps.googleapis.com/maps/api/staticmap?center=${first.latitude},${first.longitude}&zoom=13&size=1200x630&maptype=roadmap&markers=color:blue%7C${markerStr}&key=${apiKey}`;
-      const upstream = await fetch(url);
-      if (!upstream.ok) return res.status(502).send("Upstream error");
-      res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/png");
       res.setHeader("Cache-Control", "public, max-age=86400");
-      const buf = Buffer.from(await upstream.arrayBuffer());
-      res.send(buf);
+      return res.redirect(302, url);
     } catch (e) {
       console.error("OG neighborhood error:", e);
       res.status(500).send("OG render failed");
