@@ -5,7 +5,8 @@ import { AppLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
 import { PlaceJsonLd } from "@/components/JsonLd";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { StaticMapImage } from "@/components/StaticMapImage";
+import { PropertyMap } from "@/components/PropertyMap";
+import type { Property } from "@shared/schema";
 import { MarketStatsCard } from "@/components/MarketStatsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -135,11 +136,11 @@ export default function NeighborhoodReport() {
   const geoType = params.get("geoType") || "zip";
   const [, navigate] = useLocation();
 
-  const { data: areaProperties = [] } = useQuery<Array<{ id: string; latitude: number | null; longitude: number | null; address: string }>>({
-    queryKey: ["/api/properties/area", { geoType, geoId, limit: 24 }],
+  const { data: areaProperties = [] } = useQuery<Property[]>({
+    queryKey: ["/api/properties/area", { geoType, geoId, limit: 100 }],
     queryFn: async () => {
       if (!geoId) return [];
-      const res = await fetch(`/api/properties/area?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=24`);
+      const res = await fetch(`/api/properties/area?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=100`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -293,28 +294,16 @@ export default function NeighborhoodReport() {
         {(() => {
           const mapped = areaProperties.filter((p) => p.latitude && p.longitude);
           if (mapped.length === 0) return null;
-          const firstWithCoord = mapped[0];
           return (
             <Card className="mb-8" data-testid="card-neighborhood-map">
               <CardHeader>
                 <CardTitle className="text-base">Area Map</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Showing {mapped.length} {mapped.length === 1 ? "property" : "properties"} in {data.geoName}. Click a marker to see details.
+                </p>
               </CardHeader>
               <CardContent>
-                <div className="aspect-[16/9] overflow-hidden rounded-md border">
-                  <StaticMapImage
-                    center={{ lat: firstWithCoord.latitude!, lng: firstWithCoord.longitude! }}
-                    zoom={13}
-                    markers={mapped.slice(0, 12).map((p) => ({
-                      lat: p.latitude!,
-                      lng: p.longitude!,
-                      color: "blue",
-                    }))}
-                    width={1200}
-                    height={600}
-                    rounded={false}
-                    alt={`Map of ${data.geoName}`}
-                  />
-                </div>
+                <PropertyMap properties={mapped} height="500px" zoom={13} />
               </CardContent>
             </Card>
           );
