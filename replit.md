@@ -64,7 +64,9 @@ The `condo_units` table contains over 300K NYC condo unit records, enabling unit
 ### SEO & Sitemap System
 
 The platform implements comprehensive SEO optimization:
-- **Server-Side Meta Tags**: `server/seoMetaTags.ts` injects unique title, description, OG, canonical, and Twitter tags per page at the HTML level (in `static.ts` for production). This ensures crawlers see page-specific meta without needing JavaScript rendering. Covers unit pages (300K+), property pages, and static pages.
+- **Server-Side Meta Tags**: `server/seoMetaTags.ts` injects unique title, description, OG (title/description/type/url/site_name), canonical, and Twitter tags per page at the HTML level (in `static.ts` for production). This ensures crawlers see page-specific meta without needing JavaScript rendering. Covers unit pages (300K+), property pages, building pages, neighborhood pages, browse pages, and static pages.
+- **JSON-LD Structured Data**: Each `PageMeta` can carry an optional `jsonLd` object that is injected as a `<script type="application/ld+json">` tag in the head. Property pages emit `SingleFamilyResidence` (address, floorSize, numberOfRooms, yearBuilt, geo). Unit pages emit `Residence`. Building pages emit `ApartmentComplex` with unit counts. Neighborhood/browse pages emit `Place`. JSON output is escaped (`<`, `>`, `&` → `\u00xx`) to prevent script-tag breakout.
+- **Noscript SEO Body Content**: For non-JS crawlers (Bing, Yandex, AI bots), `injectMetaTags` injects a `<noscript><main id="seo-content">` block containing the page's `<h1>` plus key facts (address, price, sqft, beds/baths, year built, opportunity score, market stats). React users never see this because `<noscript>` is hidden when JS executes. Crawlers without JS get readable, indexable content.
 - **SEO-Friendly Unit URLs**: Format `/unit/{address}-unit-{designation}-{borough}-{9-digit-bbl}` (e.g., `/unit/1-water-street-unit-suba-manhattan-000041001`)
 - **Paginated Sitemaps**: Unit sitemaps paginated at 40k items per file (8 files for 300k+ units)
 - **Sitemap Index**: `/sitemap.xml` includes static pages, properties, and units
