@@ -215,7 +215,7 @@ export default function Landing() {
                 With 300K+ verified NYC condo sales and transparent score explanations, you'll know exactly why each property is an opportunity.
               </p>
               
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-3">
                 <Button 
                   size="lg" 
                   className="h-14 px-8 text-lg" 
@@ -226,7 +226,7 @@ export default function Landing() {
                   {isProductsLoading || guestCheckoutMutation.isPending ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : null}
-                  Get Pro - $29/mo
+                  Start 14-Day Free Trial
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Link href="/investment-opportunities">
@@ -236,6 +236,9 @@ export default function Landing() {
                   </Button>
                 </Link>
               </div>
+              <p className="mb-8 text-sm text-muted-foreground" data-testid="text-hero-trial">
+                Free for 14 days, then $29/mo · No charge during trial · Cancel anytime
+              </p>
 
               <SmartAddressSearch 
                 className="mx-auto mb-8 max-w-xl"

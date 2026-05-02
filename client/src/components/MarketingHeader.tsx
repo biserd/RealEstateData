@@ -24,9 +24,11 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
   const { isPro } = useSubscription();
 
   const navLinks = [
+    { href: "/up-and-coming", label: "Trending Areas" },
+    { href: "/compare", label: "Compare" },
+    { href: "/calculator", label: "Calculator" },
     { href: "/pricing", label: "Pricing" },
     { href: "/api-access", label: "API" },
-    { href: "/developers", label: "Developers" },
     { href: "/release-notes", label: "What's New" },
     { href: "/about", label: "About" },
   ];

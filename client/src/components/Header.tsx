@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search, MapPin, Calculator, GitCompare, Wrench } from "lucide-react";
+import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search, MapPin, Calculator, GitCompare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "./GlobalSearch";
 import {
@@ -40,6 +40,8 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
     { href: "/market-intelligence", label: "Market Explorer", icon: Search },
     { href: "/investment-opportunities", label: "Opportunity Screener", icon: Building2 },
     { href: "/up-and-coming", label: "Trending Areas", icon: TrendingUp },
+    { href: "/compare", label: "Compare", icon: GitCompare },
+    { href: "/calculator", label: "Calculator", icon: Calculator },
     { href: "/saved-properties", label: "Watchlists", icon: Heart },
     { href: "/portfolio", label: "Portfolio", icon: BarChart3, premium: true },
   ];
@@ -189,40 +191,16 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 </Button>
               </Link>
             ))}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant={["/compare", "/calculator", "/neighborhood"].some(p => location.startsWith(p)) ? "secondary" : "ghost"}
-                  size="sm"
-                  className="text-sm gap-1"
-                  data-testid="nav-tools"
-                >
-                  <Wrench className="h-4 w-4" />
-                  Tools
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <Link href="/compare">
-                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-tools-compare">
-                    <GitCompare className="mr-2 h-4 w-4" />
-                    Property Comparison
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/calculator">
-                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-tools-calculator">
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Investment Calculator
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/neighborhood/10001">
-                  <DropdownMenuItem className="cursor-pointer" data-testid="nav-tools-neighborhood">
-                    <MapPin className="mr-2 h-4 w-4" />
-                    Neighborhood Reports
-                  </DropdownMenuItem>
-                </Link>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Link href="/neighborhood/10001">
+              <Button
+                variant={location.startsWith("/neighborhood") ? "secondary" : "ghost"}
+                size="sm"
+                className="text-sm"
+                data-testid="nav-neighborhood"
+              >
+                Neighborhoods
+              </Button>
+            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
