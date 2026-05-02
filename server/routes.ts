@@ -1377,6 +1377,17 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/buildings/:baseBbl/insights", async (req, res) => {
+    try {
+      const { baseBbl } = req.params;
+      const insights = await storage.getBuildingInsights(baseBbl);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error fetching building insights:", error);
+      res.status(500).json({ message: "Failed to fetch building insights" });
+    }
+  });
+
   app.get("/api/buildings/:baseBbl/units", async (req, res) => {
     try {
       const { baseBbl } = req.params;

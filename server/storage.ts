@@ -249,6 +249,37 @@ export interface IStorage {
   getBuilding(baseBbl: string): Promise<Building | undefined>;
   getBuildingsWithUnits(limit?: number, offset?: number): Promise<Building[]>;
   upsertBuilding(building: InsertBuilding): Promise<Building>;
+  getBuildingInsights(baseBbl: string): Promise<{
+    salesStats: {
+      totalSales: number;
+      avgPrice: number | null;
+      medianPrice: number | null;
+      minPrice: number | null;
+      maxPrice: number | null;
+      lastSaleDate: string | null;
+      lastSalePrice: number | null;
+    };
+    yearlyTrend: Array<{
+      year: number;
+      count: number;
+      medianPrice: number;
+      minPrice: number;
+      maxPrice: number;
+    }>;
+    unitMix: {
+      residential: number;
+      parking: number;
+      storage: number;
+      commercial: number;
+      other: number;
+    };
+    areaContext: {
+      geoType: "zip" | null;
+      geoId: string | null;
+      medianPrice: number | null;
+      vsAreaPct: number | null;
+    };
+  }>;
   
   // Condo Unit operations
   getCondoUnit(unitBbl: string): Promise<{
@@ -2028,6 +2059,117 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  async getBuildingInsights(baseBbl: string) {
+    const median = (arr: number[]): number => {
+      if (arr.length === 0) return 0;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 === 0
+        ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+        : sorted[mid];
+    };
+
+    const allSales = await db
+      .select({
+        salePrice: sales.salePrice,
+        saleDate: sales.saleDate,
+      })
+      .from(sales)
+      .where(eq(sales.baseBbl, baseBbl))
+      .orderBy(desc(sales.saleDate));
+
+    const prices = allSales.map((s) => s.salePrice);
+    const salesStats = {
+      totalSales: allSales.length,
+      avgPrice: prices.length
+        ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
+        : null,
+      medianPrice: prices.length ? median(prices) : null,
+      minPrice: prices.length ? Math.min(...prices) : null,
+      maxPrice: prices.length ? Math.max(...prices) : null,
+      lastSaleDate: allSales[0]?.saleDate?.toISOString() || null,
+      lastSalePrice: allSales[0]?.salePrice ?? null,
+    };
+
+    const byYear = new Map<number, number[]>();
+    for (const s of allSales) {
+      const y = s.saleDate.getFullYear();
+      if (!byYear.has(y)) byYear.set(y, []);
+      byYear.get(y)!.push(s.salePrice);
+    }
+    const yearlyTrend = Array.from(byYear.entries())
+      .map(([year, ps]) => ({
+        year,
+        count: ps.length,
+        medianPrice: median(ps),
+        minPrice: Math.min(...ps),
+        maxPrice: Math.max(...ps),
+      }))
+      .sort((a, b) => a.year - b.year);
+
+    const mixRows = await db
+      .select({
+        unitTypeHint: condoUnits.unitTypeHint,
+        n: sql<number>`count(*)::int`,
+      })
+      .from(condoUnits)
+      .where(eq(condoUnits.baseBbl, baseBbl))
+      .groupBy(condoUnits.unitTypeHint);
+
+    const unitMix = {
+      residential: 0,
+      parking: 0,
+      storage: 0,
+      commercial: 0,
+      other: 0,
+    };
+    for (const r of mixRows) {
+      const key = (r.unitTypeHint || "other").toLowerCase();
+      if (key in unitMix) (unitMix as any)[key] += Number(r.n);
+      else unitMix.other += Number(r.n);
+    }
+
+    const [b] = await db
+      .select({ zipCode: buildings.zipCode })
+      .from(buildings)
+      .where(eq(buildings.baseBbl, baseBbl));
+
+    let areaContext: {
+      geoType: "zip" | null;
+      geoId: string | null;
+      medianPrice: number | null;
+      vsAreaPct: number | null;
+    } = { geoType: null, geoId: null, medianPrice: null, vsAreaPct: null };
+
+    if (b?.zipCode) {
+      const [agg] = await db
+        .select({ medianPrice: marketAggregates.medianPrice })
+        .from(marketAggregates)
+        .where(
+          and(
+            eq(marketAggregates.geoType, "zip"),
+            eq(marketAggregates.geoId, b.zipCode),
+          ),
+        )
+        .limit(1);
+      const areaMedian = agg?.medianPrice ?? null;
+      const vsArea =
+        areaMedian && salesStats.medianPrice
+          ? Math.round(
+              ((salesStats.medianPrice - areaMedian) / areaMedian) * 1000,
+            ) / 10
+          : null;
+      areaContext = {
+        geoType: "zip",
+        geoId: b.zipCode,
+        medianPrice: areaMedian,
+        vsAreaPct: vsArea,
+      };
+    }
+
+    return { salesStats, yearlyTrend, unitMix, areaContext };
   }
 
   async getCondoUnit(unitBbl: string): Promise<{
