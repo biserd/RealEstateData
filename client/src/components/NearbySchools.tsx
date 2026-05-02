@@ -28,7 +28,9 @@ interface NearbySchool {
 }
 
 interface NearbySchoolsProps {
-  propertyId: string;
+  propertyId?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 function scoreColor(score: number | null): string {
@@ -39,11 +41,20 @@ function scoreColor(score: number | null): string {
   return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
 }
 
-export function NearbySchools({ propertyId }: NearbySchoolsProps) {
+export function NearbySchools({ propertyId, latitude, longitude }: NearbySchoolsProps) {
+  const useCoords = latitude != null && longitude != null;
+  const url = useCoords
+    ? `/api/schools/nearby?lat=${latitude}&lon=${longitude}&limit=6&radiusMiles=1.5`
+    : `/api/properties/${propertyId}/schools?limit=6&radiusMiles=1.5`;
+  const queryKey = useCoords
+    ? ["/api/schools/nearby", latitude, longitude]
+    : ["/api/properties", propertyId, "schools"];
+
   const { data, isLoading, error } = useQuery<NearbySchool[]>({
-    queryKey: ["/api/properties", propertyId, "schools"],
+    queryKey,
+    enabled: useCoords || !!propertyId,
     queryFn: async () => {
-      const res = await fetch(`/api/properties/${propertyId}/schools?limit=6&radiusMiles=1.5`);
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to load schools");
       return res.json();
     },

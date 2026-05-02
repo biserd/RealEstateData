@@ -29,6 +29,7 @@ import { AppLayout } from "@/components/layouts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NearbySchools } from "@/components/NearbySchools";
 import { PropertyBreadcrumbs, BuildingContext } from "@/components/BuildingContext";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
@@ -895,6 +896,11 @@ export default function UnitDetail() {
                     </Card>
                   );
                 })()}
+
+                <NearbySchools
+                  latitude={(unit as any).latitude}
+                  longitude={(unit as any).longitude}
+                />
               </TabsContent>
 
               <TabsContent value="sales">

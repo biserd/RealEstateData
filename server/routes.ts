@@ -1674,6 +1674,28 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // NYC Deep Coverage - Property Signals
+  app.get("/api/schools/nearby", async (req, res) => {
+    try {
+      const { getNearbySchools } = await import("./services/schoolsService");
+      const lat = parseFloat(req.query.lat as string);
+      const lon = parseFloat(req.query.lon as string);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return res.status(400).json({ message: "lat and lon are required" });
+      }
+      const limit = Math.min(parseInt((req.query.limit as string) || "6", 10) || 6, 25);
+      const radiusMiles = Math.min(
+        parseFloat((req.query.radiusMiles as string) || "1.5") || 1.5,
+        5,
+      );
+      const schools = await getNearbySchools(lat, lon, { limit, radiusMiles });
+      res.set("Cache-Control", "public, max-age=3600");
+      res.json(schools);
+    } catch (error) {
+      console.error("Error fetching nearby schools:", error);
+      res.status(500).json({ message: "Failed to fetch nearby schools" });
+    }
+  });
+
   app.get("/api/properties/:id/schools", async (req, res) => {
     try {
       const { getNearbySchools } = await import("./services/schoolsService");
