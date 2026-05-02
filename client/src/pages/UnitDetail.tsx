@@ -73,7 +73,20 @@ interface OpportunityData {
     trend: number;
     recency: number;
   } | null;
-  buildingAvgPricePerYear: Array<{ year: number; avgPrice: number }>;
+  buildingAvgPricePerYear: Array<{
+    year: number;
+    avgPrice: number;
+    medianPrice: number;
+    minPrice: number;
+    maxPrice: number;
+    saleCount: number;
+    yoyPct: number | null;
+  }>;
+  buildingTrendSummary: {
+    threeYearPct: number | null;
+    lastYearPct: number | null;
+    direction: "up" | "down" | "flat";
+  } | null;
   buildingSales?: Array<{ salePrice: number; saleDate: string }>;
 }
 
@@ -761,35 +774,119 @@ export default function UnitDetail() {
                   <MarketComparisonCard data={opportunityData} />
                 </div>
                 
-                {opportunityData?.buildingAvgPricePerYear && opportunityData.buildingAvgPricePerYear.length > 0 && (
-                  <Card data-testid="card-price-history">
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4" />
-                        Building Price Trends
-                      </CardTitle>
-                      <CardDescription>
-                        Average sale prices in this building by year
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {opportunityData.buildingAvgPricePerYear.slice(0, 5).map((item) => (
-                          <div 
-                            key={item.year}
-                            className="flex items-center justify-between p-2 rounded bg-muted/30"
-                            data-testid={`row-price-year-${item.year}`}
-                          >
-                            <span className="text-sm font-medium">{item.year}</span>
-                            <span className="text-sm">
-                              ${item.avgPrice.toLocaleString()}
-                            </span>
+                {opportunityData?.buildingAvgPricePerYear && opportunityData.buildingAvgPricePerYear.length > 0 && (() => {
+                  const years = opportunityData.buildingAvgPricePerYear.slice(0, 6);
+                  const summary = opportunityData.buildingTrendSummary;
+                  const maxMedian = Math.max(...years.map(y => y.medianPrice));
+                  const minMedian = Math.min(...years.map(y => y.medianPrice));
+                  const totalSales = years.reduce((s, y) => s + y.saleCount, 0);
+                  const formatCompact = (n: number) =>
+                    n >= 1_000_000
+                      ? `$${(n / 1_000_000).toFixed(2)}M`
+                      : n >= 1_000
+                      ? `$${Math.round(n / 1_000)}K`
+                      : `$${n}`;
+                  const TrendIcon =
+                    summary?.direction === "up"
+                      ? TrendingUp
+                      : summary?.direction === "down"
+                      ? TrendingDown
+                      : Minus;
+                  const trendColor =
+                    summary?.direction === "up"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : summary?.direction === "down"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-muted-foreground";
+                  return (
+                    <Card data-testid="card-price-history">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div>
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4" />
+                              Building Price Trends
+                            </CardTitle>
+                            <CardDescription>
+                              Median sale price per year · {totalSales} sale{totalSales === 1 ? "" : "s"} across {years.length} year{years.length === 1 ? "" : "s"}
+                            </CardDescription>
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                          {summary && (summary.lastYearPct !== null || summary.threeYearPct !== null) && (
+                            <div
+                              className={`flex items-center gap-1.5 text-sm font-semibold ${trendColor}`}
+                              data-testid="text-trend-summary"
+                            >
+                              <TrendIcon className="h-4 w-4" />
+                              <span>
+                                {summary.lastYearPct !== null
+                                  ? `${summary.lastYearPct > 0 ? "+" : ""}${summary.lastYearPct}% YoY`
+                                  : ""}
+                                {summary.lastYearPct !== null && summary.threeYearPct !== null ? " · " : ""}
+                                {summary.threeYearPct !== null
+                                  ? `${summary.threeYearPct > 0 ? "+" : ""}${summary.threeYearPct}% 3yr`
+                                  : ""}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-1.5">
+                          {years.map((item) => {
+                            const range = maxMedian - minMedian || 1;
+                            const widthPct = Math.round(((item.medianPrice - minMedian) / range) * 80) + 20;
+                            const yoyColor =
+                              item.yoyPct === null
+                                ? "text-muted-foreground bg-muted"
+                                : item.yoyPct > 0
+                                ? "text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950"
+                                : item.yoyPct < 0
+                                ? "text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-950"
+                                : "text-muted-foreground bg-muted";
+                            return (
+                              <div
+                                key={item.year}
+                                className="grid grid-cols-[3rem_1fr_auto] items-center gap-3 p-2 rounded bg-muted/30"
+                                data-testid={`row-price-year-${item.year}`}
+                              >
+                                <span className="text-sm font-medium tabular-nums">{item.year}</span>
+                                <div className="relative h-6">
+                                  <div
+                                    className="absolute inset-y-0 left-0 rounded bg-primary/15 dark:bg-primary/25"
+                                    style={{ width: `${widthPct}%` }}
+                                  />
+                                  <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2">
+                                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                                      {item.saleCount} sale{item.saleCount === 1 ? "" : "s"}
+                                    </span>
+                                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                                      {formatCompact(item.minPrice)}–{formatCompact(item.maxPrice)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold tabular-nums">
+                                    {formatCompact(item.medianPrice)}
+                                  </span>
+                                  {item.yoyPct !== null && (
+                                    <Badge
+                                      variant="secondary"
+                                      className={`text-[10px] px-1.5 py-0 h-5 font-medium ${yoyColor}`}
+                                      data-testid={`badge-yoy-${item.year}`}
+                                    >
+                                      {item.yoyPct > 0 ? "+" : ""}
+                                      {item.yoyPct}%
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
               </TabsContent>
 
               <TabsContent value="sales">

@@ -284,7 +284,20 @@ export interface IStorage {
     unitSales: Array<{ salePrice: number; saleDate: Date }>;
     buildingSales: Array<{ salePrice: number; saleDate: Date }>;
     buildingMedianPrice: number | null;
-    buildingAvgPricePerYear: Array<{ year: number; avgPrice: number }>;
+    buildingAvgPricePerYear: Array<{
+      year: number;
+      avgPrice: number;
+      medianPrice: number;
+      minPrice: number;
+      maxPrice: number;
+      saleCount: number;
+      yoyPct: number | null;
+    }>;
+    buildingTrendSummary: {
+      threeYearPct: number | null;
+      lastYearPct: number | null;
+      direction: "up" | "down" | "flat";
+    } | null;
     lastSalePrice: number | null;
     lastSaleDate: Date | null;
     opportunityScore: number | null;
@@ -2021,7 +2034,20 @@ export class DatabaseStorage implements IStorage {
     unitSales: Array<{ salePrice: number; saleDate: Date }>;
     buildingSales: Array<{ salePrice: number; saleDate: Date }>;
     buildingMedianPrice: number | null;
-    buildingAvgPricePerYear: Array<{ year: number; avgPrice: number }>;
+    buildingAvgPricePerYear: Array<{
+      year: number;
+      avgPrice: number;
+      medianPrice: number;
+      minPrice: number;
+      maxPrice: number;
+      saleCount: number;
+      yoyPct: number | null;
+    }>;
+    buildingTrendSummary: {
+      threeYearPct: number | null;
+      lastYearPct: number | null;
+      direction: "up" | "down" | "flat";
+    } | null;
     lastSalePrice: number | null;
     lastSaleDate: Date | null;
     opportunityScore: number | null;
@@ -2066,17 +2092,62 @@ export class DatabaseStorage implements IStorage {
 
     const yearlyPrices: Record<number, number[]> = {};
     buildingSalesData.forEach(s => {
+      // Apply same residential-range filter for trend stats
+      if (s.salePrice < 50000 || s.salePrice > 10000000) return;
       const year = new Date(s.saleDate).getFullYear();
       if (!yearlyPrices[year]) yearlyPrices[year] = [];
       yearlyPrices[year].push(s.salePrice);
     });
 
-    const buildingAvgPricePerYear = Object.entries(yearlyPrices)
-      .map(([year, prices]) => ({
-        year: parseInt(year),
-        avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
-      }))
-      .sort((a, b) => b.year - a.year);
+    const yearlyAggregates = Object.entries(yearlyPrices)
+      .map(([year, prices]) => {
+        const sorted = [...prices].sort((a, b) => a - b);
+        const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        return {
+          year: parseInt(year),
+          avgPrice: avg,
+          medianPrice: median,
+          minPrice: sorted[0],
+          maxPrice: sorted[sorted.length - 1],
+          saleCount: prices.length,
+        };
+      })
+      .sort((a, b) => a.year - b.year); // ascending for YoY computation
+
+    // Compute YoY % using median (more robust than avg)
+    const buildingAvgPricePerYear = yearlyAggregates
+      .map((curr, idx) => {
+        const prev = idx > 0 ? yearlyAggregates[idx - 1] : null;
+        const yoyPct = prev && prev.medianPrice > 0
+          ? Math.round(((curr.medianPrice - prev.medianPrice) / prev.medianPrice) * 1000) / 10
+          : null;
+        return { ...curr, yoyPct };
+      })
+      .reverse(); // back to descending (newest first) for display
+
+    // Building trend summary: last-year and 3-year change in median
+    let buildingTrendSummary: {
+      threeYearPct: number | null;
+      lastYearPct: number | null;
+      direction: "up" | "down" | "flat";
+    } | null = null;
+    if (yearlyAggregates.length >= 2) {
+      const newest = yearlyAggregates[yearlyAggregates.length - 1];
+      const prev = yearlyAggregates[yearlyAggregates.length - 2];
+      const threeAgo = yearlyAggregates.length >= 4
+        ? yearlyAggregates[yearlyAggregates.length - 4]
+        : yearlyAggregates[0];
+      const lastYearPct = prev.medianPrice > 0
+        ? Math.round(((newest.medianPrice - prev.medianPrice) / prev.medianPrice) * 1000) / 10
+        : null;
+      const threeYearPct = threeAgo.medianPrice > 0
+        ? Math.round(((newest.medianPrice - threeAgo.medianPrice) / threeAgo.medianPrice) * 1000) / 10
+        : null;
+      const direction: "up" | "down" | "flat" =
+        (lastYearPct ?? 0) > 1 ? "up" : (lastYearPct ?? 0) < -1 ? "down" : "flat";
+      buildingTrendSummary = { threeYearPct, lastYearPct, direction };
+    }
 
     const lastSale = unitSalesData[0];
     const lastSalePrice = lastSale?.salePrice || null;
@@ -2121,6 +2192,7 @@ export class DatabaseStorage implements IStorage {
       buildingSales: buildingSalesData,
       buildingMedianPrice,
       buildingAvgPricePerYear,
+      buildingTrendSummary,
       lastSalePrice,
       lastSaleDate,
       opportunityScore,

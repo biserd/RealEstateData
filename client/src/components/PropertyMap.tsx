@@ -111,14 +111,29 @@ export function PropertyMap({
   const getMarkerIcon = useCallback((property: Property) => {
     const isSubject = subjectProperty?.id === property.id;
     const isSelected = selectedPropertyId === property.id;
-    
+
+    if (isSubject) {
+      // Distinctive teardrop pin for the subject property so it stands out
+      // from the small circular comp markers around it.
+      return {
+        path: "M 0,0 C -2,-10 -12,-12 -12,-22 a 12,12 0 1,1 24,0 C 12,-12 2,-10 0,0 z",
+        scale: 1.4,
+        fillColor: "#2563eb",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 3,
+        anchor: new google.maps.Point(0, 0),
+        labelOrigin: new google.maps.Point(0, -22),
+      };
+    }
+
     return {
       path: google.maps.SymbolPath.CIRCLE,
-      scale: isSubject ? 14 : 10,
-      fillColor: isSubject ? "#2563eb" : isSelected ? "#16a34a" : "#dc2626",
+      scale: 9,
+      fillColor: isSelected ? "#16a34a" : "#dc2626",
       fillOpacity: 0.9,
       strokeColor: "#ffffff",
-      strokeWeight: 3,
+      strokeWeight: 2,
     };
   }, [subjectProperty?.id, selectedPropertyId]);
 
@@ -187,19 +202,32 @@ export function PropertyMap({
         onLoad={onMapLoad}
         onUnmount={onMapUnmount}
       >
-        {validProperties.map((property) => (
-          <Marker
-            key={property.id}
-            position={{ lat: property.latitude!, lng: property.longitude! }}
-            icon={getMarkerIcon(property)}
-            title={formatPropertyAddress(property)}
-            zIndex={
-              subjectProperty?.id === property.id ? 1000 :
-              selectedPropertyId === property.id ? 500 : 1
-            }
-            onClick={() => handleMarkerClick(property)}
-          />
-        ))}
+        {validProperties.map((property) => {
+          const isSubject = subjectProperty?.id === property.id;
+          return (
+            <Marker
+              key={property.id}
+              position={{ lat: property.latitude!, lng: property.longitude! }}
+              icon={getMarkerIcon(property)}
+              title={isSubject ? `Subject: ${formatPropertyAddress(property)}` : formatPropertyAddress(property)}
+              label={
+                isSubject
+                  ? {
+                      text: "S",
+                      color: "#ffffff",
+                      fontWeight: "700",
+                      fontSize: "12px",
+                    }
+                  : undefined
+              }
+              zIndex={
+                isSubject ? 1000 :
+                selectedPropertyId === property.id ? 500 : 1
+              }
+              onClick={() => handleMarkerClick(property)}
+            />
+          );
+        })}
 
         {selectedProperty && (
           <InfoWindow
@@ -258,12 +286,31 @@ export function PropertyMap({
         <div className="absolute bottom-4 left-4 z-10">
           <div className="flex items-center gap-4 bg-background/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border text-xs">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white" />
-              <span>Subject</span>
+              <span className="relative inline-flex items-center justify-center w-4 h-5">
+                <svg viewBox="-14 -24 28 26" className="w-4 h-5">
+                  <path
+                    d="M 0,0 C -2,-10 -12,-12 -12,-22 a 12,12 0 1,1 24,0 C 12,-12 2,-10 0,0 z"
+                    fill="#2563eb"
+                    stroke="#ffffff"
+                    strokeWidth="2"
+                  />
+                  <text
+                    x="0"
+                    y="-18"
+                    textAnchor="middle"
+                    fontSize="10"
+                    fontWeight="700"
+                    fill="#ffffff"
+                  >
+                    S
+                  </text>
+                </svg>
+              </span>
+              <span className="font-medium">This unit</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-600 border-2 border-white" />
-              <span>Comps</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-red-600 border-2 border-white" />
+              <span>Nearby properties</span>
             </div>
           </div>
         </div>
