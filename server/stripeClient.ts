@@ -66,8 +66,9 @@ async function getCredentials(): Promise<{ publishableKey: string; secretKey: st
     return connectorCreds;
   }
 
-  // Fall back to environment variable
-  const secretKey = process.env.STRIPE_SECRET_KEY;
+  // Fall back to environment variable. Prefer STRIPE_SECRET_KEY_REAL if set
+  // (used during the migration to the new "Real Estate Dashboard" Stripe account).
+  const secretKey = process.env.STRIPE_SECRET_KEY_REAL || process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
     throw new Error('Stripe credentials not available. Configure Replit Stripe Connector or set STRIPE_SECRET_KEY environment variable.');
   }
