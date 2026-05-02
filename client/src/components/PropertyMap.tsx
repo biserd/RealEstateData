@@ -64,6 +64,27 @@ export function PropertyMap({
     [properties]
   );
 
+  // Always render the subject pin if it has coordinates, even when it's not
+  // included in the `properties` array (e.g. the unit-detail map passes a
+  // synthetic subject whose id doesn't match any nearby property, or the
+  // property-detail comps map has zero comps).
+  const subjectInList = useMemo(
+    () => !!subjectProperty && validProperties.some((p) => p.id === subjectProperty.id),
+    [subjectProperty, validProperties]
+  );
+  const showStandaloneSubject =
+    !!subjectProperty &&
+    !subjectInList &&
+    !!subjectProperty.latitude &&
+    !!subjectProperty.longitude;
+
+  const allMarkers = useMemo(() => {
+    if (showStandaloneSubject && subjectProperty) {
+      return [subjectProperty, ...validProperties];
+    }
+    return validProperties;
+  }, [showStandaloneSubject, subjectProperty, validProperties]);
+
   const mapCenter = useMemo(() => {
     if (center) return center;
     if (subjectProperty?.latitude && subjectProperty?.longitude) {
@@ -78,17 +99,17 @@ export function PropertyMap({
 
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
-    
-    if (validProperties.length > 0) {
+
+    if (allMarkers.length > 0) {
       const bounds = new google.maps.LatLngBounds();
-      validProperties.forEach((p) => {
+      allMarkers.forEach((p) => {
         bounds.extend({ lat: p.latitude!, lng: p.longitude! });
       });
       map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
-      
+
       setTimeout(() => {
         const currentZoom = map.getZoom();
-        if (validProperties.length <= 10) {
+        if (allMarkers.length <= 10) {
           if (currentZoom !== undefined && currentZoom < 14) {
             map.setZoom(14);
           } else if (currentZoom !== undefined && currentZoom > 17) {
@@ -97,7 +118,7 @@ export function PropertyMap({
         }
       }, 100);
     }
-  }, [validProperties]);
+  }, [allMarkers]);
 
   const onMapUnmount = useCallback(() => {
     mapRef.current = null;
@@ -202,7 +223,7 @@ export function PropertyMap({
         onLoad={onMapLoad}
         onUnmount={onMapUnmount}
       >
-        {validProperties.map((property) => {
+        {allMarkers.map((property) => {
           const isSubject = subjectProperty?.id === property.id;
           return (
             <Marker
@@ -319,6 +340,7 @@ export function PropertyMap({
       <div className="absolute top-4 right-4 z-10">
         <Badge variant="secondary" className="shadow-lg">
           {validProperties.length} {validProperties.length === 1 ? "property" : "properties"}
+          {showStandaloneSubject ? " + subject" : ""}
         </Badge>
       </div>
     </div>
