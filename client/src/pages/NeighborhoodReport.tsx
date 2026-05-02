@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearch, useLocation } from "wouter";
-import { Shield, HardHat, Train, Trees, Droplets, Building2, MapPin, ArrowRight, Lock, DollarSign, Home, Activity, TrendingUp, TrendingDown } from "lucide-react";
+import { Shield, HardHat, Train, Trees, Droplets, Building2, MapPin, ArrowRight, Lock, DollarSign, Home, Activity, TrendingUp, TrendingDown, BarChart3, Minus } from "lucide-react";
+import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid, Legend, Area } from "recharts";
 import { AppLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
 import { PlaceJsonLd } from "@/components/JsonLd";
@@ -135,6 +136,42 @@ export default function NeighborhoodReport() {
   const params = new URLSearchParams(searchString);
   const geoType = params.get("geoType") || "zip";
   const [, navigate] = useLocation();
+
+  const { data: priceTrends } = useQuery<{
+    geoId: string;
+    geoType: string;
+    years: Array<{
+      year: number;
+      saleCount: number;
+      medianPrice: number | null;
+      avgPrice: number | null;
+      p25Price: number | null;
+      p75Price: number | null;
+      minPrice: number | null;
+      maxPrice: number | null;
+      medianPpsf: number | null;
+      yoyPct: number | null;
+    }>;
+    summary: {
+      totalSales: number;
+      allTimeMedian: number | null;
+      latestYear: number | null;
+      latestYearMedian: number | null;
+      latestYearCount: number | null;
+      latestYoyPct: number | null;
+      fiveYearChangePct: number | null;
+      firstYear: number | null;
+    } | null;
+  }>({
+    queryKey: ["/api/neighborhood", geoId, "price-trends", geoType],
+    queryFn: async () => {
+      if (!geoId) return { geoId: "", geoType, years: [], summary: null };
+      const res = await fetch(`/api/neighborhood/${encodeURIComponent(geoId)}/price-trends?geoType=${encodeURIComponent(geoType)}`);
+      if (!res.ok) return { geoId, geoType, years: [], summary: null };
+      return res.json();
+    },
+    enabled: !!geoId && geoType === "zip",
+  });
 
   const { data: areaProperties = [] } = useQuery<Property[]>({
     queryKey: ["/api/properties/area", { geoType, geoId, limit: 100 }],
@@ -290,6 +327,169 @@ export default function NeighborhoodReport() {
             />
           </div>
         )}
+
+        {priceTrends && priceTrends.years.length > 0 && (() => {
+          const yearsWithMedian = priceTrends.years.filter((y) => y.medianPrice);
+          if (yearsWithMedian.length === 0) return null;
+          const summary = priceTrends.summary;
+          const TrendIcon = summary?.fiveYearChangePct === null || summary?.fiveYearChangePct === undefined
+            ? Minus
+            : summary.fiveYearChangePct > 1
+              ? TrendingUp
+              : summary.fiveYearChangePct < -1
+                ? TrendingDown
+                : Minus;
+          const trendColor = summary?.fiveYearChangePct === null || summary?.fiveYearChangePct === undefined
+            ? "text-muted-foreground"
+            : summary.fiveYearChangePct > 1
+              ? "text-emerald-600"
+              : summary.fiveYearChangePct < -1
+                ? "text-red-600"
+                : "text-muted-foreground";
+          return (
+            <Card className="mb-8" data-testid="card-price-trends">
+              <CardHeader>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-base">Price Trends Over Time</CardTitle>
+                  </div>
+                  {summary && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <Badge variant="outline" data-testid="badge-trend-total-sales">
+                        {summary.totalSales.toLocaleString()} sales since {summary.firstYear}
+                      </Badge>
+                      {summary.allTimeMedian && (
+                        <Badge variant="outline" data-testid="badge-trend-alltime-median">
+                          All-time median {formatPrice(summary.allTimeMedian)}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Yearly median sale price and transaction volume for ZIP {priceTrends.geoId}, sourced from verified deed records.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {summary && (
+                  <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <div className="rounded-md border p-3" data-testid="stat-trend-latest">
+                      <p className="text-xs text-muted-foreground">{summary.latestYear} Median</p>
+                      <p className="text-lg font-semibold tabular-nums">
+                        {summary.latestYearMedian ? formatPrice(summary.latestYearMedian) : "N/A"}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {summary.latestYearCount?.toLocaleString() || 0} sales
+                      </p>
+                    </div>
+                    <div className="rounded-md border p-3" data-testid="stat-trend-yoy">
+                      <p className="text-xs text-muted-foreground">YoY Change</p>
+                      <p className={`text-lg font-semibold tabular-nums ${
+                        summary.latestYoyPct === null || summary.latestYoyPct === undefined
+                          ? "text-muted-foreground"
+                          : summary.latestYoyPct >= 0 ? "text-emerald-600" : "text-red-600"
+                      }`}>
+                        {summary.latestYoyPct === null || summary.latestYoyPct === undefined
+                          ? "—"
+                          : `${summary.latestYoyPct >= 0 ? "+" : ""}${summary.latestYoyPct.toFixed(1)}%`}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">vs prior year</p>
+                    </div>
+                    <div className="rounded-md border p-3" data-testid="stat-trend-5yr">
+                      <p className="text-xs text-muted-foreground">5-Year Change</p>
+                      <p className={`text-lg font-semibold tabular-nums flex items-center gap-1 ${trendColor}`}>
+                        <TrendIcon className="h-4 w-4" />
+                        {summary.fiveYearChangePct === null || summary.fiveYearChangePct === undefined
+                          ? "—"
+                          : `${summary.fiveYearChangePct >= 0 ? "+" : ""}${summary.fiveYearChangePct.toFixed(1)}%`}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">since {summary.latestYear ? summary.latestYear - 5 : ""}</p>
+                    </div>
+                    <div className="rounded-md border p-3" data-testid="stat-trend-volume">
+                      <p className="text-xs text-muted-foreground">Total Sales</p>
+                      <p className="text-lg font-semibold tabular-nums">{summary.totalSales.toLocaleString()}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{summary.firstYear}–{summary.latestYear}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="h-[320px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={yearsWithMedian} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                      <YAxis
+                        yAxisId="price"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tickFormatter={(v) => formatPrice(v)}
+                      />
+                      <YAxis
+                        yAxisId="count"
+                        orientation="right"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        allowDecimals={false}
+                      />
+                      <RTooltip
+                        contentStyle={{
+                          background: "hsl(var(--popover))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                        }}
+                        formatter={(v: number, name: string) => {
+                          if (name === "Sales") return [v.toLocaleString(), name];
+                          return [formatPrice(v), name];
+                        }}
+                        labelFormatter={(y) => `Year ${y}`}
+                      />
+                      <Legend wrapperStyle={{ fontSize: "12px" }} />
+                      <Bar yAxisId="count" dataKey="saleCount" fill="hsl(var(--muted-foreground) / 0.25)" name="Sales" />
+                      <Line yAxisId="price" type="monotone" dataKey="p25Price" stroke="hsl(217 91% 60% / 0.4)" strokeWidth={1} strokeDasharray="3 3" dot={false} name="25th %ile" />
+                      <Line yAxisId="price" type="monotone" dataKey="p75Price" stroke="hsl(217 91% 60% / 0.4)" strokeWidth={1} strokeDasharray="3 3" dot={false} name="75th %ile" />
+                      <Line yAxisId="price" type="monotone" dataKey="medianPrice" stroke="hsl(217 91% 60%)" strokeWidth={2.5} dot={{ r: 3 }} name="Median Price" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="text-left py-2 pr-3 font-medium">Year</th>
+                        <th className="text-right py-2 px-3 font-medium">Sales</th>
+                        <th className="text-right py-2 px-3 font-medium">Median</th>
+                        <th className="text-right py-2 px-3 font-medium">$/sqft</th>
+                        <th className="text-right py-2 px-3 font-medium">Range</th>
+                        <th className="text-right py-2 pl-3 font-medium">YoY</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...yearsWithMedian].reverse().map((y) => (
+                        <tr key={y.year} className="border-b last:border-0" data-testid={`row-trend-${y.year}`}>
+                          <td className="py-2 pr-3 font-medium tabular-nums">{y.year}</td>
+                          <td className="py-2 px-3 text-right tabular-nums">{y.saleCount.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right tabular-nums font-medium">{y.medianPrice ? formatPrice(y.medianPrice) : "—"}</td>
+                          <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">{y.medianPpsf ? `$${Math.round(y.medianPpsf).toLocaleString()}` : "—"}</td>
+                          <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">
+                            {y.p25Price && y.p75Price ? `${formatPrice(y.p25Price)}–${formatPrice(y.p75Price)}` : "—"}
+                          </td>
+                          <td className={`py-2 pl-3 text-right tabular-nums font-medium ${
+                            y.yoyPct === null ? "text-muted-foreground" : y.yoyPct >= 0 ? "text-emerald-600" : "text-red-600"
+                          }`}>
+                            {y.yoyPct === null ? "—" : `${y.yoyPct >= 0 ? "+" : ""}${y.yoyPct.toFixed(1)}%`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {(() => {
           const mapped = areaProperties.filter((p) => p.latitude && p.longitude);

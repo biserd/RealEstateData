@@ -2344,6 +2344,90 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/neighborhood/:geoId/price-trends", optionalAuth, async (req: any, res) => {
+    try {
+      const { geoId } = req.params;
+      const geoType = (req.query.geoType as string) || "zip";
+
+      if (geoType !== "zip") {
+        return res.json({ geoId, geoType, years: [], summary: null });
+      }
+
+      const yearly = await db.execute(sql`
+        SELECT
+          EXTRACT(YEAR FROM s.sale_date)::int AS year,
+          COUNT(*)::int AS sale_count,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.sale_price)::bigint AS median_price,
+          ROUND(AVG(s.sale_price))::bigint AS avg_price,
+          PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY s.sale_price)::bigint AS p25_price,
+          PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY s.sale_price)::bigint AS p75_price,
+          MIN(s.sale_price)::bigint AS min_price,
+          MAX(s.sale_price)::bigint AS max_price,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (
+            ORDER BY (s.sale_price::numeric / NULLIF(p.sqft, 0))
+          ) FILTER (WHERE p.sqft > 0)::numeric(10,2) AS median_ppsf
+        FROM sales s
+        JOIN properties p ON s.property_id = p.id
+        WHERE p.zip_code = ${geoId}
+          AND s.sale_price BETWEEN 50000 AND 50000000
+          AND s.sale_date >= '2010-01-01'
+        GROUP BY year
+        ORDER BY year ASC
+      `);
+
+      const rows = yearly.rows as any[];
+      const years = rows.map((r) => ({
+        year: Number(r.year),
+        saleCount: Number(r.sale_count),
+        medianPrice: r.median_price ? Number(r.median_price) : null,
+        avgPrice: r.avg_price ? Number(r.avg_price) : null,
+        p25Price: r.p25_price ? Number(r.p25_price) : null,
+        p75Price: r.p75_price ? Number(r.p75_price) : null,
+        minPrice: r.min_price ? Number(r.min_price) : null,
+        maxPrice: r.max_price ? Number(r.max_price) : null,
+        medianPpsf: r.median_ppsf ? Number(r.median_ppsf) : null,
+        yoyPct: null as number | null,
+      }));
+
+      for (let i = 1; i < years.length; i++) {
+        const prev = years[i - 1].medianPrice;
+        const cur = years[i].medianPrice;
+        if (prev && cur) {
+          years[i].yoyPct = ((cur - prev) / prev) * 100;
+        }
+      }
+
+      const totalSales = years.reduce((s, y) => s + y.saleCount, 0);
+      const withMedian = years.filter((y) => y.medianPrice);
+      const allTimeMedian = withMedian.length
+        ? Math.round(withMedian.reduce((s, y) => s + (y.medianPrice || 0), 0) / withMedian.length)
+        : null;
+      const latest = years.length ? years[years.length - 1] : null;
+      const fiveYearsAgo = years.find((y) => latest && y.year === latest.year - 5);
+      const fiveYearChangePct = latest && latest.medianPrice && fiveYearsAgo?.medianPrice
+        ? ((latest.medianPrice - fiveYearsAgo.medianPrice) / fiveYearsAgo.medianPrice) * 100
+        : null;
+
+      const summary = years.length
+        ? {
+            totalSales,
+            allTimeMedian,
+            latestYear: latest?.year ?? null,
+            latestYearMedian: latest?.medianPrice ?? null,
+            latestYearCount: latest?.saleCount ?? null,
+            latestYoyPct: latest?.yoyPct ?? null,
+            fiveYearChangePct,
+            firstYear: years[0]?.year ?? null,
+          }
+        : null;
+
+      res.json({ geoId, geoType, years, summary });
+    } catch (error) {
+      console.error("Error fetching price trends:", error);
+      res.status(500).json({ message: "Failed to fetch price trends" });
+    }
+  });
+
   // AI Chat route - Pro only
   app.post("/api/ai/chat", isAuthenticated, requirePro, async (req: any, res) => {
     try {
