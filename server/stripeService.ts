@@ -8,6 +8,9 @@ function isLiveMode(): boolean {
   return process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
 }
 
+// Free trial length offered on all paid subscriptions
+export const TRIAL_PERIOD_DAYS = 14;
+
 export class StripeService {
   async createCustomer(email: string, userId: string, name?: string) {
     const stripe = await getUncachableStripeClient();
@@ -30,6 +33,7 @@ export class StripeService {
       cancel_url: cancelUrl,
       metadata: { app: appSlug },
       subscription_data: {
+        trial_period_days: TRIAL_PERIOD_DAYS,
         metadata: { app: appSlug },
       },
     });
@@ -47,6 +51,7 @@ export class StripeService {
       cancel_url: cancelUrl,
       metadata: { app: appSlug },
       subscription_data: {
+        trial_period_days: TRIAL_PERIOD_DAYS,
         metadata: { app: appSlug },
       },
     });

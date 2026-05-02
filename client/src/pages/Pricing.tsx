@@ -267,7 +267,7 @@ export default function Pricing() {
               Loading...
             </>
           ) : (
-            "Unlock Unlimited Deals"
+            "Start 14-Day Free Trial"
           )}
         </Button>
       );
@@ -308,7 +308,7 @@ export default function Pricing() {
               Loading...
             </>
           ) : (
-            "Upgrade to Premium"
+            "Start 14-Day Free Trial"
           )}
         </Button>
       );
@@ -335,7 +335,10 @@ export default function Pricing() {
             Stop Guessing. Start Closing.
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Start free and upgrade when you need more. Pro unlocks full access, Premium adds power features for serious investors.
+            Try Pro or Premium free for 14 days. No charge until your trial ends, and you can cancel anytime.
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground" data-testid="text-trial-banner">
+            14-day free trial · Cancel anytime · No commitment
           </p>
           {user && (
             <p className="mt-4 text-sm text-muted-foreground">
@@ -433,6 +436,9 @@ export default function Pricing() {
                     Billed annually (${proYearlyAmount}/year) - Save ${proYearlySavings}
                   </p>
                 )}
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2" data-testid="text-trial-pro">
+                  Free for 14 days, then ${isYearly ? Math.round(proYearlyAmount / 12) : proMonthlyAmount}/mo · Cancel anytime
+                </p>
               </div>
             </CardHeader>
             <CardContent>
@@ -486,6 +492,9 @@ export default function Pricing() {
                     Billed annually (${premiumYearlyAmount}/year) - Save ${premiumYearlySavings}
                   </p>
                 )}
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2" data-testid="text-trial-premium">
+                  Free for 14 days, then ${isYearly ? Math.round(premiumYearlyAmount / 12) : premiumMonthlyAmount}/mo · Cancel anytime
+                </p>
               </div>
             </CardHeader>
             <CardContent>
@@ -515,21 +524,21 @@ export default function Pricing() {
           <h2 className="text-2xl font-bold mb-4">Frequently Asked Questions</h2>
           <div className="max-w-2xl mx-auto text-left space-y-6">
             <div>
+              <h3 className="font-semibold mb-2">Is there a free trial?</h3>
+              <p className="text-muted-foreground">
+                Yes — every Pro and Premium plan starts with a 14-day free trial. We collect your card up front to reserve your spot, but you won't be charged until the trial ends. Cancel anytime during the trial and you pay nothing.
+              </p>
+            </div>
+            <div>
               <h3 className="font-semibold mb-2">Can I cancel anytime?</h3>
               <p className="text-muted-foreground">
-                Yes! You can cancel your subscription at any time. You'll continue to have access until the end of your billing period.
+                Yes. Cancel from the billing portal in one click — during your trial or after. If you cancel mid-cycle after the trial, you keep access until the end of the period you've already paid for.
               </p>
             </div>
             <div>
               <h3 className="font-semibold mb-2">What payment methods do you accept?</h3>
               <p className="text-muted-foreground">
                 We accept all major credit cards through Stripe, our secure payment processor.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">Is there a free trial?</h3>
-              <p className="text-muted-foreground">
-                Our Free tier gives you access to core features so you can explore the platform. Upgrade to Pro or Premium when you're ready for more.
               </p>
             </div>
             <div>
