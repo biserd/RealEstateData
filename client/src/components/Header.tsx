@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search, MapPin, Calculator, GitCompare } from "lucide-react";
+import { Menu, LogOut, Settings, ChevronDown, TrendingUp, Building2, Heart, Home, Crown, CreditCard, BarChart3, Search, MapPin, Calculator, GitCompare, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "./GlobalSearch";
 import {
@@ -276,6 +276,14 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                       Settings
                     </DropdownMenuItem>
                   </Link>
+                  {(isPro || isPremium) && (
+                    <Link href="/developers">
+                      <DropdownMenuItem data-testid="menu-developers" className="cursor-pointer">
+                        <Code className="mr-2 h-4 w-4" />
+                        Developer Portal
+                      </DropdownMenuItem>
+                    </Link>
+                  )}
                   {isFree ? (
                     <Link href="/pricing">
                       <DropdownMenuItem data-testid="menu-upgrade" className="text-primary">

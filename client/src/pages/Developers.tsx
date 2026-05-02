@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
+import { AppLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
 import { Code, Key, Zap, Shield, Book, Copy, Check, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 
 const codeExamples = {
@@ -64,17 +66,33 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
   );
 }
 
+function PortalShell({ children, isLoggedIn }: { children: ReactNode; isLoggedIn: boolean }) {
+  if (isLoggedIn) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto px-4 py-8 max-w-5xl">{children}</div>
+      </AppLayout>
+    );
+  }
+  return (
+    <div className="min-h-screen bg-background">
+      <MarketingHeader />
+      <div className="container mx-auto px-4 py-12 max-w-5xl">{children}</div>
+      <Footer />
+    </div>
+  );
+}
+
 export default function Developers() {
+  const { user } = useAuth();
   return (
     <>
       <SEO 
         title="API Documentation - Developer Guide"
         description="Complete API documentation with code examples in cURL, JavaScript, and Python. Build real estate applications with our property data API."
       />
-      <div className="min-h-screen bg-background">
-      <MarketingHeader />
-      
-      <div className="container mx-auto px-4 py-12 max-w-5xl">
+      <PortalShell isLoggedIn={!!user}>
+        <></>
         <div className="text-center mb-12">
           <Badge variant="outline" className="mb-4">Developer Documentation</Badge>
           <h1 className="text-4xl font-bold mb-4" data-testid="text-developers-title">
@@ -305,6 +323,45 @@ export default function Developers() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Sample Response</CardTitle>
+                <CardDescription>All responses return JSON wrapped in <code>{`{ success, data }`}</code></CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CodeBlock
+                  language="json"
+                  code={`{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "id": "p_8f3c1d2e",
+        "address": "327 Central Park West",
+        "unit": "6E",
+        "city": "New York",
+        "state": "NY",
+        "zipCode": "10025",
+        "propertyType": "Condo",
+        "price": 980000,
+        "beds": 1,
+        "baths": 1,
+        "sqft": 720,
+        "yearBuilt": 1929,
+        "opportunityScore": 48,
+        "latitude": 40.78972,
+        "longitude": -73.96656
+      }
+    ],
+    "total": 1842,
+    "limit": 10,
+    "offset": 0
+  }
+}`}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="errors" className="space-y-6">
@@ -421,10 +478,7 @@ export default function Developers() {
             </Link>
           </div>
         </div>
-      </div>
-
-      <Footer />
-      </div>
+      </PortalShell>
     </>
   );
 }
