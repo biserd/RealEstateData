@@ -51,6 +51,7 @@ import { DealMemo } from "@/components/DealMemo";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { BlurredContent, ProBadge } from "@/components/UpgradePrompt";
 import { NycDeepInsights } from "@/components/NycDeepInsights";
+import { NearbySchools } from "@/components/NearbySchools";
 import { PropertyAIInsights } from "@/components/PropertyAIInsights";
 import { BuildingSalesHistory } from "@/components/BuildingSalesHistory";
 import { PropertyCard } from "@/components/PropertyCard";
@@ -1024,11 +1025,14 @@ export default function PropertyDetail() {
           </TabsContent>
 
           <TabsContent value="signals">
-            <NycDeepInsights 
-              propertyId={id!} 
-              city={property.city} 
-              state={property.state} 
-            />
+            <div className="space-y-6">
+              <NycDeepInsights 
+                propertyId={id!} 
+                city={property.city} 
+                state={property.state} 
+              />
+              {property.state === "NY" && <NearbySchools propertyId={id!} />}
+            </div>
           </TabsContent>
 
           <TabsContent value="sales">
