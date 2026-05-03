@@ -25,14 +25,13 @@ export function StreetViewImage({
   rounded = true,
   loading = "lazy",
 }: StreetViewImageProps) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
   const [streetErrored, setStreetErrored] = useState(false);
   const [mapErrored, setMapErrored] = useState(false);
 
   const hasCoords =
     lat !== null && lat !== undefined && lng !== null && lng !== undefined && !Number.isNaN(lat) && !Number.isNaN(lng);
 
-  if (!apiKey || !hasCoords || mapErrored) {
+  if (!hasCoords || mapErrored) {
     return (
       <div
         className={cn(
@@ -52,16 +51,7 @@ export function StreetViewImage({
   const reqH = Math.min(height, 640);
 
   if (streetErrored) {
-    const mapParams = new URLSearchParams({
-      size: `${reqW}x${reqH}`,
-      center: `${lat},${lng}`,
-      zoom: "17",
-      maptype: "roadmap",
-      scale: "2",
-      key: apiKey,
-    });
-    mapParams.append("markers", `color:red|${lat},${lng}`);
-    const mapSrc = `https://maps.googleapis.com/maps/api/staticmap?${mapParams.toString()}`;
+    const mapSrc = `/api/img/staticmap?lat=${lat}&lng=${lng}&zoom=17&w=${reqW}&h=${reqH}&marker=red`;
     return (
       <img
         src={mapSrc}
@@ -81,15 +71,7 @@ export function StreetViewImage({
     );
   }
 
-  const params = new URLSearchParams({
-    size: `${reqW}x${reqH}`,
-    location: `${lat},${lng}`,
-    fov: "80",
-    pitch: "0",
-    source: "outdoor",
-    key: apiKey,
-  });
-  const src = `https://maps.googleapis.com/maps/api/streetview?${params.toString()}`;
+  const src = `/api/img/streetview?lat=${lat}&lng=${lng}&w=${reqW}&h=${reqH}`;
 
   return (
     <img

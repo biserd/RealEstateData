@@ -34,7 +34,6 @@ export function StaticMapImage({
   rounded = true,
   loading = "lazy",
 }: StaticMapImageProps) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
   const [errored, setErrored] = useState(false);
 
   const validMarkers = markers.filter(
@@ -42,7 +41,14 @@ export function StaticMapImage({
   );
   const hasCenter = center && !Number.isNaN(center.lat) && !Number.isNaN(center.lng);
 
-  if (!apiKey || (!hasCenter && validMarkers.length === 0) || errored) {
+  // Determine an effective center: explicit center wins, else first marker
+  const effective = hasCenter
+    ? { lat: center!.lat, lng: center!.lng }
+    : validMarkers.length > 0
+      ? { lat: validMarkers[0].lat, lng: validMarkers[0].lng }
+      : null;
+
+  if (!effective || errored) {
     return (
       <div
         className={cn(
@@ -60,25 +66,18 @@ export function StaticMapImage({
 
   const reqW = Math.min(width, 640);
   const reqH = Math.min(height, 640);
-  const parts: string[] = [
-    `size=${reqW}x${reqH}`,
-    `maptype=${mapType}`,
-    `scale=2`,
-    `key=${encodeURIComponent(apiKey)}`,
-  ];
+  const markerColor = validMarkers[0]?.color || "red";
 
-  if (hasCenter) {
-    parts.push(`center=${center!.lat},${center!.lng}`);
-    parts.push(`zoom=${zoom}`);
-  }
-
-  validMarkers.forEach((m) => {
-    const color = m.color || "red";
-    const label = m.label ? `|label:${m.label}` : "";
-    parts.push(`markers=color:${color}${label}|${m.lat},${m.lng}`);
+  const params = new URLSearchParams({
+    lat: String(effective.lat),
+    lng: String(effective.lng),
+    zoom: String(zoom),
+    w: String(reqW),
+    h: String(reqH),
+    maptype: mapType,
+    marker: markerColor,
   });
-
-  const src = `https://maps.googleapis.com/maps/api/staticmap?${parts.join("&")}`;
+  const src = `/api/img/staticmap?${params.toString()}`;
 
   return (
     <img

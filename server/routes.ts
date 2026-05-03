@@ -13,6 +13,7 @@ import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
 import { sendWelcomeEmail, sendNewUserNotificationToAdmin, sendActivationEmail, sendPasswordResetEmail } from "./emailService";
+import { serveStreetView, serveStaticMap, getCacheStats } from "./services/mapImageCache";
 import { usageService, ActionType } from "./usageService";
 import { processDailyDigest, processInstantAlerts, recordPropertyChange } from "./savedSearchService";
 
@@ -451,6 +452,30 @@ Sitemap: ${baseUrl}/sitemap.xml
       console.error("OG property error:", e);
       res.status(500).send("OG render failed");
     }
+  });
+
+  // Cached image proxy: Street View Static. Disk cache forever per (lat,lng,size).
+  app.get("/api/img/streetview", async (req, res) => {
+    await serveStreetView(res, req.query.lat, req.query.lng, req.query.w, req.query.h);
+  });
+
+  // Cached image proxy: Static Maps. Disk cache forever per (lat,lng,zoom,size,type,marker).
+  app.get("/api/img/staticmap", async (req, res) => {
+    await serveStaticMap(
+      res,
+      req.query.lat,
+      req.query.lng,
+      req.query.zoom,
+      req.query.w,
+      req.query.h,
+      req.query.marker,
+      req.query.maptype,
+    );
+  });
+
+  app.get("/api/img/cache-stats", async (_req, res) => {
+    const stats = await getCacheStats();
+    res.json(stats);
   });
 
   app.get("/api/og/neighborhood/:geoId.png", async (req, res) => {
