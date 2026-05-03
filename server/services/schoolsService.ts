@@ -156,8 +156,13 @@ function average(...nums: Array<number | null>): number | null {
 function slugifyName(name: string): string {
   return name
     .toLowerCase()
+    .replace(/[.'']/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function buildSchoolUrl(dbn: string, name: string): string {
+  return `https://nycschoolsratings.com/school/${dbn.toLowerCase()}-${slugifyName(name)}`;
 }
 
 export async function getNearbySchools(
@@ -194,7 +199,7 @@ export async function getNearbySchools(
       longitude: s.longitude,
       zipCode: s.zip_code,
       distanceMiles: Math.round(d * 100) / 100,
-      detailUrl: `https://nycschoolsratings.com/school/${s.dbn}/${slugifyName(s.name)}`,
+      detailUrl: buildSchoolUrl(s.dbn, s.name),
       hasPrek: !!s.has_prek,
       has3k: !!s.has_3k,
       hasGiftedTalented: !!s.has_gifted_talented,
