@@ -2199,10 +2199,43 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  const neighborhoodCache = new Map<string, { expires: number; data: any }>();
+  const NEIGHBORHOOD_TTL_MS = 5 * 60 * 1000;
+  const getCached = (key: string) => {
+    const entry = neighborhoodCache.get(key);
+    if (!entry) return null;
+    if (entry.expires < Date.now()) {
+      neighborhoodCache.delete(key);
+      return null;
+    }
+    return entry.data;
+  };
+  const setCached = (key: string, data: any) => {
+    if (neighborhoodCache.size > 500) {
+      const cutoff = Date.now();
+      for (const [k, v] of neighborhoodCache) {
+        if (v.expires < cutoff) neighborhoodCache.delete(k);
+      }
+    }
+    neighborhoodCache.set(key, { expires: Date.now() + NEIGHBORHOOD_TTL_MS, data });
+  };
+
   app.get("/api/neighborhood/:geoId/report", optionalAuth, async (req: any, res) => {
     try {
       const { geoId } = req.params;
       const geoType = (req.query.geoType as string) || "zip";
+
+      const userId = req.user?.id;
+      const user = userId ? await storage.getUser(userId) : null;
+      const isPro = user?.subscriptionTier === "pro" || user?.subscriptionTier === "premium";
+
+      const cacheKey = `report:${geoType}:${geoId}:${isPro ? "pro" : "free"}`;
+      const cached = getCached(cacheKey);
+      if (cached) {
+        res.setHeader("Cache-Control", "private, max-age=300");
+        res.setHeader("X-Cache", "HIT");
+        return res.json(cached);
+      }
 
       const marketData = await storage.getMarketAggregates(geoType, geoId, {});
       const market = marketData.length > 0 ? marketData[0] : null;
@@ -2264,10 +2297,6 @@ Sitemap: ${baseUrl}/sitemap.xml
       ));
 
       const grade = gradeScore >= 90 ? "A" : gradeScore >= 80 ? "B+" : gradeScore >= 70 ? "B" : gradeScore >= 60 ? "C+" : gradeScore >= 50 ? "C" : gradeScore >= 40 ? "D" : "F";
-
-      const userId = req.user?.id;
-      const user = userId ? await storage.getUser(userId) : null;
-      const isPro = user?.subscriptionTier === "pro" || user?.subscriptionTier === "premium";
 
       const report = {
         geoId,
@@ -2337,6 +2366,9 @@ Sitemap: ${baseUrl}/sitemap.xml
         isPro,
       };
 
+      setCached(cacheKey, report);
+      res.setHeader("Cache-Control", "private, max-age=300");
+      res.setHeader("X-Cache", "MISS");
       res.json(report);
     } catch (error) {
       console.error("Error generating neighborhood report:", error);
@@ -2350,7 +2382,16 @@ Sitemap: ${baseUrl}/sitemap.xml
       const geoType = (req.query.geoType as string) || "zip";
 
       if (geoType !== "zip") {
+        res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
         return res.json({ geoId, geoType, years: [], summary: null });
+      }
+
+      const trendsCacheKey = `trends:${geoType}:${geoId}`;
+      const cachedTrends = getCached(trendsCacheKey);
+      if (cachedTrends) {
+        res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300, stale-while-revalidate=600");
+        res.setHeader("X-Cache", "HIT");
+        return res.json(cachedTrends);
       }
 
       const yearly = await db.execute(sql`
@@ -2421,7 +2462,11 @@ Sitemap: ${baseUrl}/sitemap.xml
           }
         : null;
 
-      res.json({ geoId, geoType, years, summary });
+      const payload = { geoId, geoType, years, summary };
+      setCached(trendsCacheKey, payload);
+      res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300, stale-while-revalidate=600");
+      res.setHeader("X-Cache", "MISS");
+      res.json(payload);
     } catch (error) {
       console.error("Error fetching price trends:", error);
       res.status(500).json({ message: "Failed to fetch price trends" });
