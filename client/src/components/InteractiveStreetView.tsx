@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMap } from "@/components/MapProvider";
 import { StreetViewImage } from "@/components/StreetViewImage";
+import { Button } from "@/components/ui/button";
 
 interface InteractiveStreetViewProps {
   lat: number | null | undefined;
@@ -21,6 +23,7 @@ export function InteractiveStreetView({
   const { isLoaded } = useMap();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const panoRef = useRef<google.maps.StreetViewPanorama | null>(null);
+  const [activated, setActivated] = useState(false);
   const [noPanorama, setNoPanorama] = useState(false);
 
   const hasCoords =
@@ -32,7 +35,7 @@ export function InteractiveStreetView({
     !Number.isNaN(lng);
 
   useEffect(() => {
-    if (!isLoaded || !hasCoords || !containerRef.current) return;
+    if (!activated || !isLoaded || !hasCoords || !containerRef.current) return;
     const position = { lat: Number(lat), lng: Number(lng) };
 
     const svService = new google.maps.StreetViewService();
@@ -69,20 +72,37 @@ export function InteractiveStreetView({
       panoRef.current = null;
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, [isLoaded, hasCoords, lat, lng]);
+  }, [activated, isLoaded, hasCoords, lat, lng]);
 
-  if (!isLoaded || noPanorama) {
+  // Until the user clicks "Explore", show the cached static image with an overlay button.
+  // This avoids loading the (paid) Street View Panorama for visitors who never interact.
+  if (!activated || noPanorama) {
     return (
-      <StreetViewImage
-        lat={lat}
-        lng={lng}
-        address={address}
-        width={1200}
-        height={500}
-        loading="eager"
-        rounded={rounded}
-        className={className}
-      />
+      <div className={cn("relative w-full h-full", rounded && "rounded-lg overflow-hidden", className)}>
+        <StreetViewImage
+          lat={lat}
+          lng={lng}
+          address={address}
+          width={1200}
+          height={500}
+          loading="lazy"
+          rounded={false}
+          className="w-full h-full"
+        />
+        {!noPanorama && hasCoords && isLoaded && (
+          <div className="absolute bottom-3 right-3">
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => setActivated(true)}
+              data-testid="button-streetview-explore"
+            >
+              <Compass className="h-4 w-4" />
+              Explore in Street View
+            </Button>
+          </div>
+        )}
+      </div>
     );
   }
 
