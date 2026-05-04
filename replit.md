@@ -49,6 +49,13 @@ A `condo_units` table contains over 300K NYC condo unit records, enabling unit-l
 
 The platform implements comprehensive SEO with server-side meta tags, JSON-LD structured data, noscript SEO content for crawlers, SEO-friendly unit URLs, paginated sitemaps, a sitemap index, and legacy URL support with redirection.
 
+### Performance
+
+-   **Compression:** Express `compression` middleware gzips HTML/JSON/XML responses (skips images/video/audio).
+-   **Sitemap caching:** All sitemap and `robots.txt` routes set public `Cache-Control` with `stale-while-revalidate`.
+-   **Code splitting:** Routes other than Landing/Home/Login are loaded via `React.lazy` + `Suspense` to keep the initial bundle small.
+-   **Maps on demand:** `MapProvider` is mounted inside `<PropertyMap>` and the activated branch of `<InteractiveStreetView>` instead of the app root, so the Google Maps JS bundle only loads on routes that visibly render a map. Static map and Street View images are served through the on-disk proxy at `/api/img/staticmap` and `/api/img/streetview`.
+
 ## External Dependencies
 
 -   **AI Services:** Replit AI Integrations (OpenAI-compatible API for GPT-5)

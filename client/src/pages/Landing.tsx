@@ -606,8 +606,8 @@ export default function Landing() {
                             center={{ lat: area.latitude, lng: area.longitude }}
                             zoom={12}
                             markers={[{ lat: area.latitude, lng: area.longitude, color: "orange" }]}
-                            width={640}
-                            height={360}
+                            width={480}
+                            height={270}
                             rounded={false}
                             alt={`Map of ZIP ${area.zipCode} in ${area.city}, ${area.state}`}
                           />
@@ -763,8 +763,8 @@ export default function Landing() {
                     { lat: 40.7357, lng: -74.1724, color: "blue", label: "J" },
                     { lat: 41.7658, lng: -72.6734, color: "blue", label: "C" },
                   ]}
-                  width={1000}
-                  height={625}
+                  width={640}
+                  height={400}
                   rounded={false}
                   alt="Coverage map of NY, NJ, and CT"
                 />

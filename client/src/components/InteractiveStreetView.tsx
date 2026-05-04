@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useMap } from "@/components/MapProvider";
+import { MapProvider, useMap } from "@/components/MapProvider";
 import { StreetViewImage } from "@/components/StreetViewImage";
 import { Button } from "@/components/ui/button";
 
@@ -13,7 +13,72 @@ interface InteractiveStreetViewProps {
   rounded?: boolean;
 }
 
-export function InteractiveStreetView({
+// P-03: Until the visitor clicks "Explore", render only the cached static
+// Street View image (no Maps JS). Once activated, mount a local MapProvider
+// so the panorama bundle is fetched on demand for that single component.
+export function InteractiveStreetView(props: InteractiveStreetViewProps) {
+  const [activated, setActivated] = useState(false);
+
+  if (!activated) {
+    return <StaticStreetView {...props} onActivate={() => setActivated(true)} />;
+  }
+
+  return (
+    <MapProvider>
+      <ActivePanorama {...props} />
+    </MapProvider>
+  );
+}
+
+interface StaticStreetViewProps extends InteractiveStreetViewProps {
+  onActivate: () => void;
+}
+
+function StaticStreetView({
+  lat,
+  lng,
+  address,
+  className,
+  rounded = false,
+  onActivate,
+}: StaticStreetViewProps) {
+  const hasCoords = isValidLatLng(lat, lng);
+  return (
+    <div
+      className={cn(
+        "relative w-full h-full",
+        rounded && "rounded-lg overflow-hidden",
+        className,
+      )}
+    >
+      <StreetViewImage
+        lat={lat}
+        lng={lng}
+        address={address}
+        width={1200}
+        height={500}
+        loading="lazy"
+        rounded={false}
+        className="w-full h-full"
+      />
+      {hasCoords && (
+        <div className="absolute bottom-3 right-3">
+          <Button
+            size="sm"
+            variant="default"
+            onClick={onActivate}
+            data-testid="button-streetview-explore"
+          >
+            <Compass className="h-4 w-4" />
+            Explore in Street View
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActivePanorama({
   lat,
   lng,
   address,
@@ -23,19 +88,12 @@ export function InteractiveStreetView({
   const { isLoaded } = useMap();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const panoRef = useRef<google.maps.StreetViewPanorama | null>(null);
-  const [activated, setActivated] = useState(false);
   const [noPanorama, setNoPanorama] = useState(false);
 
-  const hasCoords =
-    lat !== null &&
-    lat !== undefined &&
-    lng !== null &&
-    lng !== undefined &&
-    !Number.isNaN(lat) &&
-    !Number.isNaN(lng);
+  const hasCoords = isValidLatLng(lat, lng);
 
   useEffect(() => {
-    if (!activated || !isLoaded || !hasCoords || !containerRef.current) return;
+    if (!isLoaded || !hasCoords || !containerRef.current) return;
     const position = { lat: Number(lat), lng: Number(lng) };
 
     const svService = new google.maps.StreetViewService();
@@ -72,13 +130,17 @@ export function InteractiveStreetView({
       panoRef.current = null;
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, [activated, isLoaded, hasCoords, lat, lng]);
+  }, [isLoaded, hasCoords, lat, lng]);
 
-  // Until the user clicks "Explore", show the cached static image with an overlay button.
-  // This avoids loading the (paid) Street View Panorama for visitors who never interact.
-  if (!activated || noPanorama) {
+  if (noPanorama) {
     return (
-      <div className={cn("relative w-full h-full", rounded && "rounded-lg overflow-hidden", className)}>
+      <div
+        className={cn(
+          "relative w-full h-full",
+          rounded && "rounded-lg overflow-hidden",
+          className,
+        )}
+      >
         <StreetViewImage
           lat={lat}
           lng={lng}
@@ -89,19 +151,6 @@ export function InteractiveStreetView({
           rounded={false}
           className="w-full h-full"
         />
-        {!noPanorama && hasCoords && isLoaded && (
-          <div className="absolute bottom-3 right-3">
-            <Button
-              size="sm"
-              variant="default"
-              onClick={() => setActivated(true)}
-              data-testid="button-streetview-explore"
-            >
-              <Compass className="h-4 w-4" />
-              Explore in Street View
-            </Button>
-          </div>
-        )}
       </div>
     );
   }
@@ -109,9 +158,27 @@ export function InteractiveStreetView({
   return (
     <div
       ref={containerRef}
-      className={cn("w-full h-full", rounded && "rounded-lg overflow-hidden", className)}
+      className={cn(
+        "w-full h-full",
+        rounded && "rounded-lg overflow-hidden",
+        className,
+      )}
       data-testid="streetview-panorama-interactive"
       aria-label={address ? `Interactive street view of ${address}` : "Interactive street view"}
     />
+  );
+}
+
+function isValidLatLng(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): boolean {
+  return (
+    lat !== null &&
+    lat !== undefined &&
+    lng !== null &&
+    lng !== undefined &&
+    !Number.isNaN(lat) &&
+    !Number.isNaN(lng)
   );
 }

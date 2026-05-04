@@ -1,6 +1,6 @@
 import { useCallback, useRef, useMemo, useState } from "react";
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
-import { useMap } from "./MapProvider";
+import { MapProvider, useMap } from "./MapProvider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,19 @@ const mapOptions: google.maps.MapOptions = {
   ],
 };
 
-export function PropertyMap({
+// P-03: Wrap the inner map in its own MapProvider so the Google Maps JS API
+// is only requested on routes that actually render <PropertyMap>.
+// `useJsApiLoader` is module-scoped, so multiple <MapProvider> mounts dedupe
+// to a single script load.
+export function PropertyMap(props: PropertyMapProps) {
+  return (
+    <MapProvider>
+      <PropertyMapInner {...props} />
+    </MapProvider>
+  );
+}
+
+function PropertyMapInner({
   properties,
   subjectProperty,
   center,

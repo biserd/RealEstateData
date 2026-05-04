@@ -247,6 +247,8 @@ export async function registerRoutes(
   app.get("/robots.txt", (req, res) => {
     const baseUrl = `https://${req.get("host")}`;
     res.type("text/plain");
+    // P-05: cache crawler-facing robots.txt for an hour at the edge.
+    res.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
     res.send(`User-agent: *
 Allow: /
 
@@ -309,6 +311,12 @@ Sitemap: ${baseUrl}/sitemap.xml
       xml += `</sitemapindex>`;
       
       res.type("application/xml");
+      // P-05: public cache for the sitemap index — refreshes hourly at the edge,
+      // serves stale for a day while revalidating.
+      res.set(
+        "Cache-Control",
+        "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+      );
       res.send(xml);
     } catch (error) {
       console.error("Error generating sitemap index:", error);
@@ -352,6 +360,11 @@ Sitemap: ${baseUrl}/sitemap.xml
     xml += `</urlset>`;
     
     res.type("application/xml");
+    // P-05: cache static-pages sitemap publicly for an hour.
+    res.set(
+      "Cache-Control",
+      "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+    );
     res.send(xml);
   });
 
@@ -388,6 +401,11 @@ Sitemap: ${baseUrl}/sitemap.xml
       
       xml += `</urlset>`;
       res.type("application/xml");
+      // P-05: cache browse sitemap publicly for a day.
+      res.set(
+        "Cache-Control",
+        "public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400",
+      );
       res.send(xml);
     } catch (error) {
       console.error("Error generating browse sitemap:", error);
@@ -539,6 +557,11 @@ Sitemap: ${baseUrl}/sitemap.xml
       xml += `</urlset>`;
       
       res.type("application/xml");
+      // P-05: property sitemaps are large — cache publicly for a day.
+      res.set(
+        "Cache-Control",
+        "public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400",
+      );
       res.send(xml);
     } catch (error) {
       console.error("Error generating property sitemap:", error);
@@ -582,6 +605,11 @@ Sitemap: ${baseUrl}/sitemap.xml
       xml += `</urlset>`;
       
       res.type("application/xml");
+      // P-05: unit sitemaps are large — cache publicly for a day.
+      res.set(
+        "Cache-Control",
+        "public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400",
+      );
       res.send(xml);
     } catch (error) {
       console.error("Error generating unit sitemap:", error);

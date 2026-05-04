@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -112,6 +113,23 @@ app.post(
       res.status(400).json({ error: 'Webhook processing error', details: error.message });
     }
   }
+);
+
+// P-05: gzip/brotli-style compression for HTML, JSON, XML, and other text responses.
+// Skip pre-compressed binary formats (the maps proxy already serves binary images
+// and sets its own Cache-Control). Honors Accept-Encoding from the client.
+app.use(
+  compression({
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers["x-no-compression"]) return false;
+      const ct = String(res.getHeader("Content-Type") || "");
+      if (/^image\//i.test(ct) || /^video\//i.test(ct) || /^audio\//i.test(ct)) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+  }),
 );
 
 app.use(
