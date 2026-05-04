@@ -47,7 +47,11 @@ A `condo_units` table contains over 300K NYC condo unit records, enabling unit-l
 
 ### SEO & Sitemap System
 
-The platform implements comprehensive SEO with server-side meta tags, JSON-LD structured data, noscript SEO content for crawlers, SEO-friendly unit URLs, paginated sitemaps, a sitemap index, and legacy URL support with redirection.
+The platform implements comprehensive SEO with server-side meta tags, JSON-LD structured data, noscript SEO content for crawlers, SEO-friendly unit URLs, paginated sitemaps, a sitemap index, and legacy URL support with redirection. Server-side JSON-LD (`server/seoMetaTags.ts`) emits `SoftwareApplication` on `/`, `Product` with offers on `/pricing`, `FAQPage` on `/faq`, `Dataset` on `/developers`, `TechArticle` on the methodology pages, and per-route entity schemas (`Residence`, `SingleFamilyResidence`, `ApartmentComplex`, `Place`) for unit/property/building/neighborhood/browse pages. The homepage `noscript` block contains the full hero, feature list, data sources, testimonials, and CTAs so crawlers see real content without JS.
+
+### Methodology and Comparison Hubs
+
+Three methodology pages (`/methodology/opportunity-score`, `/methodology/data-coverage`, `/methodology/verified-vs-estimates`) and one comparison hub (`/comparisons` covering Zillow, Redfin, PropStream) are rendered by `client/src/pages/Methodology.tsx` and `client/src/pages/Comparisons.tsx`. They appear in `sitemap-static.xml`, the Footer "Resources" column, and are cross-linked from the homepage SEO body. Both pages emit `BreadcrumbList` JSON-LD client-side via `BreadcrumbsJsonLd`.
 
 ### Performance
 

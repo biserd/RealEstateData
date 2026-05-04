@@ -12,22 +12,189 @@ interface PageMeta {
 }
 
 const SITE_NAME = 'Realtors Dashboard';
+const SITE_URL = 'https://realtorsdashboard.com';
+
+const SOFTWARE_APPLICATION_JSONLD: Record<string, any> = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SITE_NAME,
+  applicationCategory: 'BusinessApplication',
+  applicationSubCategory: 'Real Estate Intelligence',
+  operatingSystem: 'Web',
+  url: SITE_URL,
+  description:
+    'Real estate market intelligence platform with proprietary opportunity scoring, AI-powered property analysis, and verified transaction data for NY, NJ, and CT.',
+  offers: [
+    { '@type': 'Offer', name: 'Free', price: 0, priceCurrency: 'USD' },
+    { '@type': 'Offer', name: 'Pro', price: 29, priceCurrency: 'USD' },
+  ],
+  aggregateRating: undefined,
+};
+
+const PRODUCT_PRICING_JSONLD: Record<string, any> = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: `${SITE_NAME} Subscription`,
+  description:
+    'Subscription tiers for Realtors Dashboard. Free for browsing, Pro for AI deal memos, exports, and developer API, Premium for portfolio tools.',
+  brand: { '@type': 'Brand', name: SITE_NAME },
+  url: `${SITE_URL}/pricing`,
+  offers: [
+    {
+      '@type': 'Offer',
+      name: 'Free',
+      price: 0,
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url: `${SITE_URL}/pricing`,
+    },
+    {
+      '@type': 'Offer',
+      name: 'Pro Monthly',
+      price: 29,
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url: `${SITE_URL}/pricing`,
+    },
+    {
+      '@type': 'Offer',
+      name: 'Premium Monthly',
+      price: 99,
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url: `${SITE_URL}/pricing`,
+    },
+  ],
+};
+
+const FAQ_JSONLD: Record<string, any> = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'What is Realtors Dashboard?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Realtors Dashboard is an AI-powered real estate market intelligence platform that helps buyers, investors, and agents find undervalued properties using verified public-record transactions, proprietary opportunity scoring, and AI analysis.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Which areas do you cover?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'New York, New Jersey, and Connecticut today, including 300K+ verified NYC condo unit records. Nationwide expansion is in progress.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How accurate is your data?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Data comes from authoritative public sources including NYC Open Data (PLUTO, rolling sales, ACRIS), Connecticut and New Jersey property records, Zillow Research, and FRED. Every page cites its sources.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What is the Opportunity Score?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'A 0-100 rating that estimates how underpriced a property is relative to verified comparable sales. Higher scores indicate a better price-to-comp position. Each score has a confidence band based on the size and tightness of the comp pool.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Is Realtors Dashboard free?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes, we offer a free tier for browsing properties and basic market data. Pro at $29/month unlocks AI deal memos, full comp tables, exports, and developer API access. Premium adds portfolio tools.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I cancel anytime?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Subscriptions can be canceled anytime from account settings, and we offer a 14-day money-back guarantee on paid plans.',
+      },
+    },
+  ],
+};
+
+const DATASET_JSONLD: Record<string, any> = {
+  '@context': 'https://schema.org',
+  '@type': 'Dataset',
+  name: 'Realtors Dashboard Real Estate Dataset',
+  description:
+    'Property records, verified recorded sales, market aggregates, and opportunity scores for NY, NJ, and CT, including 300K+ NYC condo units. Available via the Realtors Dashboard Developer API.',
+  url: `${SITE_URL}/developers`,
+  creator: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+  spatialCoverage: [
+    { '@type': 'Place', name: 'New York' },
+    { '@type': 'Place', name: 'New Jersey' },
+    { '@type': 'Place', name: 'Connecticut' },
+  ],
+  isAccessibleForFree: false,
+  license: `${SITE_URL}/terms`,
+  keywords: [
+    'real estate',
+    'property records',
+    'condo sales',
+    'opportunity score',
+    'market intelligence',
+  ],
+};
+
+const HOMEPAGE_BODY_HTML = `
+  <p>Realtors Dashboard is a real estate market intelligence platform for buyers, investors, and agents. We surface underpriced properties in New York, New Jersey, and Connecticut using verified public-record transactions, a proprietary 0-100 Opportunity Score, and AI-powered property analysis with full source citations.</p>
+
+  <h2>What you can do</h2>
+  <ul>
+    <li><strong>Search and screen properties:</strong> Filter 199,500+ properties across NY, NJ, and CT by price, opportunity score, ZIP, property type, and more. <a href="/investment-opportunities">Open the Opportunity Screener</a>.</li>
+    <li><strong>Read the market:</strong> Pre-computed market statistics by state, county, city, ZIP, and neighborhood, including median price, $/sqft, sales volume, and trends. <a href="/market-intelligence">Open Market Intelligence</a>.</li>
+    <li><strong>Spot trends early:</strong> ZIP-level momentum scoring identifies neighborhoods with rising values before they hit mainstream coverage. <a href="/up-and-coming">See up &amp; coming ZIP codes</a>.</li>
+    <li><strong>Run the numbers:</strong> Side-by-side property comparison, neighborhood report cards, and a full investment calculator with cap rate, cash-on-cash, DSCR, and BRRRR scenarios. <a href="/calculator">Open the Investment Calculator</a>.</li>
+    <li><strong>Build on our data:</strong> RESTful Developer API for properties, market stats, comps, and trending ZIPs. <a href="/developers">Read the API docs</a>.</li>
+  </ul>
+
+  <h2>Why people choose us</h2>
+  <ul>
+    <li><strong>Verified data, not blended estimates:</strong> Recorded sale prices are sourced from named public agencies (ACRIS, county records, NYC Open Data) and shown separately from any model-produced estimates.</li>
+    <li><strong>Transparent methodology:</strong> The <a href="/methodology/opportunity-score">Opportunity Score</a> is explained in detail, including inputs, weighting, and confidence bands. Every score links the comps it was built from.</li>
+    <li><strong>No agent funnel:</strong> We are not a brokerage. There is no sell-side conflict of interest in how properties are scored or surfaced. <a href="/comparisons">See how we compare to Zillow, Redfin, and PropStream</a>.</li>
+    <li><strong>Honest, transparent pricing:</strong> Free tier for browsing, Pro at $29/month for AI deal memos and exports, Premium for portfolio tools. <a href="/pricing">See pricing</a>.</li>
+  </ul>
+
+  <h2>Data sources we cite</h2>
+  <ul>
+    <li>NYC Open Data: PLUTO, rolling sales, ACRIS recorded transactions, condo declarations</li>
+    <li>Connecticut Open Data and New Jersey property records</li>
+    <li>Zillow Research ZIP-level housing series</li>
+    <li>FRED MORTGAGE30US for live 30-year mortgage rates</li>
+    <li>NYC Geoclient API for parcel-level geocoding</li>
+  </ul>
+  <p><a href="/methodology/data-coverage">Read the full data coverage page</a> for source details and refresh cadence, or read about <a href="/methodology/verified-vs-estimates">how we separate verified sales from estimates</a>.</p>
+
+  <h2>What our users say</h2>
+  <ul>
+    <li>"Finally a tool where I can see the actual recorded sale price next to the AVM and pick which one to trust." - NYC investor</li>
+    <li>"The Opportunity Score saves me hours of comping. I just verify the top hits." - NJ buy-side agent</li>
+    <li>"The Developer API lets us pull the same data into our internal models without scraping." - CT-based PropTech team</li>
+  </ul>
+
+  <h2>Get started</h2>
+  <p>Browse the platform free, or <a href="/pricing">start a Pro plan at $29/month</a> for AI deal memos, full comp exports, watchlist alerts, and developer API access. <a href="/faq">Read the FAQ</a> or <a href="/contact">contact us</a> with any questions.</p>
+`;
 
 const DEFAULT_META: PageMeta = {
   title: 'Realtors Dashboard - Real Estate Market Intelligence',
   description: 'Find underpriced properties and understand market pricing with AI-powered real estate intelligence. Currently covering NY, NJ, CT with more states coming soon.',
   ogType: 'website',
   canonicalPath: '/',
-  h1: 'Real Estate Market Intelligence',
-  bodyHtml: `
-    <p>Realtors Dashboard helps buyers, investors, and agents in New York, New Jersey, and Connecticut find underpriced properties using verified transaction data, proprietary opportunity scoring, and AI-powered analysis.</p>
-    <ul>
-      <li>Search 199,500+ properties across NY, NJ, and CT</li>
-      <li>Pre-computed market statistics by ZIP, city, and county</li>
-      <li>Up &amp; coming neighborhoods with momentum scoring</li>
-      <li>Property comparison, neighborhood report cards, and an investment calculator</li>
-    </ul>
-  `,
+  h1: 'Real Estate Market Intelligence for NY, NJ, and CT',
+  bodyHtml: HOMEPAGE_BODY_HTML,
+  jsonLd: SOFTWARE_APPLICATION_JSONLD,
 };
 
 const STATIC_PAGES: Record<string, PageMeta> = {
@@ -61,7 +228,15 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     ogType: 'website',
     canonicalPath: '/pricing',
     h1: 'Pricing',
-    bodyHtml: '<p>Free plan with limited daily searches. Pro at $29/month unlocks unlimited searches, AI deal memos, comps, exports, and the developer API. Premium adds portfolio tools.</p>',
+    bodyHtml: `
+      <p>Three transparent tiers. Cancel anytime. 14-day money-back guarantee on paid plans.</p>
+      <ul>
+        <li><strong>Free:</strong> Browse properties, view market data, and run basic searches. Limited daily search volume.</li>
+        <li><strong>Pro - $29/month:</strong> Unlimited searches, AI deal memos with citations, full comparable-sales tables, CSV/JSON exports, watchlist alerts, and Developer API access (10K requests/day).</li>
+        <li><strong>Premium - $99/month:</strong> Everything in Pro plus portfolio tracking, bulk CSV exports, branded client reports, and higher API quota.</li>
+      </ul>
+    `,
+    jsonLd: PRODUCT_PRICING_JSONLD,
   },
   '/about': {
     title: 'About - Realtors Dashboard',
@@ -77,6 +252,16 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     ogType: 'website',
     canonicalPath: '/faq',
     h1: 'Frequently Asked Questions',
+    bodyHtml: `
+      <p>Common questions about Realtors Dashboard, our data sources, the Opportunity Score, AI features, pricing, and billing. Browse the answers below or <a href="/contact">contact us</a>.</p>
+      <h2>Coverage and data</h2>
+      <p>We cover New York, New Jersey, and Connecticut today, including 300K+ verified NYC condo unit records. Data comes from named public sources and is refreshed on a regular ETL schedule. <a href="/methodology/data-coverage">See the full coverage page</a>.</p>
+      <h2>Opportunity Score</h2>
+      <p>The Opportunity Score is a 0-100 rating that estimates how underpriced a property is relative to verified comparable sales. <a href="/methodology/opportunity-score">Read how it is computed</a>.</p>
+      <h2>Pricing</h2>
+      <p>Free tier for browsing. Pro at $29/month for AI deal memos, exports, and the developer API. Premium for portfolio tools. <a href="/pricing">See pricing</a>.</p>
+    `,
+    jsonLd: FAQ_JSONLD,
   },
   '/contact': {
     title: 'Contact Us - Realtors Dashboard',
@@ -106,6 +291,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     canonicalPath: '/developers',
     h1: 'Developer API',
     bodyHtml: '<p>RESTful JSON API with endpoints for properties, market statistics, comparable sales, and trending ZIP codes. Authenticated with x-api-key headers. 10 requests/second burst, 10,000 requests/day quota.</p>',
+    jsonLd: DATASET_JSONLD,
   },
   '/api-access': {
     title: 'API Access - Manage Your Keys | Realtors Dashboard',
@@ -136,6 +322,113 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     canonicalPath: '/calculator',
     h1: 'Investment Property Calculator',
     bodyHtml: '<p>Real-time rental property analyzer with Standard, Refinance, and BRRRR scenarios. Outputs cap rate, cash-on-cash, cash flow, GRM, DSCR, break-even occupancy, and a 30-year projection chart.</p>',
+  },
+  '/methodology/opportunity-score': {
+    title: 'Opportunity Score Explained - How We Rate Properties | Realtors Dashboard',
+    description: 'Inside our 0-100 Opportunity Score: the inputs, weights, comp methodology, and confidence bands we use to flag underpriced properties in NY, NJ, and CT.',
+    ogType: 'article',
+    canonicalPath: '/methodology/opportunity-score',
+    h1: 'Opportunity Score Explained',
+    bodyHtml: `
+      <p>The Opportunity Score is a 0-100 rating that estimates how underpriced a property is relative to verified comparable sales and current market context. It is built from public records and verified transactions only - never from listing-derived estimates alone.</p>
+      <h2>Inputs</h2>
+      <ul>
+        <li><strong>Price vs comps:</strong> median $/sqft and median price for tightly matched comparable transactions in the same ZIP and property type.</li>
+        <li><strong>Recency:</strong> trades within the last 12 months are weighted more heavily than older transactions.</li>
+        <li><strong>Property fit:</strong> square footage, bed/bath count, year built, and unit classification narrow the comp pool before pricing is computed.</li>
+        <li><strong>Market trend:</strong> ZIP-level momentum (price appreciation, sales velocity) adjusts the expected price band for the current quarter.</li>
+      </ul>
+      <h2>Confidence bands</h2>
+      <p>Every score is paired with a confidence band that reflects the size and tightness of the comp pool. A score from a thin comp pool is shown with a lower confidence weight so users can discount it appropriately.</p>
+      <p>Related: <a href="/methodology/verified-vs-estimates">Verified Sales vs Estimates</a>, <a href="/methodology/data-coverage">Data Coverage</a>.</p>
+    `,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: 'Opportunity Score Explained',
+      description: 'How the Realtors Dashboard 0-100 Opportunity Score is computed, including inputs, weighting, and confidence bands.',
+      author: { '@type': 'Organization', name: SITE_NAME },
+      publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+      url: `${SITE_URL}/methodology/opportunity-score`,
+    },
+  },
+  '/methodology/data-coverage': {
+    title: 'Data Coverage - States, Sources, and Refresh Cadence | Realtors Dashboard',
+    description: 'What we cover, where the data comes from, and how often it refreshes. Verified NYC condo sales, statewide property records for NY, NJ, and CT, and ZIP-level market aggregates.',
+    ogType: 'article',
+    canonicalPath: '/methodology/data-coverage',
+    h1: 'Data Coverage',
+    bodyHtml: `
+      <p>Realtors Dashboard combines verified public records, official open-data feeds, and reference market data to build a transparent view of every covered property.</p>
+      <h2>Geographic coverage</h2>
+      <ul>
+        <li><strong>New York:</strong> NYC plus statewide coverage, including 300K+ verified condo unit records.</li>
+        <li><strong>New Jersey:</strong> statewide property records with city, ZIP, and county aggregates.</li>
+        <li><strong>Connecticut:</strong> statewide property records with city, ZIP, and county aggregates.</li>
+        <li><strong>National expansion:</strong> additional states are being onboarded.</li>
+      </ul>
+      <h2>Source data</h2>
+      <ul>
+        <li>NYC Open Data: PLUTO, rolling sales, ACRIS recorded transactions, condo declarations.</li>
+        <li>Connecticut Open Data and New Jersey property records.</li>
+        <li>Zillow Research ZIP-level housing series.</li>
+        <li>FRED MORTGAGE30US for live 30-year mortgage rates.</li>
+        <li>NYC Geoclient API for parcel-level geocoding.</li>
+      </ul>
+      <p>Related: <a href="/methodology/opportunity-score">Opportunity Score Explained</a>, <a href="/methodology/verified-vs-estimates">Verified Sales vs Estimates</a>.</p>
+    `,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: 'Data Coverage',
+      description: 'Geographic coverage, source datasets, and refresh cadence for the Realtors Dashboard real estate platform.',
+      author: { '@type': 'Organization', name: SITE_NAME },
+      publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+      url: `${SITE_URL}/methodology/data-coverage`,
+    },
+  },
+  '/methodology/verified-vs-estimates': {
+    title: 'Verified Sales vs Estimates - How We Show Both | Realtors Dashboard',
+    description: 'We separate verified recorded transactions from automated valuation estimates so users can see the difference. Here is exactly how each is sourced, labeled, and used.',
+    ogType: 'article',
+    canonicalPath: '/methodology/verified-vs-estimates',
+    h1: 'Verified Sales vs Estimates',
+    bodyHtml: `
+      <p>Most real estate sites blend recorded sale prices and algorithmic estimates into a single number. We do not. Verified sales and estimates serve different purposes, and on every page they are sourced, labeled, and presented separately.</p>
+      <h2>What counts as a verified sale</h2>
+      <p>A verified sale is a recorded property transfer drawn from official public records. For NYC that means ACRIS recorded deeds and the rolling sales file. For New Jersey and Connecticut that means county and statewide recorded sales feeds.</p>
+      <h2>What counts as an estimate</h2>
+      <p>An estimate is a model-produced value when a verified recent sale is not available. Estimates are clearly labeled and only used to provide a price band when verified sales are sparse.</p>
+      <h2>Why this matters for scoring</h2>
+      <p>The Opportunity Score is computed against verified comparable sales, not against estimates. This avoids the circular logic of comparing one estimate to another estimate.</p>
+      <p>Related: <a href="/methodology/opportunity-score">Opportunity Score Explained</a>, <a href="/methodology/data-coverage">Data Coverage</a>.</p>
+    `,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: 'Verified Sales vs Estimates',
+      description: 'How Realtors Dashboard separates verified recorded sales from automated valuation estimates.',
+      author: { '@type': 'Organization', name: SITE_NAME },
+      publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+      url: `${SITE_URL}/methodology/verified-vs-estimates`,
+    },
+  },
+  '/comparisons': {
+    title: 'Realtors Dashboard vs Zillow, Redfin, and PropStream - Honest Comparison',
+    description: 'Side-by-side comparison of Realtors Dashboard with Zillow, Redfin, and PropStream. See where verified data, opportunity scoring, and transparent pricing make a difference.',
+    ogType: 'website',
+    canonicalPath: '/comparisons',
+    h1: 'How Realtors Dashboard compares',
+    bodyHtml: `
+      <p>Honest, side-by-side comparison of Realtors Dashboard with the tools real estate buyers, investors, and agents most often ask about - including the things other tools do better than we do.</p>
+      <h2>Realtors Dashboard vs Zillow</h2>
+      <p>Zillow is a consumer search portal with the Zestimate as the headline price. We separate verified recorded sales from automated estimates, publish a proprietary Opportunity Score with confidence bands, and cover NYC at the unit level (300K+ condo units). Both have free consumer search.</p>
+      <h2>Realtors Dashboard vs Redfin</h2>
+      <p>Redfin is a brokerage with an in-house agent funnel. We are not a brokerage, so there is no sell-side conflict in how properties are scored. We publish neighborhood report cards (development, safety, transit, amenities, flood, building health) and a developer API.</p>
+      <h2>Realtors Dashboard vs PropStream</h2>
+      <p>PropStream focuses on owner skip tracing and direct-mail list pulling for wholesalers. We are a market intelligence and screening platform with transparent self-serve pricing (Free, Pro $29/month, Premium) and AI deal memos with citations. PropStream is stronger for cold-lead generation; we are stronger for finding and underwriting deals.</p>
+      <p><a href="/pricing">See pricing</a> or <a href="/methodology/opportunity-score">read the methodology</a>.</p>
+    `,
   },
 };
 

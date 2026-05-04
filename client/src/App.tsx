@@ -44,6 +44,8 @@ const CityBrowse = lazy(() => import("@/pages/CityBrowse"));
 const PropertyComparison = lazy(() => import("@/pages/PropertyComparison"));
 const NeighborhoodReport = lazy(() => import("@/pages/NeighborhoodReport"));
 const InvestmentCalculator = lazy(() => import("@/pages/InvestmentCalculator"));
+const Methodology = lazy(() => import("@/pages/Methodology"));
+const Comparisons = lazy(() => import("@/pages/Comparisons"));
 
 function RouteFallback() {
   return (
@@ -100,6 +102,8 @@ function Router() {
         <Route path="/compare" component={PropertyComparison} />
         <Route path="/neighborhood/:geoId" component={NeighborhoodReport} />
         <Route path="/calculator" component={InvestmentCalculator} />
+        <Route path="/methodology/:topic" component={Methodology} />
+        <Route path="/comparisons" component={Comparisons} />
         <Route path="/browse/:state" component={StateBrowse} />
         <Route path="/browse/:state/:city" component={CityBrowse} />
         <Route component={NotFound} />

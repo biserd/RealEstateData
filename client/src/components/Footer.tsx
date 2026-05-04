@@ -24,6 +24,13 @@ export function Footer() {
     { href: "/release-notes", label: "Release Notes" },
   ];
 
+  const resourceLinks = [
+    { href: "/methodology/opportunity-score", label: "Opportunity Score Explained" },
+    { href: "/methodology/data-coverage", label: "Data Coverage" },
+    { href: "/methodology/verified-vs-estimates", label: "Verified Sales vs Estimates" },
+    { href: "/comparisons", label: "vs Zillow, Redfin, PropStream" },
+  ];
+
   const browseLinks = [
     { href: "/browse/ny", label: "New York" },
     { href: "/browse/nj", label: "New Jersey" },
@@ -39,7 +46,7 @@ export function Footer() {
   return (
     <footer className="border-t bg-muted/30">
       <div className="mx-auto max-w-7xl px-4 py-12 md:px-6">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-6">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 font-semibold">
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -83,6 +90,24 @@ export function Footer() {
                     <span 
                       className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                       data-testid={`link-footer-${link.href.slice(1)}`}
+                    >
+                      {link.label}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-4">Resources</h3>
+            <ul className="space-y-3">
+              {resourceLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href}>
+                    <span
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      data-testid={`link-footer-${link.href.slice(1).replace(/\//g, '-')}`}
                     >
                       {link.label}
                     </span>

@@ -329,18 +329,31 @@ Sitemap: ${baseUrl}/sitemap.xml
     const baseUrl = `https://${req.get("host")}`;
     const today = new Date().toISOString().split("T")[0];
     
+    // SEO: Public, indexable pages only.
+    // - Removed /login and /register (gated auth pages, no SEO value).
+    // - Fixed legacy paths: /market-explorer -> /market-intelligence,
+    //   /up-and-coming-areas -> /up-and-coming, removed nonexistent /coverage-matrix.
+    // - Added methodology hubs and /comparisons.
     const staticPages = [
       { url: "/", priority: "1.0", changefreq: "daily" },
+      { url: "/market-intelligence", priority: "0.9", changefreq: "daily" },
+      { url: "/investment-opportunities", priority: "0.9", changefreq: "daily" },
+      { url: "/up-and-coming", priority: "0.8", changefreq: "weekly" },
       { url: "/pricing", priority: "0.8", changefreq: "weekly" },
+      { url: "/compare", priority: "0.7", changefreq: "monthly" },
+      { url: "/calculator", priority: "0.7", changefreq: "monthly" },
+      { url: "/comparisons", priority: "0.7", changefreq: "monthly" },
+      { url: "/methodology/opportunity-score", priority: "0.7", changefreq: "monthly" },
+      { url: "/methodology/data-coverage", priority: "0.7", changefreq: "monthly" },
+      { url: "/methodology/verified-vs-estimates", priority: "0.7", changefreq: "monthly" },
       { url: "/api-access", priority: "0.7", changefreq: "monthly" },
       { url: "/developers", priority: "0.7", changefreq: "monthly" },
+      { url: "/about", priority: "0.6", changefreq: "monthly" },
+      { url: "/faq", priority: "0.6", changefreq: "monthly" },
+      { url: "/contact", priority: "0.5", changefreq: "monthly" },
       { url: "/release-notes", priority: "0.5", changefreq: "monthly" },
-      { url: "/login", priority: "0.3", changefreq: "yearly" },
-      { url: "/register", priority: "0.3", changefreq: "yearly" },
-      { url: "/market-explorer", priority: "0.9", changefreq: "daily" },
-      { url: "/investment-opportunities", priority: "0.9", changefreq: "daily" },
-      { url: "/up-and-coming-areas", priority: "0.8", changefreq: "weekly" },
-      { url: "/coverage-matrix", priority: "0.6", changefreq: "monthly" },
+      { url: "/terms", priority: "0.3", changefreq: "yearly" },
+      { url: "/privacy", priority: "0.3", changefreq: "yearly" },
     ];
     
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
