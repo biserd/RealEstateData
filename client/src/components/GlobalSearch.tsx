@@ -119,12 +119,17 @@ export function GlobalSearch() {
 
   return (
     <div ref={containerRef} className="relative w-full max-w-md">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="relative" role="search">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <label htmlFor="global-search-input" className="sr-only">
+          Search addresses, units, or locations
+        </label>
         <Input
+          id="global-search-input"
           ref={inputRef}
           type="search"
           placeholder="Search addresses, units, or locations..."
+          aria-label="Search addresses, units, or locations"
           className="pl-10 pr-8 bg-muted/50"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -133,15 +138,17 @@ export function GlobalSearch() {
         />
         {query && (
           <button
+            type="button"
             onClick={() => {
               setQuery("");
               setResults(null);
               inputRef.current?.focus();
             }}
+            aria-label="Clear search"
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             data-testid="button-clear-search"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>

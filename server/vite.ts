@@ -5,6 +5,7 @@ import viteConfig from "../vite.config";
 import fs from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
+import { getMetaForUrl, injectMetaTags } from "./seoMetaTags";
 
 const viteLogger = createLogger();
 
@@ -48,7 +49,15 @@ export async function setupVite(server: Server, app: Express) {
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
-      const page = await vite.transformIndexHtml(url, template);
+      let page = await vite.transformIndexHtml(url, template);
+      try {
+        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        const meta = await getMetaForUrl(url);
+        page = injectMetaTags(page, meta, baseUrl);
+      } catch (seoErr) {
+        // SEO injection is best-effort in dev; log and serve the un-augmented page.
+        console.error("[Vite SSR] SEO injection failed:", seoErr);
+      }
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
