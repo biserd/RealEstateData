@@ -1,5 +1,6 @@
 import { db } from './db';
 import { sql } from 'drizzle-orm';
+import { GUIDES, getGuide, type Guide } from '@shared/guides';
 
 interface PageMeta {
   title: string;
@@ -185,6 +186,20 @@ const HOMEPAGE_BODY_HTML = `
     <li><strong>API integration (Head of Data, PropTech startup, CT):</strong> "We pull /api/properties and /api/market/stats nightly into our internal valuation model and trace every verified sale back to ACRIS. The 10K req/day Pro quota covers our entire NJ/CT analyst team without a custom enterprise contract."</li>
   </ul>
 
+  <h2>Guides and playbooks</h2>
+  <p>Practical, NYC-focused guides on how to actually use this data:</p>
+  <ul>
+    <li><a href="/guides/how-to-find-underpriced-condos-nyc">How to Find Underpriced NYC Condos Before Anyone Else</a></li>
+    <li><a href="/guides/what-is-an-opportunity-score">What Is an Opportunity Score in Real Estate?</a></li>
+    <li><a href="/guides/nyc-condo-market-2026">NYC Condo Market 2026: Prices, Trends, and Where to Buy</a></li>
+    <li><a href="/guides/verified-sales-vs-estimates-investors">Verified Sales vs Estimated Values: What Investors Should Trust</a></li>
+    <li><a href="/guides/real-estate-api-for-developers">Real Estate API for Developers</a></li>
+    <li><a href="/guides/nyc-comparable-sales-investor-guide">Understanding NYC Comparable Sales</a></li>
+    <li><a href="/guides/up-and-coming-zip-codes-nj-ct">Up-and-Coming ZIP Codes in NJ and CT</a></li>
+    <li><a href="/guides/price-per-square-foot-nyc">Price Per Square Foot in NYC: When It Misleads You</a></li>
+  </ul>
+  <p><a href="/guides">Browse all guides</a>.</p>
+
   <h2>Get started</h2>
   <p>Browse the platform free, or <a href="/pricing">start a Pro plan at $29/month</a> for AI deal memos, full comp exports, watchlist alerts, and developer API access. <a href="/faq">Read the FAQ</a> or <a href="/contact">contact us</a> with any questions.</p>
 `;
@@ -199,7 +214,37 @@ const DEFAULT_META: PageMeta = {
   jsonLd: SOFTWARE_APPLICATION_JSONLD,
 };
 
+const GUIDES_INDEX_JSONLD: Record<string, any> = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Realtors Dashboard Guides',
+  itemListElement: GUIDES.map((g, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    url: `${SITE_URL}/guides/${g.slug}`,
+    name: g.title,
+  })),
+};
+
 const STATIC_PAGES: Record<string, PageMeta> = {
+  '/guides': {
+    title: 'Guides - Realtors Dashboard',
+    description:
+      'Investor playbooks, concept explainers, market reports, and developer guides for NYC and tri-state real estate. Built on verified sales and the Opportunity Score methodology.',
+    ogType: 'website',
+    canonicalPath: '/guides',
+    h1: 'Real estate guides for investors, agents, and developers',
+    bodyHtml: `
+      <p>Practical guides built on verified ACRIS sales, the Opportunity Score methodology, and the data we publish across NY, NJ, and CT.</p>
+      <ul>
+        ${GUIDES.map(
+          (g) =>
+            `<li><a href="/guides/${g.slug}"><strong>${escapeHtml(g.title)}</strong></a> - ${escapeHtml(g.metaDescription)}</li>`,
+        ).join('')}
+      </ul>
+    `,
+    jsonLd: GUIDES_INDEX_JSONLD,
+  },
   '/market-intelligence': {
     title: 'Market Intelligence - Realtors Dashboard',
     description: 'Explore real estate market statistics by geography. Median prices, sales volume, price trends, and inventory data for NY, NJ, and CT.',
@@ -928,7 +973,109 @@ export async function getMetaForUrl(url: string): Promise<PageMeta> {
     if (meta) return meta;
   }
 
+  const guideMatch = path.match(/^\/guides\/([a-z0-9-]+)$/);
+  if (guideMatch) {
+    const meta = getGuideMeta(guideMatch[1]);
+    if (meta) return meta;
+  }
+
   return DEFAULT_META;
+}
+
+function buildGuideBodyHtml(guide: Guide): string {
+  const sectionsHtml = guide.sections
+    .map((s) => {
+      const bullets =
+        s.bullets && s.bullets.length > 0
+          ? `<ul>${s.bullets.map((b) => `<li>${b}</li>`).join('')}</ul>`
+          : '';
+      return `<h2>${escapeHtml(s.heading)}</h2><p>${s.body}</p>${bullets}`;
+    })
+    .join('');
+
+  const faqsHtml =
+    guide.faqs && guide.faqs.length > 0
+      ? `<h2>Frequently asked</h2>${guide.faqs
+          .map(
+            (f) =>
+              `<h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p>`,
+          )
+          .join('')}`
+      : '';
+
+  const relatedHtml = (() => {
+    const rel = guide.relatedSlugs
+      .map((s) => GUIDES.find((g) => g.slug === s))
+      .filter((g): g is Guide => Boolean(g));
+    if (rel.length === 0) return '';
+    return `<h2>Related guides</h2><ul>${rel
+      .map(
+        (r) =>
+          `<li><a href="/guides/${r.slug}">${escapeHtml(r.title)}</a></li>`,
+      )
+      .join('')}</ul>`;
+  })();
+
+  return `
+    <p><em>${escapeHtml(guide.category)} · ${guide.readingMinutes} min read</em></p>
+    <p>${escapeHtml(guide.intro)}</p>
+    ${sectionsHtml}
+    ${faqsHtml}
+    <p><a href="${guide.productLink.href}">${escapeHtml(guide.productLink.label)}</a></p>
+    ${relatedHtml}
+  `;
+}
+
+function getGuideMeta(slug: string): PageMeta | null {
+  const guide = getGuide(slug);
+  if (!guide) return null;
+
+  const canonicalPath = `/guides/${guide.slug}`;
+  const articleJsonLd: Record<string, any> = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: guide.title,
+    description: guide.metaDescription,
+    keywords: guide.keyword,
+    articleSection: guide.category,
+    inLanguage: 'en-US',
+    datePublished: guide.publishedDate,
+    dateModified: guide.updatedDate,
+    url: `${SITE_URL}${canonicalPath}`,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `${SITE_URL}${canonicalPath}` },
+    author: { '@type': 'Organization', name: SITE_NAME },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: SITE_URL,
+      logo: { '@type': 'ImageObject', url: `${SITE_URL}/og-image.png` },
+    },
+    image: `${SITE_URL}/og-image.png`,
+  };
+
+  const jsonLd: Record<string, any>[] = [articleJsonLd];
+
+  if (guide.faqs && guide.faqs.length > 0) {
+    jsonLd.push({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: guide.faqs.map((f) => ({
+        '@type': 'Question',
+        name: f.question,
+        acceptedAnswer: { '@type': 'Answer', text: f.answer },
+      })),
+    });
+  }
+
+  return {
+    title: guide.metaTitle,
+    description: guide.metaDescription,
+    ogType: 'article',
+    canonicalPath,
+    h1: guide.title,
+    bodyHtml: buildGuideBodyHtml(guide),
+    jsonLd,
+  };
 }
 
 function replaceOrAdd(html: string, regex: RegExp, newTag: string, checkStr: string): string {

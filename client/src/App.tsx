@@ -46,6 +46,8 @@ const NeighborhoodReport = lazy(() => import("@/pages/NeighborhoodReport"));
 const InvestmentCalculator = lazy(() => import("@/pages/InvestmentCalculator"));
 const Methodology = lazy(() => import("@/pages/Methodology"));
 const Comparisons = lazy(() => import("@/pages/Comparisons"));
+const Guides = lazy(() => import("@/pages/Guides"));
+const Guide = lazy(() => import("@/pages/Guide"));
 
 function RouteFallback() {
   return (
@@ -104,6 +106,8 @@ function Router() {
         <Route path="/calculator" component={InvestmentCalculator} />
         <Route path="/methodology/:topic" component={Methodology} />
         <Route path="/comparisons" component={Comparisons} />
+        <Route path="/guides" component={Guides} />
+        <Route path="/guides/:slug" component={Guide} />
         <Route path="/browse/:state" component={StateBrowse} />
         <Route path="/browse/:state/:city" component={CityBrowse} />
         <Route component={NotFound} />

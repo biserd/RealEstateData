@@ -53,6 +53,10 @@ The platform implements comprehensive SEO with server-side meta tags, JSON-LD st
 
 Three methodology pages (`/methodology/opportunity-score`, `/methodology/data-coverage`, `/methodology/verified-vs-estimates`) and one comparison hub (`/comparisons` covering Zillow, Redfin, PropStream) are rendered by `client/src/pages/Methodology.tsx` and `client/src/pages/Comparisons.tsx`. They appear in `sitemap-static.xml`, the Footer "Resources" column, and are cross-linked from the homepage SEO body. Both pages emit `BreadcrumbList` JSON-LD client-side via `BreadcrumbsJsonLd`.
 
+### Content / Guides Program
+
+The guides hub at `/guides` and 8 long-form articles at `/guides/:slug` make up the SEO content program. All guide content lives in `shared/guides.ts` as a single typed dataset (`GUIDES`, `getGuide()`) so client and server share the same source. Slugs: `how-to-find-underpriced-condos-nyc`, `what-is-an-opportunity-score`, `nyc-condo-market-2026`, `verified-sales-vs-estimates-investors`, `real-estate-api-for-developers`, `nyc-comparable-sales-investor-guide`, `up-and-coming-zip-codes-nj-ct`, `price-per-square-foot-nyc`. The detail page (`client/src/pages/Guide.tsx`) emits client-side `Article` JSON-LD plus `FAQPage` JSON-LD when FAQs are present, and `BreadcrumbList` JSON-LD. The index page (`client/src/pages/Guides.tsx`) emits `ItemList` JSON-LD. Server-side, `server/seoMetaTags.ts` mirrors all of this: `/guides` is a static page entry with `ItemList`, and `/guides/:slug` is matched in `getMetaForUrl` to emit `Article`+`FAQPage` JSON-LD plus a full noscript body containing every section, bullet, and FAQ for crawlers and AI answer engines that don't run JS. All 8 guide URLs plus `/guides` are listed in `sitemap-static.xml`. The Footer "Resources" column links `/guides` first; the homepage noscript SEO body cross-links every individual guide.
+
 ### Performance
 
 -   **Compression:** Express `compression` middleware gzips HTML/JSON/XML responses (skips images/video/audio).

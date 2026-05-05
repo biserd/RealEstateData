@@ -25,6 +25,7 @@ export function Footer() {
   ];
 
   const resourceLinks = [
+    { href: "/guides", label: "Guides" },
     { href: "/methodology/opportunity-score", label: "Opportunity Score Explained" },
     { href: "/methodology/data-coverage", label: "Data Coverage" },
     { href: "/methodology/verified-vs-estimates", label: "Verified Sales vs Estimates" },
