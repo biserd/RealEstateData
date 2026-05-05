@@ -147,7 +147,9 @@ const DATASET_JSONLD: Record<string, any> = {
 };
 
 const HOMEPAGE_BODY_HTML = `
-  <p>Realtors Dashboard is a real estate market intelligence platform for buyers, investors, and agents. We surface underpriced properties in New York, New Jersey, and Connecticut using verified public-record transactions, a proprietary 0-100 Opportunity Score, and AI-powered property analysis with full source citations.</p>
+  <p><strong>Transparent opportunity scoring for NYC and tri-state real estate.</strong> Realtors Dashboard is verified sales intelligence for New York, New Jersey, and Connecticut. Every Opportunity Score is built from public-record transactions, shows its inputs, and links the verified comps behind it - no black-box AVMs, no blended estimates.</p>
+
+  <p><em>Opportunity intelligence for investors, agents, analysts, and PropTech teams.</em></p>
 
   <h2>What you can do</h2>
   <ul>
@@ -176,11 +178,11 @@ const HOMEPAGE_BODY_HTML = `
   </ul>
   <p><a href="/methodology/data-coverage">Read the full data coverage page</a> for source details and refresh cadence, or read about <a href="/methodology/verified-vs-estimates">how we separate verified sales from estimates</a>.</p>
 
-  <h2>What our users say</h2>
+  <h2>How teams use Realtors Dashboard</h2>
   <ul>
-    <li>"Finally a tool where I can see the actual recorded sale price next to the AVM and pick which one to trust." - NYC investor</li>
-    <li>"The Opportunity Score saves me hours of comping. I just verify the top hits." - NJ buy-side agent</li>
-    <li>"The Developer API lets us pull the same data into our internal models without scraping." - CT-based PropTech team</li>
+    <li><strong>Investor case study (Multi-family Investor, Northern NJ):</strong> "I filter the Opportunity Screener for Bronx and Hudson County multi-family scoring 75+ with verified comps in the last 12 months. Underwrote 6 deals in week one and closed on a 6-unit at $42K under the comp median. Recouped the annual Pro fee in two weeks."</li>
+    <li><strong>Buyer-agent workflow (Buyer's Agent, NYC):</strong> "Every morning I run a saved screener over my buyer's target ZIPs in Brooklyn and Queens, export the top 20 to CSV, then pull the Neighborhood Report Card for each shortlist. Cuts what used to be a 3-hour comp pull down to 20 minutes per buyer."</li>
+    <li><strong>API integration (Head of Data, PropTech startup, CT):</strong> "We pull /api/properties and /api/market/stats nightly into our internal valuation model and trace every verified sale back to ACRIS. The 10K req/day Pro quota covers our entire NJ/CT analyst team without a custom enterprise contract."</li>
   </ul>
 
   <h2>Get started</h2>

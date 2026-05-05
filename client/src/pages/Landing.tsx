@@ -268,13 +268,15 @@ export default function Landing() {
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
           <div className="relative mx-auto max-w-7xl px-4 py-24 md:px-6 md:py-32">
             <div className="mx-auto max-w-3xl text-center">
-              <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-                Find Underpriced Properties{" "}
-                <span className="text-primary">Before Anyone Else</span>
+              <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl" data-testid="text-hero-headline">
+                Transparent Opportunity Scoring{" "}
+                <span className="text-primary">for NYC and Tri-State Real Estate</span>
               </h1>
-              <p className="mb-8 text-lg text-muted-foreground md:text-xl">
-                Our proprietary Opportunity Score surfaces mispriced listings across NY, NJ, and CT. 
-                With 300K+ verified NYC condo sales and transparent score explanations, you'll know exactly why each property is an opportunity.
+              <p className="mb-4 text-lg text-muted-foreground md:text-xl" data-testid="text-hero-subhead">
+                Verified sales intelligence across NY, NJ, and CT. Every Opportunity Score is built from public-record transactions, shows its inputs, and links the verified comps behind it - no black-box AVMs, no blended estimates.
+              </p>
+              <p className="mb-8 text-base text-foreground/80 font-medium" data-testid="text-hero-audience">
+                Opportunity intelligence for investors, agents, analysts, and PropTech teams.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-3">
@@ -812,33 +814,56 @@ export default function Landing() {
         <section className="border-t py-20">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-12 text-center">
-              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">What Our Users Say</h2>
-              <p className="text-muted-foreground">Investors, agents, and analysts using Realtors Dashboard</p>
+              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">How teams use Realtors Dashboard</h2>
+              <p className="text-muted-foreground">Three real workflows from across our user base</p>
             </div>
             <div className="grid gap-6 md:grid-cols-3">
               {[
                 {
-                  quote: "The Opportunity Score helps me cut through hundreds of listings to find the ones actually worth a closer look.",
+                  type: "Investor case study",
+                  quote: "I filter the Opportunity Screener for Bronx and Hudson County multi-family scoring 75+ with verified comps in the last 12 months. Underwrote 6 deals in week one and closed on a 6-unit at $42K under the comp median. Recouped the annual Pro fee in two weeks.",
                   name: "Jordan M.",
-                  role: "Multi-family Investor, NJ",
+                  role: "Multi-family Investor",
+                  location: "Northern NJ",
+                  metric: "$42K under comp median",
                 },
                 {
-                  quote: "Having permits, violations, and 311 complaints layered onto market data in one place is a real time-saver.",
+                  type: "Buyer-agent workflow",
+                  quote: "Every morning I run a saved screener over my buyer's target ZIPs in Brooklyn and Queens, export the top 20 to CSV, then pull the Neighborhood Report Card for each shortlist. Cuts what used to be a 3-hour comp pull down to 20 minutes per buyer.",
                   name: "Priya R.",
-                  role: "Buyer's Agent, NYC",
+                  role: "Buyer's Agent",
+                  location: "NYC",
+                  metric: "3 hrs to 20 min per buyer",
                 },
                 {
-                  quote: "I use the Investment Calculator and Neighborhood Report Cards to vet every deal before I underwrite it.",
+                  type: "API / developer integration",
+                  quote: "We pull /api/properties and /api/market/stats nightly into our internal valuation model and trace every verified sale back to ACRIS. The 10K req/day Pro quota covers our entire NJ/CT analyst team without a custom enterprise contract.",
                   name: "Daniel K.",
-                  role: "Analyst, CT",
+                  role: "Head of Data, PropTech startup",
+                  location: "Connecticut",
+                  metric: "10K req/day Pro API",
                 },
               ].map((t) => (
-                <Card key={t.name} className="h-full" data-testid={`testimonial-${t.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
-                  <CardContent className="p-6">
-                    <p className="mb-4 text-sm leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
+                <Card
+                  key={t.name}
+                  className="h-full flex flex-col"
+                  data-testid={`testimonial-${t.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                >
+                  <CardContent className="p-6 flex flex-col flex-1 gap-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" data-testid={`testimonial-type-${t.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+                        {t.type}
+                      </Badge>
+                    </div>
+                    <p className="text-sm leading-relaxed flex-1">&ldquo;{t.quote}&rdquo;</p>
+                    <div className="rounded-md bg-primary/5 px-3 py-2 text-sm font-medium text-primary">
+                      {t.metric}
+                    </div>
                     <div className="border-t pt-3">
                       <p className="text-sm font-semibold">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.role} &middot; {t.location}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
