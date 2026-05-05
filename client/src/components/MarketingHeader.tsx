@@ -28,9 +28,9 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
     { href: "/compare", label: "Compare" },
     { href: "/calculator", label: "Calculator" },
     { href: "/methodology/opportunity-score", label: "Methodology" },
+    { href: "/guides", label: "Guides" },
     { href: "/pricing", label: "Pricing" },
     { href: "/api-access", label: "API" },
-    { href: "/release-notes", label: "What's New" },
     { href: "/about", label: "About" },
   ];
 
