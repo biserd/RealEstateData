@@ -398,6 +398,18 @@ export default function Pricing() {
           )}
         </div>
 
+        <div className="mx-auto mb-10 max-w-3xl text-center" data-testid="pricing-reassurance">
+          <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">
+            Try the full workflow before you commit
+          </h2>
+          <p className="text-muted-foreground">
+            Start with 14 days free. Explore opportunities, review market signals, save properties, and see whether Realtors Dashboard fits your investment or client workflow before you pay.
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            No charge during trial · Cancel anytime · Upgrade only when you are ready
+          </p>
+        </div>
+
         <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {/* Free Tier */}
           <Card className="relative">
@@ -455,6 +467,12 @@ export default function Pricing() {
               <CardDescription>
                 Full access to all core features and AI insights
               </CardDescription>
+              <div className="mt-3 rounded-md bg-primary/5 p-3" data-testid="pro-best-fit">
+                <p className="text-sm font-semibold text-foreground">Most useful for active investors and agents</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pro gives you the core workflow: unlimited opportunity screening, AI-assisted property analysis, saved watchlists, alerts, exports, and reports.
+                </p>
+              </div>
               <div className="pt-4">
                 <span className="text-4xl font-bold">
                   ${isYearly ? Math.round(proYearlyAmount / 12) : proMonthlyAmount}
@@ -547,6 +565,15 @@ export default function Pricing() {
               {renderTierButton("premium")}
             </CardFooter>
           </Card>
+        </div>
+
+        <div className="mx-auto mt-16 max-w-3xl text-center" data-testid="who-uses-this">
+          <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">
+            Built for people making real estate decisions, not browsing listings
+          </h2>
+          <p className="text-muted-foreground">
+            Investors use Realtors Dashboard to identify underpriced candidates. Agents use it to explain pricing to clients. Analysts use it to compare neighborhoods, buildings, and market signals.
+          </p>
         </div>
 
         <div className="mt-16 text-center">

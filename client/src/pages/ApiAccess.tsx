@@ -136,6 +136,14 @@ export default function ApiAccess() {
                   </Button>
                 </Link>
               </div>
+              <div className="mx-auto mt-10 max-w-2xl" data-testid="api-credibility">
+                <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">
+                  Real estate intelligence without starting from raw data
+                </h2>
+                <p className="text-muted-foreground">
+                  Build property search, comparable-sales analysis, market dashboards, and opportunity-scoring workflows using Realtors Dashboard data and endpoints.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -199,6 +207,14 @@ export default function ApiAccess() {
                 </Button>
               </Link>
             </div>
+            <div className="mx-auto mt-12 max-w-2xl text-center" data-testid="api-trust-copy">
+              <h3 className="mb-3 text-xl font-bold tracking-tight md:text-2xl">
+                Designed for practical product teams
+              </h3>
+              <p className="text-muted-foreground">
+                Skip the months of data cleanup and normalization. Start with structured real estate intelligence that is ready to plug into dashboards, apps, and internal tools.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -225,6 +241,33 @@ export default function ApiAccess() {
 
         <section className="py-16">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mx-auto mb-10 max-w-2xl" data-testid="api-use-cases-proof">
+              <h2 className="mb-4 text-center text-2xl font-bold tracking-tight md:text-3xl">
+                Use the API to power:
+              </h2>
+              <ul className="space-y-2">
+                {[
+                  "Property search experiences",
+                  "Comparable-sales workflows",
+                  "Market intelligence dashboards",
+                  "Neighborhood and ZIP trend analysis",
+                  "Internal investment screening tools",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6 text-center">
+                <Link href="/pricing">
+                  <Button size="lg" data-testid="button-request-api-access">
+                    Request API Access
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
             <div className="mx-auto max-w-xl">
               <Card className="border-primary/50">
                 <CardHeader className="text-center">

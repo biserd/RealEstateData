@@ -281,6 +281,10 @@ export default function OpportunityScreener() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="space-y-2">
                 <h1 className="text-xl font-semibold">Opportunity Screener</h1>
+                <p className="max-w-2xl text-sm text-muted-foreground" data-testid="text-screener-proof">
+                  <span className="font-semibold text-foreground">Built for faster first-pass deal screening.</span>{" "}
+                  Use the Opportunity Score to identify properties that may be priced below nearby or building-level benchmarks, then review the underlying signals before deciding what to investigate further.
+                </p>
                 <Tabs value={entityType} onValueChange={(v) => setEntityType(v as "properties" | "units")}>
                   <TabsList data-testid="tabs-entity-type">
                     <TabsTrigger value="units" data-testid="tab-units">
@@ -582,6 +586,12 @@ export default function OpportunityScreener() {
                         : "space-y-4"
                     }
                   >
+                    <div className="col-span-full mb-2 rounded-md border bg-muted/30 p-4" data-testid="screener-context-copy">
+                      <h2 className="mb-1 text-sm font-semibold text-foreground">Why these properties appear here</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Each opportunity is ranked using pricing, comparable-sales, liquidity, and local market signals. Use the score as a starting point, then review the details behind the recommendation.
+                      </p>
+                    </div>
                     {properties.slice(0, visibleCount).map((property) => (
                       <PropertyCard key={property.id} property={property} />
                     ))}

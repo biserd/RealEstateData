@@ -274,6 +274,12 @@ export default function MarketExplorer() {
           <p className="text-muted-foreground">
             Analyze pricing and trends across New York, New Jersey, and Connecticut
           </p>
+          <div className="mt-4 max-w-3xl rounded-md border bg-muted/30 p-4" data-testid="market-analyst-proof">
+            <h2 className="mb-1 text-sm font-semibold text-foreground">Market context before you make the call</h2>
+            <p className="text-sm text-muted-foreground">
+              Compare locations, pricing trends, and neighborhood signals so you can understand whether a property is attractive because of the deal itself, the market around it, or both.
+            </p>
+          </div>
         </div>
 
         <div className="mb-6">
@@ -400,15 +406,21 @@ export default function MarketExplorer() {
                   </div>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                onClick={handleExportReport}
-                disabled={isExporting}
-                data-testid="button-export-report"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                {isExporting ? "Exporting..." : "Export Report"}
-              </Button>
+              <div className="flex flex-col items-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleExportReport}
+                  disabled={isExporting}
+                  data-testid="button-export-report"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {isExporting ? "Exporting..." : "Export Report"}
+                </Button>
+                <p className="max-w-xs text-right text-xs text-muted-foreground" data-testid="text-export-proof">
+                  <span className="font-semibold text-foreground">Turn market research into client-ready context.</span>{" "}
+                  Use market intelligence to support pricing conversations, investment memos, neighborhood comparisons, and buyer education.
+                </p>
+              </div>
             </div>
 
             <div className="mb-6 flex flex-wrap gap-4">

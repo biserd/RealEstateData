@@ -1,0 +1,174 @@
+Exact Social Proof Copy and Locations
+Use the copy below as publish-ready modules. For testimonials, only publish them as quotes if they reflect real customer/user feedback. Otherwise, use the non-quote versions until you have approved customer quotes.
+
+Homepage
+Below hero CTA buttons
+Add a compact credibility strip directly under “Start 14-Day Free Trial” and “See Opportunity Screener.”
+
+Copy:
+
+300K+ verified NYC condo sales analyzed · NY, NJ, CT coverage · Transparent Opportunity Score · 14-day free trial, no charge today
+
+Below “Live Top Opportunities”
+Add three proof cards after the live opportunity examples.
+
+Card 1: Investor
+
+For investors
+Shortlist underpriced condo opportunities faster by comparing each listing against verified sales, building-level pricing, and local market signals.
+
+Card 2: Buyer’s agent
+
+For buyer’s agents
+Walk clients through pricing with clearer comps, opportunity explanations, and market context before making an offer.
+
+Card 3: Analyst
+
+For analysts
+Turn scattered property, sales, and neighborhood data into a repeatable screening workflow for NY, NJ, and CT markets.
+
+Near the data sources section
+Add a stronger proof headline above the existing data-source references.
+
+Copy:
+
+Built on the data investors already try to piece together manually
+Realtors Dashboard brings together verified sales, property records, permits, violations, complaints, market trends, and neighborhood signals so you can evaluate opportunities with more context in one place.
+
+Above final homepage CTA
+Add a conversion reassurance block.
+
+Copy:
+
+Start with the properties most worth a second look
+Instead of scanning every listing manually, use the Opportunity Score to focus on properties with pricing, liquidity, and market signals that may deserve deeper review.
+
+CTA button:
+
+Start 14-Day Free Trial
+
+Secondary link:
+
+Explore Opportunity Screener
+
+Pricing page
+Above pricing cards
+Add reassurance copy before the plan grid.
+
+Copy:
+
+Try the full workflow before you commit
+Start with 14 days free. Explore opportunities, review market signals, save properties, and see whether Realtors Dashboard fits your investment or client workflow before you pay.
+
+Small line below:
+
+No charge during trial · Cancel anytime · Upgrade only when you are ready
+
+Inside or directly below the Pro plan
+Add “best fit” social proof copy.
+
+Copy:
+
+Most useful for active investors and agents
+Pro gives you the core workflow: unlimited opportunity screening, AI-assisted property analysis, saved watchlists, alerts, exports, and reports.
+
+Under pricing cards
+Add a “who uses this” proof row.
+
+Copy:
+
+Built for people making real estate decisions, not browsing listings
+Investors use Realtors Dashboard to identify underpriced candidates. Agents use it to explain pricing to clients. Analysts use it to compare neighborhoods, buildings, and market signals.
+
+API Access page
+Under API hero
+Add developer-specific credibility copy.
+
+Copy:
+
+Real estate intelligence without starting from raw data
+Build property search, comparable-sales analysis, market dashboards, and opportunity-scoring workflows using Realtors Dashboard data and endpoints.
+
+Above API CTA
+Add a proof block with use cases.
+
+Copy:
+
+Use the API to power:
+Property search experiences
+Comparable-sales workflows
+Market intelligence dashboards
+Neighborhood and ZIP trend analysis
+Internal investment screening tools
+
+CTA:
+
+Request API Access
+
+Near sample endpoint/code block
+Add trust/reassurance text.
+
+Copy:
+
+Designed for practical product teams
+Skip the months of data cleanup and normalization. Start with structured real estate intelligence that is ready to plug into dashboards, apps, and internal tools.
+
+Opportunity Screener page
+Top of page, below title
+Add a concise usage proof line.
+
+Copy:
+
+Built for faster first-pass deal screening
+Use the Opportunity Score to identify properties that may be priced below nearby or building-level benchmarks, then review the underlying signals before deciding what to investigate further.
+
+Above property cards/list
+Add context copy.
+
+Copy:
+
+Why these properties appear here
+Each opportunity is ranked using pricing, comparable-sales, liquidity, and local market signals. Use the score as a starting point, then review the details behind the recommendation.
+
+Market Intelligence page
+Under page title
+Add analyst-oriented proof copy.
+
+Copy:
+
+Market context before you make the call
+Compare locations, pricing trends, and neighborhood signals so you can understand whether a property is attractive because of the deal itself, the market around it, or both.
+
+Near report/export feature
+Add report proof copy.
+
+Copy:
+
+Turn market research into client-ready context
+Use market intelligence to support pricing conversations, investment memos, neighborhood comparisons, and buyer education.
+
+Future real testimonial templates
+Use these only once they are backed by real user feedback.
+
+Investor quote:
+
+“Realtors Dashboard helped me narrow a long list of listings into a smaller set of properties worth underwriting.”
+
+Agent quote:
+
+“The score explanations make it easier to show clients why a property may be overpriced, fairly priced, or worth a closer look.”
+
+Developer quote:
+
+“The API gave us a faster path to real estate intelligence than building our own data pipeline from scratch.”
+
+Best implementation order
+Add the homepage credibility strip.
+
+Add pricing reassurance copy.
+
+Add Opportunity Screener explanation copy.
+
+Add API use-case proof block.
+
+Replace generic testimonials with real, approved quotes as soon as you have them.

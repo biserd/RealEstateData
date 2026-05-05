@@ -300,8 +300,11 @@ export default function Landing() {
                   </Button>
                 </Link>
               </div>
-              <p className="mb-8 text-sm text-muted-foreground" data-testid="text-hero-trial">
+              <p className="mb-3 text-sm text-muted-foreground" data-testid="text-hero-trial">
                 Free for 14 days, then $29/mo · No charge during trial · Cancel anytime
+              </p>
+              <p className="mx-auto mb-8 max-w-3xl text-sm font-medium text-foreground/80" data-testid="text-hero-credibility">
+                300K+ verified NYC condo sales analyzed · NY, NJ, CT coverage · Transparent Opportunity Score · 14-day free trial, no charge today
               </p>
 
               <SmartAddressSearch 
@@ -550,6 +553,39 @@ export default function Landing() {
                 </CardContent>
               </Card>
             )}
+
+            <div className="mt-12 grid gap-6 md:grid-cols-3" data-testid="audience-proof-cards">
+              {[
+                {
+                  icon: <TrendingUp className="h-5 w-5" />,
+                  title: "For investors",
+                  body: "Shortlist underpriced condo opportunities faster by comparing each listing against verified sales, building-level pricing, and local market signals.",
+                  testId: "audience-investors",
+                },
+                {
+                  icon: <Target className="h-5 w-5" />,
+                  title: "For buyer's agents",
+                  body: "Walk clients through pricing with clearer comps, opportunity explanations, and market context before making an offer.",
+                  testId: "audience-agents",
+                },
+                {
+                  icon: <BarChart3 className="h-5 w-5" />,
+                  title: "For analysts",
+                  body: "Turn scattered property, sales, and neighborhood data into a repeatable screening workflow for NY, NJ, and CT markets.",
+                  testId: "audience-analysts",
+                },
+              ].map((card) => (
+                <Card key={card.title} className="h-full" data-testid={`card-${card.testId}`}>
+                  <CardContent className="p-6">
+                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      {card.icon}
+                    </div>
+                    <h3 className="mb-2 font-semibold">{card.title}</h3>
+                    <p className="text-sm text-muted-foreground">{card.body}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -790,6 +826,14 @@ export default function Landing() {
 
         <section className="border-t bg-muted/30 py-12">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mx-auto mb-10 max-w-3xl text-center" data-testid="data-sources-proof">
+              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">
+                Built on the data investors already try to piece together manually
+              </h2>
+              <p className="text-muted-foreground">
+                Realtors Dashboard brings together verified sales, property records, permits, violations, complaints, market trends, and neighborhood signals so you can evaluate opportunities with more context in one place.
+              </p>
+            </div>
             <p className="mb-6 text-center text-sm font-medium uppercase tracking-wide text-muted-foreground">Powered by data from</p>
             <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-muted-foreground">
               {[
@@ -868,6 +912,37 @@ export default function Landing() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t py-16">
+          <div className="mx-auto max-w-3xl px-4 text-center md:px-6" data-testid="conversion-reassurance">
+            <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">
+              Start with the properties most worth a second look
+            </h2>
+            <p className="text-muted-foreground">
+              Instead of scanning every listing manually, use the Opportunity Score to focus on properties with pricing, liquidity, and market signals that may deserve deeper review.
+            </p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button
+                size="lg"
+                className="h-12 px-8"
+                data-testid="button-reassurance-trial"
+                onClick={handleGetPro}
+                disabled={!isCheckoutReady || guestCheckoutMutation.isPending}
+              >
+                {isProductsLoading || guestCheckoutMutation.isPending ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : null}
+                Start 14-Day Free Trial
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+              <Link href="/investment-opportunities">
+                <Button size="lg" variant="outline" className="h-12 px-8" data-testid="link-reassurance-screener">
+                  Explore Opportunity Screener
+                </Button>
+              </Link>
             </div>
           </div>
         </section>
