@@ -301,7 +301,7 @@ export default function Landing() {
                 </Link>
               </div>
               <p className="mb-3 text-sm text-muted-foreground" data-testid="text-hero-trial">
-                Free for 14 days, then $29/mo · No charge during trial · Cancel anytime
+                Free for 14 days, then $59/mo · No charge during trial · Cancel anytime
               </p>
               <p className="mx-auto mb-8 max-w-3xl text-sm font-medium text-foreground/80" data-testid="text-hero-credibility">
                 300K+ verified NYC condo sales analyzed · NY, NJ, CT coverage · Transparent Opportunity Score · 14-day free trial, no charge today
@@ -966,7 +966,7 @@ export default function Landing() {
               {isProductsLoading || guestCheckoutMutation.isPending ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : null}
-              Get Pro - $29/mo
+              Get Pro - $59/mo
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>

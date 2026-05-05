@@ -136,10 +136,10 @@ export default function Pricing() {
   const premiumMonthlyPrice = premiumProduct?.prices?.find(p => p.recurring?.interval === "month");
   const premiumYearlyPrice = premiumProduct?.prices?.find(p => p.recurring?.interval === "year");
 
-  const proMonthlyAmount = proMonthlyPrice?.unit_amount ? proMonthlyPrice.unit_amount / 100 : 29;
-  const proYearlyAmount = proYearlyPrice?.unit_amount ? proYearlyPrice.unit_amount / 100 : 290;
-  const premiumMonthlyAmount = premiumMonthlyPrice?.unit_amount ? premiumMonthlyPrice.unit_amount / 100 : 79;
-  const premiumYearlyAmount = premiumYearlyPrice?.unit_amount ? premiumYearlyPrice.unit_amount / 100 : 790;
+  const proMonthlyAmount = proMonthlyPrice?.unit_amount ? proMonthlyPrice.unit_amount / 100 : 59;
+  const proYearlyAmount = proYearlyPrice?.unit_amount ? proYearlyPrice.unit_amount / 100 : 590;
+  const premiumMonthlyAmount = premiumMonthlyPrice?.unit_amount ? premiumMonthlyPrice.unit_amount / 100 : 149;
+  const premiumYearlyAmount = premiumYearlyPrice?.unit_amount ? premiumYearlyPrice.unit_amount / 100 : 1490;
   
   const proYearlySavings = (proMonthlyAmount * 12) - proYearlyAmount;
   const premiumYearlySavings = (premiumMonthlyAmount * 12) - premiumYearlyAmount;
@@ -322,7 +322,7 @@ export default function Pricing() {
     <>
       <SEO 
         title="Pricing - Plans for Every Real Estate Professional"
-        description="Choose the plan that fits your needs. Free to get started, Pro for full access, or Premium for power users. Starting at $29/month."
+        description="Choose the plan that fits your needs. Free to get started, Pro for full access, or Premium for power users. Starting at $59/month."
         canonicalUrl="https://realtorsdashboard.com/pricing"
       />
       <ProductJsonLd

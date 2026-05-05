@@ -30,7 +30,7 @@ async function createPremiumProduct() {
 
   const monthlyPrice = await stripe.prices.create({
     product: product.id,
-    unit_amount: 7900,
+    unit_amount: 14900,
     currency: 'usd',
     recurring: { interval: 'month' },
     metadata: {
@@ -39,11 +39,11 @@ async function createPremiumProduct() {
     },
   });
 
-  console.log('Created monthly price:', monthlyPrice.id, '- $79/month');
+  console.log('Created monthly price:', monthlyPrice.id, '- $149/month');
 
   const yearlyPrice = await stripe.prices.create({
     product: product.id,
-    unit_amount: 79000,
+    unit_amount: 149000,
     currency: 'usd',
     recurring: { interval: 'year' },
     metadata: {
@@ -52,7 +52,7 @@ async function createPremiumProduct() {
     },
   });
 
-  console.log('Created yearly price:', yearlyPrice.id, '- $790/year (save $158)');
+  console.log('Created yearly price:', yearlyPrice.id, '- $1490/year (save $298)');
 
   console.log('\n=== Premium Plan Created Successfully! ===');
   console.log('Product ID:', product.id);

@@ -72,7 +72,7 @@ const COMPARISONS: Comparison[] = [
       "Wholesalers and direct-mail investors building seller lead lists.",
     ourEdge: [
       "We are a market intelligence and screening platform, not a list broker. The product is built around finding deals, not generating cold leads.",
-      "Pricing is transparent and starts at a Free tier, with Pro at $29/month - no enterprise sales call required.",
+      "Pricing is transparent and starts at a Free tier, with Pro at $59/month - no enterprise sales call required.",
       "AI deal memos cite the verified comps and market stats they were built from, so the analysis is auditable.",
     ],
     rows: [
@@ -201,7 +201,7 @@ export default function Comparisons() {
             <div>
               <p className="font-semibold">Want to see it for yourself?</p>
               <p className="text-sm text-muted-foreground">
-                Start free, then upgrade to Pro for $29/month when you are
+                Start free, then upgrade to Pro for $59/month when you are
                 ready for AI deal memos, exports, and the developer API.
               </p>
             </div>

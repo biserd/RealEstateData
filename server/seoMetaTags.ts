@@ -109,7 +109,7 @@ const FAQ_JSONLD: Record<string, any> = {
       name: 'Is Realtors Dashboard free?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes, we offer a free tier for browsing properties and basic market data. Pro at $29/month unlocks AI deal memos, full comp tables, exports, and developer API access. Premium adds portfolio tools.',
+        text: 'Yes, we offer a free tier for browsing properties and basic market data. Pro at $59/month unlocks AI deal memos, full comp tables, exports, and developer API access. Premium adds portfolio tools.',
       },
     },
     {
@@ -166,7 +166,7 @@ const HOMEPAGE_BODY_HTML = `
     <li><strong>Verified data, not blended estimates:</strong> Recorded sale prices are sourced from named public agencies (ACRIS, county records, NYC Open Data) and shown separately from any model-produced estimates.</li>
     <li><strong>Transparent methodology:</strong> The <a href="/methodology/opportunity-score">Opportunity Score</a> is explained in detail, including inputs, weighting, and confidence bands. Every score links the comps it was built from.</li>
     <li><strong>No agent funnel:</strong> We are not a brokerage. There is no sell-side conflict of interest in how properties are scored or surfaced. <a href="/comparisons">See how we compare to Zillow, Redfin, and PropStream</a>.</li>
-    <li><strong>Honest, transparent pricing:</strong> Free tier for browsing, Pro at $29/month for AI deal memos and exports, Premium for portfolio tools. <a href="/pricing">See pricing</a>.</li>
+    <li><strong>Honest, transparent pricing:</strong> Free tier for browsing, Pro at $59/month for AI deal memos and exports, Premium for portfolio tools. <a href="/pricing">See pricing</a>.</li>
   </ul>
 
   <h2>Data sources we cite</h2>
@@ -201,7 +201,7 @@ const HOMEPAGE_BODY_HTML = `
   <p><a href="/guides">Browse all guides</a>.</p>
 
   <h2>Get started</h2>
-  <p>Browse the platform free, or <a href="/pricing">start a Pro plan at $29/month</a> for AI deal memos, full comp exports, watchlist alerts, and developer API access. <a href="/faq">Read the FAQ</a> or <a href="/contact">contact us</a> with any questions.</p>
+  <p>Browse the platform free, or <a href="/pricing">start a Pro plan at $59/month</a> for AI deal memos, full comp exports, watchlist alerts, and developer API access. <a href="/faq">Read the FAQ</a> or <a href="/contact">contact us</a> with any questions.</p>
 `;
 
 const DEFAULT_META: PageMeta = {
@@ -279,8 +279,8 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       <p>Three transparent tiers. Cancel anytime. 14-day money-back guarantee on paid plans.</p>
       <ul>
         <li><strong>Free:</strong> Browse properties, view market data, and run basic searches. Limited daily search volume.</li>
-        <li><strong>Pro - $29/month:</strong> Unlimited searches, AI deal memos with citations, full comparable-sales tables, CSV/JSON exports, watchlist alerts, and Developer API access (10K requests/day).</li>
-        <li><strong>Premium - $99/month:</strong> Everything in Pro plus portfolio tracking, bulk CSV exports, branded client reports, and higher API quota.</li>
+        <li><strong>Pro - $59/month:</strong> Unlimited searches, AI deal memos with citations, full comparable-sales tables, CSV/JSON exports, watchlist alerts, and Developer API access (10K requests/day).</li>
+        <li><strong>Premium - $149/month:</strong> Everything in Pro plus portfolio tracking, bulk CSV exports, branded client reports, and higher API quota.</li>
       </ul>
     `,
     jsonLd: PRODUCT_PRICING_JSONLD,
@@ -306,7 +306,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       <h2>Opportunity Score</h2>
       <p>The Opportunity Score is a 0-100 rating that estimates how underpriced a property is relative to verified comparable sales. <a href="/methodology/opportunity-score">Read how it is computed</a>.</p>
       <h2>Pricing</h2>
-      <p>Free tier for browsing. Pro at $29/month for AI deal memos, exports, and the developer API. Premium for portfolio tools. <a href="/pricing">See pricing</a>.</p>
+      <p>Free tier for browsing. Pro at $59/month for AI deal memos, exports, and the developer API. Premium for portfolio tools. <a href="/pricing">See pricing</a>.</p>
     `,
     jsonLd: FAQ_JSONLD,
   },
@@ -473,7 +473,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       <h2>Realtors Dashboard vs Redfin</h2>
       <p>Redfin is a brokerage with an in-house agent funnel. We are not a brokerage, so there is no sell-side conflict in how properties are scored. We publish neighborhood report cards (development, safety, transit, amenities, flood, building health) and a developer API.</p>
       <h2>Realtors Dashboard vs PropStream</h2>
-      <p>PropStream focuses on owner skip tracing and direct-mail list pulling for wholesalers. We are a market intelligence and screening platform with transparent self-serve pricing (Free, Pro $29/month, Premium) and AI deal memos with citations. PropStream is stronger for cold-lead generation; we are stronger for finding and underwriting deals.</p>
+      <p>PropStream focuses on owner skip tracing and direct-mail list pulling for wholesalers. We are a market intelligence and screening platform with transparent self-serve pricing (Free, Pro $59/month, Premium $149/month) and AI deal memos with citations. PropStream is stronger for cold-lead generation; we are stronger for finding and underwriting deals.</p>
       <p><a href="/pricing">See pricing</a> or <a href="/methodology/opportunity-score">read the methodology</a>.</p>
     `,
   },

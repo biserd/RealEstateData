@@ -277,7 +277,7 @@ export default function ApiAccess() {
                     Full API access is included with your Pro subscription
                   </CardDescription>
                   <div className="pt-4">
-                    <span className="text-4xl font-bold">$29</span>
+                    <span className="text-4xl font-bold">$59</span>
                     <span className="text-muted-foreground">/month</span>
                   </div>
                 </CardHeader>

@@ -74,7 +74,7 @@ const releaseNotes: ReleaseNote[] = [
       {
         type: "feature",
         title: "Pro Subscription",
-        description: "Upgrade to Pro for $29/month or $290/year for unlimited access to all features.",
+        description: "Upgrade to Pro for $59/month or $590/year for unlimited access to all features.",
       },
       {
         type: "feature",
