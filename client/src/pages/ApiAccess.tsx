@@ -57,6 +57,12 @@ export default function ApiAccess() {
     },
     {
       method: "GET",
+      path: "/api/external/zip/:zipCode",
+      description: "Flat ZIP summary: median price, median $/sqft, percentiles, trends",
+      icon: <MapPin className="h-4 w-4" />,
+    },
+    {
+      method: "GET",
       path: "/api/external/comps/:id",
       description: "Comparable properties for valuation analysis",
       icon: <MapPin className="h-4 w-4" />,

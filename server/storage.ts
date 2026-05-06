@@ -1540,6 +1540,7 @@ export class DatabaseStorage implements IStorage {
         trend6m: aggregate.trend6m,
         trend3m: aggregate.trend3m,
         medianPrice: aggregate.medianPrice,
+        medianPricePerSqft: aggregate.medianPricePerSqft,
         transactionCount: aggregate.transactionCount,
         avgOpportunityScore: stats?.avgOpportunityScore || null,
         propertyCount: stats?.propertyCount || 0,

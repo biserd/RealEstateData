@@ -3854,6 +3854,53 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Flat ZIP-level market summary - simple shape designed for partner sites
+  // (e.g. school-rating sites) that only need median prices for a ZIP.
+  app.get("/api/external/zip/:zipCode", externalApiMiddleware, async (req: any, res: any) => {
+    try {
+      const zipCode = String(req.params.zipCode || "").trim();
+      if (!/^\d{5}$/.test(zipCode)) {
+        return res.status(400).json({ error: "Bad Request", message: "zipCode must be a 5-digit ZIP" });
+      }
+
+      // Pull the most recent overall (no propertyType/beds filters) aggregate row for this ZIP.
+      const aggregates = await storage.getMarketAggregates("zip", zipCode);
+      const overall =
+        aggregates.find(
+          (a) => !a.propertyType && !a.bedsBand && !a.yearBuiltBand && !a.sizeBand
+        ) || aggregates[0];
+
+      if (!overall) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: `No market data available for ZIP ${zipCode}`,
+        });
+      }
+
+      const data = {
+        zipCode,
+        city: overall.geoName || null,
+        state: overall.state || null,
+        medianPrice: overall.medianPrice ?? null,
+        medianPricePerSqft: overall.medianPricePerSqft ?? null,
+        p25Price: overall.p25Price ?? null,
+        p75Price: overall.p75Price ?? null,
+        p25PricePerSqft: overall.p25PricePerSqft ?? null,
+        p75PricePerSqft: overall.p75PricePerSqft ?? null,
+        transactionCount: overall.transactionCount ?? null,
+        trend3m: overall.trend3m ?? null,
+        trend6m: overall.trend6m ?? null,
+        trend12m: overall.trend12m ?? null,
+        computedAt: overall.computedAt ?? null,
+      };
+
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error("External API error:", error);
+      res.status(500).json({ error: "Internal Server Error", message: "Failed to fetch ZIP summary" });
+    }
+  });
+
   app.get("/api/external/up-and-coming", externalApiMiddleware, async (req: any, res: any) => {
     try {
       const state = req.query.state as string | undefined;

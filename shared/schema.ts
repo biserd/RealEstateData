@@ -1486,10 +1486,29 @@ export type UpAndComingZip = {
   trend6m: number | null; // 6-month trend %
   trend3m: number | null; // 3-month trend %
   medianPrice: number | null;
+  medianPricePerSqft: number | null;
   transactionCount: number | null;
   avgOpportunityScore: number | null;
   propertyCount: number;
   momentum: "accelerating" | "steady" | "decelerating";
   latitude: number | null;
   longitude: number | null;
+};
+
+// Flat ZIP-level summary returned by the external /api/external/zip/:zipCode endpoint
+export type ZipMarketSummary = {
+  zipCode: string;
+  city: string | null;
+  state: string | null;
+  medianPrice: number | null;
+  medianPricePerSqft: number | null;
+  p25Price: number | null;
+  p75Price: number | null;
+  p25PricePerSqft: number | null;
+  p75PricePerSqft: number | null;
+  transactionCount: number | null;
+  trend3m: number | null;
+  trend6m: number | null;
+  trend12m: number | null;
+  computedAt: Date | null;
 };
