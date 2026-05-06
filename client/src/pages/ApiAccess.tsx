@@ -205,6 +205,43 @@ export default function ApiAccess() {
                 </div>
               ))}
             </div>
+            <div className="mx-auto mt-10 max-w-3xl" data-testid="api-sample-request">
+              <h3 className="mb-3 text-lg font-semibold">Quick example: ZIP-level medians</h3>
+              <p className="mb-4 text-sm text-muted-foreground">
+                One request returns median sale price and median price per square foot for a ZIP code &mdash; ideal for embedding in school-rating sites, neighborhood pages, or relocation tools.
+              </p>
+              <div className="overflow-hidden rounded-md border bg-muted/40">
+                <div className="border-b px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Request
+                </div>
+                <pre className="overflow-x-auto px-4 py-3 text-xs leading-relaxed">
+{`curl https://realtorsdashboard.com/api/external/zip/11215 \\
+  -H "x-api-key: YOUR_API_KEY"`}
+                </pre>
+              </div>
+              <div className="mt-4 overflow-hidden rounded-md border bg-muted/40">
+                <div className="border-b px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Response
+                </div>
+                <pre className="overflow-x-auto px-4 py-3 text-xs leading-relaxed">
+{`{
+  "success": true,
+  "data": {
+    "zipCode": "11215",
+    "city": "Brooklyn 11215",
+    "state": "NY",
+    "medianPrice": 1887746,
+    "medianPricePerSqft": 446,
+    "p25Price": 950000,
+    "p75Price": 2750000,
+    "transactionCount": 6792,
+    "trend12m": 0.041,
+    "computedAt": "2026-04-30T00:00:00.000Z"
+  }
+}`}
+                </pre>
+              </div>
+            </div>
             <div className="mt-8 text-center">
               <Link href="/developers">
                 <Button variant="outline" data-testid="button-full-docs">
