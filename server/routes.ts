@@ -2783,6 +2783,25 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  // Recompute market_aggregates from real recorded sales. Safe to re-run.
+  // Used to refresh the production database after deploying ETL changes.
+  app.post("/api/admin/refresh-aggregates", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.id);
+      if (user?.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { refreshAggregates } = await import("./productionDataSync");
+      const startedAt = Date.now();
+      const count = await refreshAggregates();
+      const elapsedMs = Date.now() - startedAt;
+      res.json({ success: true, aggregateCount: count, elapsedMs });
+    } catch (error: any) {
+      console.error("Error refreshing aggregates:", error);
+      res.status(500).json({ message: "Failed to refresh aggregates", error: error?.message });
+    }
+  });
+
   // ETL status (admin) - mock for now
   app.get("/api/admin/etl-status", isAuthenticated, async (req: any, res) => {
     try {
