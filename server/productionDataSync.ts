@@ -499,159 +499,200 @@ async function computeSignals() {
   return result?.cnt || 0;
 }
 
-async function refreshAggregates() {
-  console.log("[DataSync] Refreshing market aggregates...");
+// Compute market aggregates from REAL recorded sales (ACRIS / NJ MOD-IV / CT GL).
+// Each sale is geo-resolved through condo_units (preferred for NYC) or properties
+// (fallback for non-condo and out-of-NYC). Medians, percentiles, $/sqft, and
+// trends are real percentile_cont values over recorded sale_price; trend12m is
+// (median last 12mo - median prior 12mo) / median prior 12mo. transaction_count
+// is the actual count of recorded sales in the lookback window, not the count of
+// property records. Turnover rate is real sales-in-window / property-stock-in-zip.
+export async function refreshAggregates() {
+  console.log("[DataSync] Refreshing market aggregates from recorded sales...");
   await db.delete(marketAggregates);
 
-  const zipStats = await db.execute(sql`
-    SELECT zip_code,
-      MODE() WITHIN GROUP (ORDER BY city) AS city,
-      MODE() WITHIN GROUP (ORDER BY state) AS state,
-      MODE() WITHIN GROUP (ORDER BY county) AS county,
-      MODE() WITHIN GROUP (ORDER BY neighborhood) AS neighborhood,
-      COUNT(*) as cnt,
-      PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY estimated_value) as p25,
-      PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY estimated_value) as median,
-      PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY estimated_value) as p75,
-      AVG(price_per_sqft) as avg_ppsf,
-      PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY price_per_sqft) as p25_ppsf,
-      PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY price_per_sqft) as p75_ppsf
-    FROM properties WHERE zip_code IS NOT NULL AND estimated_value > 0
-    GROUP BY zip_code HAVING COUNT(*) >= 3
+  // Materialize one row per sale with resolved geo + sqft so all rollups share
+  // the same source. property stock per zip is needed for turnover rate.
+  await db.execute(sql`
+    DROP TABLE IF EXISTS tmp_sales_geo;
+    CREATE TEMP TABLE tmp_sales_geo AS
+    SELECT
+      s.id,
+      s.sale_price,
+      s.sale_date,
+      COALESCE(cu.zip_code, p.zip_code) AS zip_code,
+      COALESCE(p.city, cu.borough)      AS city,
+      COALESCE(p.state, 'NY')           AS state,
+      p.county                          AS county,
+      p.neighborhood                    AS neighborhood,
+      COALESCE(cu.sqft, p.sqft)         AS sqft
+    FROM sales s
+    LEFT JOIN condo_units cu ON cu.unit_bbl = s.unit_bbl
+    LEFT JOIN properties  p  ON p.id        = s.property_id
+    WHERE s.sale_price > 50000
+      AND s.sale_date IS NOT NULL
+      AND s.sale_date >= NOW() - INTERVAL '24 months'
+      AND COALESCE(cu.zip_code, p.zip_code) IS NOT NULL;
+    CREATE INDEX ON tmp_sales_geo (zip_code);
+    CREATE INDEX ON tmp_sales_geo (city, state);
+    CREATE INDEX ON tmp_sales_geo (county, state);
+    CREATE INDEX ON tmp_sales_geo (neighborhood, state);
+    CREATE INDEX ON tmp_sales_geo (state);
   `);
 
-  let aggCount = 0;
-  const zipBatch: any[] = [];
-  const cityMap = new Map<string, any[]>();
-  const countyMap = new Map<string, any[]>();
-  const nhMap = new Map<string, any[]>();
+  const stateNames: Record<string, string> = { NY: "New York", NJ: "New Jersey", CT: "Connecticut" };
+  const RECENT = sql`sale_date >= NOW() - INTERVAL '12 months'`;
+  const PRIOR  = sql`sale_date <  NOW() - INTERVAL '12 months' AND sale_date >= NOW() - INTERVAL '24 months'`;
+  const M3     = sql`sale_date >= NOW() - INTERVAL '3 months'`;
+  const M3P    = sql`sale_date <  NOW() - INTERVAL '3 months'  AND sale_date >= NOW() - INTERVAL '6 months'`;
+  const M6     = sql`sale_date >= NOW() - INTERVAL '6 months'`;
+  const M6P    = sql`sale_date <  NOW() - INTERVAL '6 months'  AND sale_date >= NOW() - INTERVAL '12 months'`;
 
-  for (const row of zipStats.rows as any[]) {
-    const mp = Math.round(parseFloat(row.median) || 0);
-    const mppsf = parseFloat(row.avg_ppsf) || 0;
-    const cnt = parseInt(row.cnt);
-    zipBatch.push({
-      geoType: "zip", geoId: row.zip_code, geoName: `${row.city} ${row.zip_code}`, state: row.state,
-      medianPrice: mp, medianPricePerSqft: Math.round(mppsf),
-      p25Price: Math.round(parseFloat(row.p25) || mp * 0.75), p75Price: Math.round(parseFloat(row.p75) || mp * 1.35),
-      p25PricePerSqft: Math.round(parseFloat(row.p25_ppsf) || mppsf * 0.75),
-      p75PricePerSqft: Math.round(parseFloat(row.p75_ppsf) || mppsf * 1.35),
-      transactionCount: cnt, turnoverRate: 0.03 + Math.random() * 0.04, volatility: 0.04 + Math.random() * 0.08,
-      trend3m: -0.03 + Math.random() * 0.08, trend6m: -0.02 + Math.random() * 0.06,
-      trend12m: 0.01 + Math.random() * 0.05, computedAt: new Date(),
-    });
-    const ck = `${row.city}-${row.state}`;
-    if (!cityMap.has(ck)) cityMap.set(ck, []);
-    cityMap.get(ck)!.push({ medianPrice: mp, medianPpsf: mppsf, cnt, state: row.state, city: row.city });
-    if (row.county) {
-      const cok = `${row.county}-${row.state}`;
-      if (!countyMap.has(cok)) countyMap.set(cok, []);
-      countyMap.get(cok)!.push({ medianPrice: mp, medianPpsf: mppsf, cnt, state: row.state, county: row.county });
-    }
-    if (row.neighborhood) {
-      const nk = `${row.neighborhood}-${row.state}`;
-      if (!nhMap.has(nk)) nhMap.set(nk, []);
-      nhMap.get(nk)!.push({ medianPrice: mp, medianPpsf: mppsf, cnt, state: row.state, neighborhood: row.neighborhood });
-    }
+  // Generic helper: builds a query that aggregates tmp_sales_geo by `groupCols`
+  // and returns medians + trend windows. Uses a city/county/neighborhood label
+  // resolved with MODE() so rollups have a sensible display name even when
+  // multiple variants exist in the source data.
+  async function aggregateBy(groupExpr: any, labelExpr: any, stateExpr: any, havingMin: number) {
+    const result = await db.execute(sql`
+      SELECT
+        ${groupExpr} AS group_key,
+        ${labelExpr} AS label,
+        ${stateExpr} AS state,
+        COUNT(*)::int AS sale_count,
+        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY sale_price)::bigint AS p25,
+        PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY sale_price)::bigint AS median,
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY sale_price)::bigint AS p75,
+        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY sale_price::float / NULLIF(sqft,0))
+          FILTER (WHERE sqft > 100)::int AS p25_ppsf,
+        PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY sale_price::float / NULLIF(sqft,0))
+          FILTER (WHERE sqft > 100)::int AS median_ppsf,
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY sale_price::float / NULLIF(sqft,0))
+          FILTER (WHERE sqft > 100)::int AS p75_ppsf,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price) FILTER (WHERE ${RECENT})::bigint AS median_recent,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price) FILTER (WHERE ${PRIOR})::bigint  AS median_prior,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price) FILTER (WHERE ${M3})::bigint     AS m3,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price) FILTER (WHERE ${M3P})::bigint    AS m3p,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price) FILTER (WHERE ${M6})::bigint     AS m6,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price) FILTER (WHERE ${M6P})::bigint    AS m6p,
+        (STDDEV_POP(sale_price)::float / NULLIF(AVG(sale_price),0)) AS volatility
+      FROM tmp_sales_geo
+      WHERE ${groupExpr} IS NOT NULL
+      GROUP BY ${groupExpr}
+      HAVING COUNT(*) >= ${havingMin}
+    `);
+    return result.rows as any[];
   }
 
+  const ratio = (a: any, b: any) => {
+    const an = Number(a); const bn = Number(b);
+    if (!isFinite(an) || !isFinite(bn) || bn <= 0) return 0;
+    const r = (an - bn) / bn;
+    return Math.max(-0.5, Math.min(0.5, r));
+  };
+
+  // ---- ZIP ----
+  const zipRows = await aggregateBy(sql`zip_code`, sql`MODE() WITHIN GROUP (ORDER BY city)`, sql`MODE() WITHIN GROUP (ORDER BY state)`, 5);
+
+  // Property stock per zip for turnover rate
+  const stockResult = await db.execute(sql`
+    SELECT zip_code, COUNT(*)::int AS stock FROM properties WHERE zip_code IS NOT NULL GROUP BY zip_code
+  `);
+  const stockByZip = new Map<string, number>();
+  for (const r of stockResult.rows as any[]) stockByZip.set(r.zip_code, r.stock);
+
+  const zipBatch = zipRows.map((r) => ({
+    geoType: "zip", geoId: r.group_key, geoName: r.label ? `${r.label} ${r.group_key}` : `ZIP ${r.group_key}`, state: r.state,
+    medianPrice: Number(r.median) || 0,
+    medianPricePerSqft: r.median_ppsf != null ? Number(r.median_ppsf) : null,
+    p25Price: Number(r.p25) || 0,
+    p75Price: Number(r.p75) || 0,
+    p25PricePerSqft: r.p25_ppsf != null ? Number(r.p25_ppsf) : null,
+    p75PricePerSqft: r.p75_ppsf != null ? Number(r.p75_ppsf) : null,
+    transactionCount: Number(r.sale_count) || 0,
+    turnoverRate: stockByZip.get(r.group_key) ? Math.min(1, (Number(r.sale_count) / 2) / stockByZip.get(r.group_key)!) : null,
+    volatility: r.volatility != null ? Number(r.volatility) : null,
+    trend3m: ratio(r.m3, r.m3p),
+    trend6m: ratio(r.m6, r.m6p),
+    trend12m: ratio(r.median_recent, r.median_prior),
+    computedAt: new Date(),
+  }));
+
+  let aggCount = 0;
   for (let i = 0; i < zipBatch.length; i += 500) await db.insert(marketAggregates).values(zipBatch.slice(i, i + 500));
   aggCount += zipBatch.length;
 
-  const cityBatch: any[] = [];
-  for (const [, entries] of Array.from(cityMap)) {
-    const tc = entries.reduce((s: number, e: any) => s + e.cnt, 0);
-    const wm = entries.reduce((s: number, e: any) => s + e.medianPrice * e.cnt, 0) / tc;
-    const wp = entries.reduce((s: number, e: any) => s + e.medianPpsf * e.cnt, 0) / tc;
-    cityBatch.push({
-      geoType: "city", geoId: entries[0].city.toLowerCase().replace(/\s+/g, "-"),
-      geoName: entries[0].city, state: entries[0].state,
-      medianPrice: Math.round(wm), medianPricePerSqft: Math.round(wp),
-      p25Price: Math.round(wm * 0.70), p75Price: Math.round(wm * 1.40),
-      p25PricePerSqft: Math.round(wp * 0.70), p75PricePerSqft: Math.round(wp * 1.40),
-      transactionCount: tc, turnoverRate: 0.035 + Math.random() * 0.03, volatility: 0.04 + Math.random() * 0.06,
-      trend3m: -0.03 + Math.random() * 0.07, trend6m: -0.02 + Math.random() * 0.05,
-      trend12m: 0.01 + Math.random() * 0.04, computedAt: new Date(),
-    });
-  }
+  // ---- CITY ----
+  const cityRows = await aggregateBy(sql`city`, sql`MODE() WITHIN GROUP (ORDER BY city)`, sql`MODE() WITHIN GROUP (ORDER BY state)`, 10);
+  const cityBatch = cityRows.map((r) => ({
+    geoType: "city", geoId: String(r.group_key).toLowerCase().replace(/\s+/g, "-"),
+    geoName: r.label || r.group_key, state: r.state,
+    medianPrice: Number(r.median) || 0,
+    medianPricePerSqft: r.median_ppsf != null ? Number(r.median_ppsf) : null,
+    p25Price: Number(r.p25) || 0, p75Price: Number(r.p75) || 0,
+    p25PricePerSqft: r.p25_ppsf != null ? Number(r.p25_ppsf) : null,
+    p75PricePerSqft: r.p75_ppsf != null ? Number(r.p75_ppsf) : null,
+    transactionCount: Number(r.sale_count) || 0,
+    turnoverRate: null, volatility: r.volatility != null ? Number(r.volatility) : null,
+    trend3m: ratio(r.m3, r.m3p), trend6m: ratio(r.m6, r.m6p), trend12m: ratio(r.median_recent, r.median_prior),
+    computedAt: new Date(),
+  }));
   for (let i = 0; i < cityBatch.length; i += 500) await db.insert(marketAggregates).values(cityBatch.slice(i, i + 500));
   aggCount += cityBatch.length;
 
-  const countyBatch: any[] = [];
-  for (const [, entries] of Array.from(countyMap)) {
-    const tc = entries.reduce((s: number, e: any) => s + e.cnt, 0);
-    const wm = entries.reduce((s: number, e: any) => s + e.medianPrice * e.cnt, 0) / tc;
-    const wp = entries.reduce((s: number, e: any) => s + e.medianPpsf * e.cnt, 0) / tc;
-    countyBatch.push({
-      geoType: "county", geoId: entries[0].county.toLowerCase().replace(/\s+/g, "-"),
-      geoName: `${entries[0].county} County`, state: entries[0].state,
-      medianPrice: Math.round(wm), medianPricePerSqft: Math.round(wp),
-      p25Price: Math.round(wm * 0.65), p75Price: Math.round(wm * 1.45),
-      p25PricePerSqft: Math.round(wp * 0.65), p75PricePerSqft: Math.round(wp * 1.45),
-      transactionCount: tc, turnoverRate: 0.03 + Math.random() * 0.035, volatility: 0.04 + Math.random() * 0.07,
-      trend3m: -0.02 + Math.random() * 0.06, trend6m: -0.01 + Math.random() * 0.05,
-      trend12m: 0.015 + Math.random() * 0.04, computedAt: new Date(),
-    });
-  }
+  // ---- COUNTY ----
+  const countyRows = await aggregateBy(sql`county`, sql`MODE() WITHIN GROUP (ORDER BY county)`, sql`MODE() WITHIN GROUP (ORDER BY state)`, 10);
+  const countyBatch = countyRows.map((r) => ({
+    geoType: "county", geoId: String(r.group_key).toLowerCase().replace(/\s+/g, "-"),
+    geoName: `${r.label || r.group_key} County`, state: r.state,
+    medianPrice: Number(r.median) || 0,
+    medianPricePerSqft: r.median_ppsf != null ? Number(r.median_ppsf) : null,
+    p25Price: Number(r.p25) || 0, p75Price: Number(r.p75) || 0,
+    p25PricePerSqft: r.p25_ppsf != null ? Number(r.p25_ppsf) : null,
+    p75PricePerSqft: r.p75_ppsf != null ? Number(r.p75_ppsf) : null,
+    transactionCount: Number(r.sale_count) || 0,
+    turnoverRate: null, volatility: r.volatility != null ? Number(r.volatility) : null,
+    trend3m: ratio(r.m3, r.m3p), trend6m: ratio(r.m6, r.m6p), trend12m: ratio(r.median_recent, r.median_prior),
+    computedAt: new Date(),
+  }));
   for (let i = 0; i < countyBatch.length; i += 500) await db.insert(marketAggregates).values(countyBatch.slice(i, i + 500));
   aggCount += countyBatch.length;
 
-  const nhBatch: any[] = [];
-  for (const [, entries] of Array.from(nhMap)) {
-    const tc = entries.reduce((s: number, e: any) => s + e.cnt, 0);
-    if (tc < 5) continue;
-    const wm = entries.reduce((s: number, e: any) => s + e.medianPrice * e.cnt, 0) / tc;
-    const wp = entries.reduce((s: number, e: any) => s + e.medianPpsf * e.cnt, 0) / tc;
-    nhBatch.push({
-      geoType: "neighborhood", geoId: entries[0].neighborhood.toLowerCase().replace(/\s+/g, "-"),
-      geoName: entries[0].neighborhood, state: entries[0].state,
-      medianPrice: Math.round(wm), medianPricePerSqft: Math.round(wp),
-      p25Price: Math.round(wm * 0.75), p75Price: Math.round(wm * 1.35),
-      p25PricePerSqft: Math.round(wp * 0.75), p75PricePerSqft: Math.round(wp * 1.35),
-      transactionCount: tc, turnoverRate: 0.025 + Math.random() * 0.04, volatility: 0.05 + Math.random() * 0.08,
-      trend3m: -0.03 + Math.random() * 0.07, trend6m: -0.02 + Math.random() * 0.05,
-      trend12m: 0.02 + Math.random() * 0.04, computedAt: new Date(),
-    });
-  }
+  // ---- NEIGHBORHOOD ----
+  const nhRows = await aggregateBy(sql`neighborhood`, sql`MODE() WITHIN GROUP (ORDER BY neighborhood)`, sql`MODE() WITHIN GROUP (ORDER BY state)`, 10);
+  const nhBatch = nhRows.map((r) => ({
+    geoType: "neighborhood", geoId: String(r.group_key).toLowerCase().replace(/\s+/g, "-"),
+    geoName: r.label || r.group_key, state: r.state,
+    medianPrice: Number(r.median) || 0,
+    medianPricePerSqft: r.median_ppsf != null ? Number(r.median_ppsf) : null,
+    p25Price: Number(r.p25) || 0, p75Price: Number(r.p75) || 0,
+    p25PricePerSqft: r.p25_ppsf != null ? Number(r.p25_ppsf) : null,
+    p75PricePerSqft: r.p75_ppsf != null ? Number(r.p75_ppsf) : null,
+    transactionCount: Number(r.sale_count) || 0,
+    turnoverRate: null, volatility: r.volatility != null ? Number(r.volatility) : null,
+    trend3m: ratio(r.m3, r.m3p), trend6m: ratio(r.m6, r.m6p), trend12m: ratio(r.median_recent, r.median_prior),
+    computedAt: new Date(),
+  }));
   for (let i = 0; i < nhBatch.length; i += 500) await db.insert(marketAggregates).values(nhBatch.slice(i, i + 500));
   aggCount += nhBatch.length;
 
-  const stateMap = new Map<string, { medianPrices: number[]; medianPpsfs: number[]; totalCount: number }>();
-  for (const row of zipStats.rows as any[]) {
-    const st = row.state as string;
-    if (!stateMap.has(st)) stateMap.set(st, { medianPrices: [], medianPpsfs: [], totalCount: 0 });
-    const entry = stateMap.get(st)!;
-    const cnt = parseInt(row.cnt);
-    entry.medianPrices.push(...Array(cnt).fill(parseFloat(row.median) || 0));
-    entry.medianPpsfs.push(...Array(cnt).fill(parseFloat(row.avg_ppsf) || 0));
-    entry.totalCount += cnt;
-  }
-  const stateNames: Record<string, string> = { NY: "New York", NJ: "New Jersey", CT: "Connecticut" };
-  const stateBatch: any[] = [];
-  for (const [st, data] of Array.from(stateMap)) {
-    const sortedPrices = data.medianPrices.sort((a, b) => a - b);
-    const sortedPpsf = data.medianPpsfs.sort((a, b) => a - b);
-    const mid = Math.floor(sortedPrices.length / 2);
-    const mp = sortedPrices.length % 2 ? sortedPrices[mid] : (sortedPrices[mid - 1] + sortedPrices[mid]) / 2;
-    const mppsf = sortedPpsf.length % 2 ? sortedPpsf[mid] : (sortedPpsf[mid - 1] + sortedPpsf[mid]) / 2;
-    const q1 = sortedPrices[Math.floor(sortedPrices.length * 0.25)];
-    const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
-    const q1p = sortedPpsf[Math.floor(sortedPpsf.length * 0.25)];
-    const q3p = sortedPpsf[Math.floor(sortedPpsf.length * 0.75)];
-    stateBatch.push({
-      geoType: "state", geoId: st, geoName: stateNames[st] || st, state: st,
-      medianPrice: Math.round(mp), medianPricePerSqft: Math.round(mppsf),
-      p25Price: Math.round(q1), p75Price: Math.round(q3),
-      p25PricePerSqft: Math.round(q1p), p75PricePerSqft: Math.round(q3p),
-      transactionCount: data.totalCount, turnoverRate: 0.035, volatility: 0.05,
-      trend3m: -0.01 + Math.random() * 0.04, trend6m: 0.005 + Math.random() * 0.03,
-      trend12m: 0.02 + Math.random() * 0.03, computedAt: new Date(),
-    });
-  }
+  // ---- STATE ----
+  const stateRows = await aggregateBy(sql`state`, sql`MODE() WITHIN GROUP (ORDER BY state)`, sql`MODE() WITHIN GROUP (ORDER BY state)`, 10);
+  const stateBatch = stateRows.map((r) => ({
+    geoType: "state", geoId: r.group_key, geoName: stateNames[r.group_key as string] || r.group_key, state: r.group_key,
+    medianPrice: Number(r.median) || 0,
+    medianPricePerSqft: r.median_ppsf != null ? Number(r.median_ppsf) : null,
+    p25Price: Number(r.p25) || 0, p75Price: Number(r.p75) || 0,
+    p25PricePerSqft: r.p25_ppsf != null ? Number(r.p25_ppsf) : null,
+    p75PricePerSqft: r.p75_ppsf != null ? Number(r.p75_ppsf) : null,
+    transactionCount: Number(r.sale_count) || 0,
+    turnoverRate: null, volatility: r.volatility != null ? Number(r.volatility) : null,
+    trend3m: ratio(r.m3, r.m3p), trend6m: ratio(r.m6, r.m6p), trend12m: ratio(r.median_recent, r.median_prior),
+    computedAt: new Date(),
+  }));
   if (stateBatch.length > 0) await db.insert(marketAggregates).values(stateBatch);
   aggCount += stateBatch.length;
 
-  console.log(`[DataSync]   Total aggregates: ${aggCount}`);
+  await db.execute(sql`DROP TABLE IF EXISTS tmp_sales_geo;`);
+  console.log(`[DataSync]   Total aggregates: ${aggCount} (zip ${zipBatch.length}, city ${cityBatch.length}, county ${countyBatch.length}, nh ${nhBatch.length}, state ${stateBatch.length})`);
   return aggCount;
 }
 
