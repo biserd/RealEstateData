@@ -82,6 +82,7 @@ export interface IStorage {
   getProperty(id: string): Promise<Property | undefined>;
   getPropertyByIdOrSlug(idOrSlug: string): Promise<Property | undefined>;
   getProperties(filters: ScreenerFilters, limit?: number, offset?: number): Promise<Property[]>;
+  getCondoUnitsAsProperties(zipCodes: string[], limit?: number, offset?: number): Promise<Property[]>;
   getPropertiesByArea(geoType: string, geoId: string, limit?: number): Promise<Property[]>;
   getTopOpportunities(limit?: number): Promise<Property[]>;
   getAllPropertiesForSitemap(): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
@@ -627,6 +628,99 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(properties.opportunityScore))
       .limit(limit)
       .offset(offset);
+  }
+
+  // Returns NYC condo UNITS shaped as Property records, using each unit's
+  // most recent arms-length sale as the price. This avoids the building-shell
+  // problem in the legacy properties table where NYC "condo" rows are whole
+  // buildings (4000-6000 sqft, year_built 1870-1920) instead of real units.
+  async getCondoUnitsAsProperties(zipCodes: string[], limit = 50, offset = 0): Promise<Property[]> {
+    if (!zipCodes || zipCodes.length === 0) return [];
+    const result: any = await db.execute(sql`
+      WITH latest_sale AS (
+        SELECT DISTINCT ON (s.unit_bbl)
+          s.unit_bbl, s.sale_price, s.sale_date
+        FROM sales s
+        JOIN condo_units cu ON cu.unit_bbl = s.unit_bbl
+        WHERE cu.zip_code = ANY(${zipCodes})
+          AND s.unit_bbl IS NOT NULL
+          AND s.sale_price >= 100000
+          AND s.sale_date >= NOW() - INTERVAL '36 months'
+        ORDER BY s.unit_bbl, s.sale_date DESC
+      )
+      SELECT
+        cu.unit_bbl                                AS id,
+        cu.unit_bbl                                AS bbl,
+        cu.base_bbl                                AS bbl_normalized,
+        cu.unit_display_address                    AS address,
+        cu.unit_designation                        AS unit,
+        COALESCE(cu.borough, p.city, 'New York')   AS city,
+        'NY'                                       AS state,
+        cu.zip_code                                AS zip_code,
+        p.county                                   AS county,
+        p.neighborhood                             AS neighborhood,
+        cu.latitude                                AS latitude,
+        cu.longitude                               AS longitude,
+        NULL::int                                  AS grid_lat,
+        NULL::int                                  AS grid_lng,
+        'Condo'                                    AS property_type,
+        cu.beds                                    AS beds,
+        cu.baths                                   AS baths,
+        cu.sqft                                    AS sqft,
+        NULL::int                                  AS lot_size,
+        p.year_built                               AS year_built,
+        ls.sale_price                              AS last_sale_price,
+        ls.sale_date                               AS last_sale_date,
+        ls.sale_price                              AS estimated_value,
+        CASE WHEN cu.sqft IS NOT NULL AND cu.sqft >= 100
+             THEN (ls.sale_price::numeric / cu.sqft)::real
+             ELSE NULL
+        END                                        AS price_per_sqft,
+        p.opportunity_score                        AS opportunity_score,
+        p.confidence_level                         AS confidence_level,
+        NULL::text                                 AS image_url,
+        ARRAY['ACRIS','condo_units']::text[]       AS data_sources,
+        cu.created_at                              AS created_at,
+        cu.updated_at                              AS updated_at
+      FROM latest_sale ls
+      JOIN condo_units cu ON cu.unit_bbl = ls.unit_bbl
+      LEFT JOIN properties p ON p.id = cu.building_property_id
+      ORDER BY ls.sale_date DESC, p.opportunity_score DESC NULLS LAST
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    const rows: any[] = result.rows || [];
+    return rows.map((r) => ({
+      id: r.id,
+      bbl: r.bbl,
+      bblNormalized: r.bbl_normalized,
+      address: r.address,
+      unit: r.unit,
+      city: r.city,
+      state: r.state,
+      zipCode: r.zip_code,
+      county: r.county,
+      neighborhood: r.neighborhood,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      gridLat: r.grid_lat,
+      gridLng: r.grid_lng,
+      propertyType: r.property_type,
+      beds: r.beds,
+      baths: r.baths,
+      sqft: r.sqft,
+      lotSize: r.lot_size,
+      yearBuilt: r.year_built,
+      lastSalePrice: r.last_sale_price,
+      lastSaleDate: r.last_sale_date,
+      estimatedValue: r.estimated_value,
+      pricePerSqft: r.price_per_sqft,
+      opportunityScore: r.opportunity_score,
+      confidenceLevel: r.confidence_level,
+      imageUrl: r.image_url,
+      dataSources: r.data_sources,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })) as Property[];
   }
 
   async getPropertiesByArea(geoType: string, geoId: string, limit = 50): Promise<Property[]> {

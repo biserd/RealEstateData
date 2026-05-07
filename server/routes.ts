@@ -3823,7 +3823,29 @@ Sitemap: ${baseUrl}/sitemap.xml
       const limit = Math.min(parseInt(req.query.limit) || 50, 100);
       const offset = parseInt(req.query.offset) || 0;
 
-      const properties = await storage.getProperties(filters, limit, offset);
+      // For NYC ZIP queries, prefer real condo UNITS (with recent sale prices)
+      // over the legacy properties table, which for NYC contains building shells
+      // (whole condo buildings with 1900-era year_built and 4000+ sqft footprints).
+      // Triggers when: caller specifies zipCodes, no city filter, and either no
+      // propertyTypes filter or it includes Condo.
+      const nycZipPrefixes = ["100", "101", "102", "103", "104", "110", "111", "112", "113", "114", "116"];
+      const isNycZipOnly =
+        filters.zipCodes && filters.zipCodes.length > 0 &&
+        (!filters.cities || filters.cities.length === 0) &&
+        filters.zipCodes.every((z) => nycZipPrefixes.some((p) => z.startsWith(p))) &&
+        (!filters.propertyTypes || filters.propertyTypes.length === 0 ||
+          filters.propertyTypes.some((t: string) => t.toLowerCase() === "condo"));
+
+      let properties;
+      if (isNycZipOnly) {
+        properties = await storage.getCondoUnitsAsProperties(filters.zipCodes!, limit, offset);
+        // Apply price/score filters in-memory (small page size)
+        if (filters.priceMin) properties = properties.filter(p => (p.estimatedValue ?? 0) >= filters.priceMin!);
+        if (filters.priceMax) properties = properties.filter(p => (p.estimatedValue ?? 0) <= filters.priceMax!);
+        if (filters.opportunityScoreMin) properties = properties.filter(p => (p.opportunityScore ?? 0) >= filters.opportunityScoreMin!);
+      } else {
+        properties = await storage.getProperties(filters, limit, offset);
+      }
       res.json({
         success: true,
         data: properties,
