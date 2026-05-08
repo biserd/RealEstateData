@@ -636,13 +636,14 @@ export class DatabaseStorage implements IStorage {
   // buildings (4000-6000 sqft, year_built 1870-1920) instead of real units.
   async getCondoUnitsAsProperties(zipCodes: string[], limit = 50, offset = 0): Promise<Property[]> {
     if (!zipCodes || zipCodes.length === 0) return [];
+    const zipList = sql.join(zipCodes.map((z) => sql`${z}`), sql`, `);
     const result: any = await db.execute(sql`
       WITH latest_sale AS (
         SELECT DISTINCT ON (s.unit_bbl)
           s.unit_bbl, s.sale_price, s.sale_date
         FROM sales s
         JOIN condo_units cu ON cu.unit_bbl = s.unit_bbl
-        WHERE cu.zip_code = ANY(${zipCodes})
+        WHERE cu.zip_code IN (${zipList})
           AND s.unit_bbl IS NOT NULL
           AND s.sale_price >= 100000
           AND s.sale_date >= NOW() - INTERVAL '36 months'
