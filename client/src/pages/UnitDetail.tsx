@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NearbySchools } from "@/components/NearbySchools";
 import { PropertyBreadcrumbs, BuildingContext } from "@/components/BuildingContext";
+import { PageNarrative } from "@/components/PageNarrative";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -770,6 +771,7 @@ export default function UnitDetail() {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
+                <PageNarrative kind="unit" refId={unit.unitBbl} />
                 <div className="grid md:grid-cols-2 gap-4">
                   <OpportunityScoreCard 
                     score={opportunityData?.opportunityScore ?? null}

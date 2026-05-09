@@ -14,6 +14,7 @@ import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
 import { sendWelcomeEmail, sendNewUserNotificationToAdmin, sendActivationEmail, sendPasswordResetEmail } from "./emailService";
 import { serveStreetView, serveStaticMap, getCacheStats } from "./services/mapImageCache";
+import { getOrGenerateNarrative } from "./narratives";
 import { usageService, ActionType } from "./usageService";
 import { processDailyDigest, processInstantAlerts, recordPropertyChange } from "./savedSearchService";
 
@@ -516,6 +517,27 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.get("/api/img/cache-stats", async (_req, res) => {
     const stats = await getCacheStats();
     res.json(stats);
+  });
+
+  // Public AI narrative for unit/property pages. Cached in DB, regenerated
+  // every ~90 days. No auth — these are factual SEO summaries grounded in
+  // public sale data.
+  app.get("/api/seo/narrative/:kind/:id", async (req, res) => {
+    try {
+      const kind = req.params.kind;
+      if (kind !== "unit" && kind !== "property") {
+        return res.status(400).json({ error: "kind must be 'unit' or 'property'" });
+      }
+      const refId = String(req.params.id || "").trim();
+      if (!refId) return res.status(400).json({ error: "id required" });
+      const result = await getOrGenerateNarrative(kind, refId);
+      if (!result) return res.status(404).json({ error: "Not found" });
+      res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+      res.json(result);
+    } catch (err) {
+      console.error("[narrative] route error:", err);
+      res.status(500).json({ error: "Internal error" });
+    }
   });
 
   app.get("/api/og/neighborhood/:geoId.png", async (req, res) => {

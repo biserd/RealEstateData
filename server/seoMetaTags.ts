@@ -1,6 +1,7 @@
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
+import { getCachedNarrative, maybeGenerateNarrative } from './narratives';
 
 interface PageMeta {
   title: string;
@@ -654,7 +655,23 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       <ul>${factsList}</ul>
     `;
 
-    const bodyHtml = `${intro}${unitSalesHtml}${buildingSalesHtml}${buildingStatsHtml}${siblingsHtml}${relatedLinksHtml}`;
+    // Static Street View image (proxied/cached server-side) — visible to crawlers without JS.
+    const streetViewHtml = (row.latitude && row.longitude)
+      ? `<p><img src="/api/img/streetview?lat=${Number(row.latitude)}&lng=${Number(row.longitude)}&w=600&h=400" alt="Street view of ${escapeHtml(buildingAddr || displayAddress)}" width="600" height="400" loading="lazy" /></p>`
+      : '';
+
+    // AI narrative — render only if a fresh cached version exists. Otherwise
+    // fire-and-forget background generation so the next crawl has it.
+    const cachedNarrative = await getCachedNarrative('unit', row.unit_bbl);
+    if (!cachedNarrative?.fresh) maybeGenerateNarrative('unit', row.unit_bbl);
+    const narrativeHtml = cachedNarrative?.narrative
+      ? `<h2>Property analysis</h2>${cachedNarrative.narrative
+          .split(/\n\n+/)
+          .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
+          .join('')}`
+      : '';
+
+    const bodyHtml = `${intro}${streetViewHtml}${narrativeHtml}${unitSalesHtml}${buildingSalesHtml}${buildingStatsHtml}${siblingsHtml}${relatedLinksHtml}`;
 
     // Richer JSON-LD: Residence with floorSize/numberOfRooms + Place containedInPlace.
     const residenceJsonLd: Record<string, any> = {
@@ -845,7 +862,20 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       ${factsHtml ? `<ul>${factsHtml}</ul>` : ''}
     `;
 
-    const bodyHtml = `${intro}${salesHtml}${neighborhoodHtml}${compsHtml}${relatedLinksHtml}`;
+    const streetViewHtml = (row.latitude && row.longitude)
+      ? `<p><img src="/api/img/streetview?lat=${Number(row.latitude)}&lng=${Number(row.longitude)}&w=600&h=400" alt="Street view of ${escapeHtml(address)}" width="600" height="400" loading="lazy" /></p>`
+      : '';
+
+    const cachedNarrative = await getCachedNarrative('property', row.id);
+    if (!cachedNarrative?.fresh) maybeGenerateNarrative('property', row.id);
+    const narrativeHtml = cachedNarrative?.narrative
+      ? `<h2>Property analysis</h2>${cachedNarrative.narrative
+          .split(/\n\n+/)
+          .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
+          .join('')}`
+      : '';
+
+    const bodyHtml = `${intro}${streetViewHtml}${narrativeHtml}${salesHtml}${neighborhoodHtml}${compsHtml}${relatedLinksHtml}`;
 
     const jsonLd: Record<string, any> = {
       '@context': 'https://schema.org',

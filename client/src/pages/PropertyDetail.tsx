@@ -55,6 +55,7 @@ import { NycDeepInsights } from "@/components/NycDeepInsights";
 import { NearbySchools } from "@/components/NearbySchools";
 import { PropertyAIInsights } from "@/components/PropertyAIInsights";
 import { BuildingSalesHistory } from "@/components/BuildingSalesHistory";
+import { PageNarrative } from "@/components/PageNarrative";
 import { PropertyCard } from "@/components/PropertyCard";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -756,6 +757,7 @@ export default function PropertyDetail() {
           </div>
 
           <TabsContent value="pricing" className="space-y-6">
+            <PageNarrative kind="property" refId={id!} />
             {isPropertyUnlocked ? (
               <>
                 <div className="grid gap-6 lg:grid-cols-2">

@@ -1340,6 +1340,25 @@ export const insertBuildingSchema = createInsertSchema(buildings).omit({
 export type InsertBuilding = z.infer<typeof insertBuildingSchema>;
 export type Building = typeof buildings.$inferSelect;
 
+// Cached AI-generated narratives for unit/property SEO pages.
+// Regenerated quarterly (90 days) so crawlers see substantive unique prose.
+export const pageNarratives = pgTable(
+  "page_narratives",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    kind: varchar("kind").notNull(),
+    refId: varchar("ref_id").notNull(),
+    narrative: text("narrative").notNull(),
+    model: varchar("model"),
+    generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("page_narratives_kind_ref").on(table.kind, table.refId),
+  ]
+);
+
+export type PageNarrative = typeof pageNarratives.$inferSelect;
+
 // Entity Resolution Map - tracks source record mappings to properties
 // Supports multiple match types with confidence scoring
 export const matchTypes = ["bbl_exact", "unit_registry", "address_normalized", "address_fuzzy", "geoclient"] as const;
