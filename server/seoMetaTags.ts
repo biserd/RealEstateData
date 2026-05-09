@@ -671,7 +671,55 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
           .join('')}`
       : '';
 
-    const bodyHtml = `${intro}${streetViewHtml}${narrativeHtml}${unitSalesHtml}${buildingSalesHtml}${buildingStatsHtml}${siblingsHtml}${relatedLinksHtml}`;
+    // Build a small set of grounded FAQs from the same data. These render as
+    // a definition list in the noscript body AND as FAQPage JSON-LD so Google
+    // can show them as rich results.
+    const faqs: Array<{ q: string; a: string }> = [];
+    if (lastSale && priceNum) {
+      faqs.push({
+        q: `When did ${displayAddress} last sell?`,
+        a: `On ${String(lastSale.sale_date).slice(0, 10)} for ${formatPrice(priceNum)} (verified ACRIS record).`,
+      });
+    }
+    if (priceNum && medianPrice && buildingSaleCount >= 3) {
+      const diffPct = Math.round(((priceNum - medianPrice) / medianPrice) * 100);
+      const direction = diffPct < 0 ? `${Math.abs(diffPct)}% below` : diffPct > 0 ? `${diffPct}% above` : 'in line with';
+      faqs.push({
+        q: `How does this unit compare to other sales in ${buildingAddr || 'the building'}?`,
+        a: `The last recorded sale of ${formatPrice(priceNum)} sits ${direction} the building median of ${formatPrice(medianPrice)} across ${buildingSaleCount} sales in the past 36 months.`,
+      });
+    }
+    if (medianPrice && buildingSaleCount >= 3) {
+      faqs.push({
+        q: `How active is the sales market at ${buildingAddr || 'this building'}?`,
+        a: `${buildingSaleCount} verified condo sales recorded in the past 36 months, with a median price of ${formatPrice(medianPrice)} and a range of ${formatPrice(Number(stats.min_price))} to ${formatPrice(Number(stats.max_price))}.`,
+      });
+    }
+    if (beds || baths || sqftNum) {
+      const parts = [
+        beds ? `${beds} bedroom${beds === 1 ? '' : 's'}` : null,
+        baths ? `${baths} bathroom${baths === 1 ? '' : 's'}` : null,
+        sqftNum ? `${sqftNum.toLocaleString()} square feet` : null,
+      ].filter(Boolean).join(', ');
+      faqs.push({
+        q: `What is the floor plan of ${displayAddress}?`,
+        a: `Public records list this unit as ${parts}.`,
+      });
+    }
+    if (zip) {
+      faqs.push({
+        q: `What ZIP code is ${displayAddress} in?`,
+        a: `${zip}${borough ? `, in ${borough}` : ''}. See the full neighborhood report for ${zip} for market trends and comparable sales.`,
+      });
+    }
+
+    const faqHtml = faqs.length
+      ? `<h2>Frequently asked questions</h2><dl>${faqs
+          .map((f) => `<dt><strong>${escapeHtml(f.q)}</strong></dt><dd>${escapeHtml(f.a)}</dd>`)
+          .join('')}</dl>`
+      : '';
+
+    const bodyHtml = `${intro}${streetViewHtml}${narrativeHtml}${unitSalesHtml}${buildingSalesHtml}${buildingStatsHtml}${siblingsHtml}${faqHtml}${relatedLinksHtml}`;
 
     // Richer JSON-LD: Residence with floorSize/numberOfRooms + Place containedInPlace.
     const residenceJsonLd: Record<string, any> = {
@@ -706,14 +754,40 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       };
     }
 
+    const canonicalUnitPath = `/unit/${row.slug || row.unit_bbl}`;
+
+    const breadcrumbJsonLd: Record<string, any> = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        ...(borough ? [{ '@type': 'ListItem', position: 2, name: borough, item: `${SITE_URL}/browse/ny` }] : []),
+        ...(buildingAddr ? [{ '@type': 'ListItem', position: borough ? 3 : 2, name: buildingAddr, item: `${SITE_URL}/building/${row.base_bbl}` }] : []),
+        { '@type': 'ListItem', position: (borough ? 1 : 0) + (buildingAddr ? 1 : 0) + 2, name: row.unit_designation || displayAddress, item: `${SITE_URL}${canonicalUnitPath}` },
+      ],
+    };
+
+    const jsonLdArr: Record<string, any>[] = [residenceJsonLd, breadcrumbJsonLd];
+    if (faqs.length) {
+      jsonLdArr.push({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqs.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a },
+        })),
+      });
+    }
+
     return {
       title,
       description,
       ogType: 'website',
-      canonicalPath: `/unit/${row.slug || row.unit_bbl}`,
+      canonicalPath: canonicalUnitPath,
       h1: displayAddress,
       bodyHtml,
-      jsonLd: residenceJsonLd,
+      jsonLd: jsonLdArr,
     };
   } catch (err) {
     console.error('[SEO] Error fetching unit meta:', err);
@@ -875,7 +949,53 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
           .join('')}`
       : '';
 
-    const bodyHtml = `${intro}${streetViewHtml}${narrativeHtml}${salesHtml}${neighborhoodHtml}${compsHtml}${relatedLinksHtml}`;
+    const propFaqs: Array<{ q: string; a: string }> = [];
+    if (lastSalePriceNum && row.last_sale_date) {
+      propFaqs.push({
+        q: `When did ${address} last sell?`,
+        a: `On ${String(row.last_sale_date).slice(0, 10)} for ${formatPrice(lastSalePriceNum)} (verified public record).`,
+      });
+    }
+    if (lastSalePriceNum && zipMedian) {
+      const diffPct = Math.round(((lastSalePriceNum - zipMedian) / zipMedian) * 100);
+      const direction = diffPct < 0 ? `${Math.abs(diffPct)}% below` : diffPct > 0 ? `${diffPct}% above` : 'in line with';
+      propFaqs.push({
+        q: `How does this property compare to other sales in ZIP ${zip}?`,
+        a: `The last recorded sale of ${formatPrice(lastSalePriceNum)} sits ${direction} the ZIP median of ${formatPrice(zipMedian)} across ${zipCount.toLocaleString()} tracked properties.`,
+      });
+    }
+    if (priceNum) {
+      propFaqs.push({
+        q: `What is ${address} worth?`,
+        a: `Our model estimates ${formatPrice(priceNum)}${score ? `, with an opportunity score of ${score}/100` : ''}. See the methodology page for how this is calculated.`,
+      });
+    }
+    if (beds || baths || sqftNum || yearBuilt) {
+      const parts = [
+        beds ? `${beds} bedroom${beds === 1 ? '' : 's'}` : null,
+        baths ? `${baths} bathroom${baths === 1 ? '' : 's'}` : null,
+        sqftNum ? `${sqftNum.toLocaleString()} square feet` : null,
+        yearBuilt ? `built in ${yearBuilt}` : null,
+      ].filter(Boolean).join(', ');
+      propFaqs.push({
+        q: `What are the basic details of ${address}?`,
+        a: `Public records list this ${(type || 'property').toLowerCase()} as ${parts}.`,
+      });
+    }
+    if (zip) {
+      propFaqs.push({
+        q: `What neighborhood is ${address} in?`,
+        a: `${city ? `${city}, ` : ''}${state} (ZIP ${zip}). See the full neighborhood report for ${zip} for market trends and comparable sales.`,
+      });
+    }
+
+    const propFaqHtml = propFaqs.length
+      ? `<h2>Frequently asked questions</h2><dl>${propFaqs
+          .map((f) => `<dt><strong>${escapeHtml(f.q)}</strong></dt><dd>${escapeHtml(f.a)}</dd>`)
+          .join('')}</dl>`
+      : '';
+
+    const bodyHtml = `${intro}${streetViewHtml}${narrativeHtml}${salesHtml}${neighborhoodHtml}${compsHtml}${propFaqHtml}${relatedLinksHtml}`;
 
     const jsonLd: Record<string, any> = {
       '@context': 'https://schema.org',
@@ -910,14 +1030,40 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       };
     }
 
+    const canonicalPropertyPath = `/properties/${slug}`;
+
+    const propBreadcrumb: Record<string, any> = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        ...(state ? [{ '@type': 'ListItem', position: 2, name: STATE_NAMES[state] || state, item: `${SITE_URL}/browse/${state.toLowerCase()}` }] : []),
+        ...(state && city ? [{ '@type': 'ListItem', position: 3, name: city, item: `${SITE_URL}/browse/${state.toLowerCase()}/${encodeURIComponent(city.toLowerCase())}` }] : []),
+        { '@type': 'ListItem', position: (state ? 1 : 0) + (state && city ? 1 : 0) + 2, name: address, item: `${SITE_URL}${canonicalPropertyPath}` },
+      ],
+    };
+
+    const propJsonLdArr: Record<string, any>[] = [jsonLd, propBreadcrumb];
+    if (propFaqs.length) {
+      propJsonLdArr.push({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: propFaqs.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a },
+        })),
+      });
+    }
+
     return {
       title,
       description,
       ogType: 'website',
-      canonicalPath: `/properties/${slug}`,
+      canonicalPath: canonicalPropertyPath,
       h1: address,
       bodyHtml,
-      jsonLd,
+      jsonLd: propJsonLdArr,
     };
   } catch (err) {
     console.error('[SEO] Error fetching property meta:', err);

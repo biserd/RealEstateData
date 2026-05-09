@@ -88,7 +88,7 @@ export interface IStorage {
   getAllPropertiesForSitemap(): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   getPropertyCountForSitemap(): Promise<number>;
   getPropertyCountForSitemapEligible(): Promise<number>;
-  getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
+  getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Array<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'> & { lastSaleDate: Date | null; updatedAt: Date | null }>>;
   getPropertiesForSitemapPaginated(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property | undefined>;
@@ -435,6 +435,7 @@ export interface IStorage {
     unitDesignation: string | null;
     buildingDisplayAddress: string | null;
     borough: string | null;
+    lastSaleDate: Date | null;
   }>>;
   getUnitsForSitemapPaginated(limit: number, offset: number): Promise<Array<{
     unitBbl: string;
@@ -818,9 +819,9 @@ export class DatabaseStorage implements IStorage {
     return Number(result.rows?.[0]?.count || 0);
   }
 
-  async getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]> {
+  async getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Array<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'> & { lastSaleDate: Date | null; updatedAt: Date | null }>> {
     const result: any = await db.execute(sql`
-      SELECT p.id, p.address, p.city, p.zip_code
+      SELECT p.id, p.address, p.city, p.zip_code, p.last_sale_date, p.updated_at
       FROM properties p
       WHERE p.latitude IS NOT NULL
         AND p.longitude IS NOT NULL
@@ -836,6 +837,8 @@ export class DatabaseStorage implements IStorage {
       address: r.address,
       city: r.city,
       zipCode: r.zip_code,
+      lastSaleDate: r.last_sale_date ? new Date(r.last_sale_date) : null,
+      updatedAt: r.updated_at ? new Date(r.updated_at) : null,
     }));
   }
 
@@ -2908,10 +2911,16 @@ export class DatabaseStorage implements IStorage {
     unitDesignation: string | null;
     buildingDisplayAddress: string | null;
     borough: string | null;
+    lastSaleDate: Date | null;
   }>> {
     const result: any = await db.execute(sql`
       SELECT cu.unit_bbl, cu.slug, cu.unit_designation,
-             cu.building_display_address, cu.borough
+             cu.building_display_address, cu.borough,
+             (
+               SELECT MAX(s.sale_date) FROM sales s
+               WHERE (s.unit_bbl = cu.unit_bbl OR s.base_bbl = cu.base_bbl)
+                 AND s.sale_price >= 100000
+             ) AS last_sale_date
       FROM condo_units cu
       WHERE cu.unit_type_hint = 'residential'
         AND cu.latitude IS NOT NULL
@@ -2931,6 +2940,7 @@ export class DatabaseStorage implements IStorage {
       unitDesignation: r.unit_designation,
       buildingDisplayAddress: r.building_display_address,
       borough: r.borough,
+      lastSaleDate: r.last_sale_date ? new Date(r.last_sale_date) : null,
     }));
   }
 

@@ -589,9 +589,13 @@ Sitemap: ${baseUrl}/sitemap.xml
       
       for (const property of properties) {
         const slug = generateSitemapSlug(property);
+        const mod = property.lastSaleDate || property.updatedAt;
+        const lastmod = mod
+          ? new Date(mod).toISOString().split("T")[0]
+          : today;
         xml += `  <url>
     <loc>${baseUrl}/properties/${slug}</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -637,9 +641,12 @@ Sitemap: ${baseUrl}/sitemap.xml
       
       for (const unit of units) {
         const slug = unit.slug || generateUnitSlug(unit);
+        const lastmod = unit.lastSaleDate
+          ? new Date(unit.lastSaleDate).toISOString().split("T")[0]
+          : today;
         xml += `  <url>
     <loc>${baseUrl}/unit/${slug}</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
