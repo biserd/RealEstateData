@@ -33,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NearbySchools } from "@/components/NearbySchools";
 import { PropertyBreadcrumbs, BuildingContext } from "@/components/BuildingContext";
 import { PageNarrative } from "@/components/PageNarrative";
+import { PageFaq, buildUnitFaq } from "@/components/PageFaq";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -898,6 +899,22 @@ export default function UnitDetail() {
                 <NearbySchools
                   latitude={(unit as any).latitude}
                   longitude={(unit as any).longitude}
+                />
+
+                <PageFaq
+                  items={buildUnitFaq({
+                    displayAddress: unit.unitDisplayAddress || `${unit.buildingDisplayAddress}, ${unitTitle}`,
+                    buildingAddress: unit.buildingDisplayAddress,
+                    borough: unit.borough,
+                    zipCode: unit.zipCode,
+                    lastSalePrice: lastSale?.salePrice ?? opportunityData?.lastSalePrice ?? null,
+                    lastSaleDate: lastSale?.saleDate ?? opportunityData?.lastSaleDate ?? null,
+                    buildingMedianPrice: opportunityData?.buildingMedianPrice ?? null,
+                    buildingSalesCount: opportunityData?.buildingSales?.length ?? null,
+                    beds: (unit as any).beds ?? null,
+                    baths: (unit as any).baths ?? null,
+                    sqft: (unit as any).sqft ?? null,
+                  })}
                 />
               </TabsContent>
 

@@ -56,6 +56,7 @@ import { NearbySchools } from "@/components/NearbySchools";
 import { PropertyAIInsights } from "@/components/PropertyAIInsights";
 import { BuildingSalesHistory } from "@/components/BuildingSalesHistory";
 import { PageNarrative } from "@/components/PageNarrative";
+import { PageFaq, buildPropertyFaq } from "@/components/PageFaq";
 import { PropertyCard } from "@/components/PropertyCard";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -876,6 +877,24 @@ export default function PropertyDetail() {
                 </div>
               </div>
             )}
+
+            <PageFaq
+              items={buildPropertyFaq({
+                address: property.address,
+                city: property.city,
+                state: property.state,
+                zipCode: property.zipCode,
+                lastSalePrice: property.lastSalePrice ?? null,
+                lastSaleDate: property.lastSaleDate ?? null,
+                estimatedValue: property.estimatedValue ?? null,
+                opportunityScore: property.opportunityScore ?? null,
+                beds: property.beds ?? null,
+                baths: property.baths ?? null,
+                sqft: property.sqft ?? null,
+                yearBuilt: property.yearBuilt ?? null,
+                propertyType: property.propertyType ?? null,
+              })}
+            />
           </TabsContent>
 
           <TabsContent value="comps" className="space-y-6">
