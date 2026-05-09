@@ -2,7 +2,7 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 import OpenAI from "openai";
 
-const MODEL = "gpt-5";
+const MODEL = "gpt-5-mini";
 const STALE_AFTER_DAYS = 90;
 const MAX_NARRATIVE_TOKENS = 4096;
 
