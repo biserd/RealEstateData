@@ -501,64 +501,167 @@ const STATE_NAMES: Record<string, string> = {
 
 async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
   try {
-    const result = await db.execute(sql`
-      SELECT 
-        cu.unit_bbl,
-        cu.unit_designation,
-        cu.unit_display_address,
-        cu.building_display_address,
-        cu.borough,
-        cu.zip_code,
-        cu.slug,
-        cu.latitude,
-        cu.longitude,
-        s.sale_price,
-        s.sale_date
+    const unitRes = await db.execute(sql`
+      SELECT cu.unit_bbl, cu.base_bbl, cu.unit_designation, cu.unit_display_address,
+             cu.building_display_address, cu.borough, cu.zip_code, cu.slug,
+             cu.latitude, cu.longitude, cu.beds, cu.baths, cu.sqft, cu.unit_type_hint
       FROM condo_units cu
-      LEFT JOIN LATERAL (
-        SELECT sale_price, sale_date 
-        FROM sales 
-        WHERE unit_bbl = cu.unit_bbl 
-        ORDER BY sale_date DESC 
-        LIMIT 1
-      ) s ON true
       WHERE cu.unit_bbl = ${unitBbl} OR cu.slug = ${unitBbl}
       LIMIT 1
     `);
+    if (unitRes.rows.length === 0) return null;
+    const row = unitRes.rows[0] as any;
 
-    if (result.rows.length === 0) return null;
+    // Pull related context in parallel for a single round-trip-equivalent payload.
+    const [unitSalesRes, buildingSalesRes, siblingUnitsRes, buildingStatsRes] = await Promise.all([
+      db.execute(sql`
+        SELECT sale_price, sale_date FROM sales
+        WHERE unit_bbl = ${row.unit_bbl}
+        ORDER BY sale_date DESC LIMIT 8
+      `),
+      db.execute(sql`
+        SELECT s.sale_price, s.sale_date, s.raw_apt_number, s.unit_bbl,
+               cu.slug, cu.unit_designation
+        FROM sales s
+        LEFT JOIN condo_units cu ON cu.unit_bbl = s.unit_bbl
+        WHERE s.base_bbl = ${row.base_bbl}
+          AND s.unit_bbl IS DISTINCT FROM ${row.unit_bbl}
+          AND s.sale_price >= 100000
+        ORDER BY s.sale_date DESC LIMIT 8
+      `),
+      db.execute(sql`
+        SELECT cu.unit_bbl, cu.unit_designation, cu.slug, cu.beds, cu.baths, cu.sqft
+        FROM condo_units cu
+        WHERE cu.base_bbl = ${row.base_bbl}
+          AND cu.unit_bbl != ${row.unit_bbl}
+          AND cu.unit_type_hint = 'residential'
+        ORDER BY cu.unit_designation NULLS LAST
+        LIMIT 6
+      `),
+      db.execute(sql`
+        SELECT
+          COUNT(*) FILTER (WHERE sale_price >= 100000)::int AS sale_count,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price)
+            FILTER (WHERE sale_price >= 100000) AS median_price,
+          MIN(sale_price) FILTER (WHERE sale_price >= 100000) AS min_price,
+          MAX(sale_price) FILTER (WHERE sale_price >= 100000) AS max_price,
+          MAX(sale_date) FILTER (WHERE sale_price >= 100000) AS last_sale
+        FROM sales
+        WHERE base_bbl = ${row.base_bbl}
+          AND sale_date >= NOW() - INTERVAL '36 months'
+      `),
+    ]);
 
-    const row = result.rows[0] as any;
+    const unitSales = unitSalesRes.rows as any[];
+    const buildingSales = buildingSalesRes.rows as any[];
+    const siblings = siblingUnitsRes.rows as any[];
+    const stats = (buildingStatsRes.rows[0] || {}) as any;
+
+    const lastSale = unitSales[0];
+    const priceNum = lastSale?.sale_price ? Number(lastSale.sale_price) : null;
+    const price = priceNum ? formatPrice(priceNum) : null;
     const borough = row.borough ? titleCase(row.borough) : '';
     const zip = row.zip_code || '';
-    const priceNum = row.sale_price ? Number(row.sale_price) : null;
-    const price = priceNum ? formatPrice(priceNum) : null;
-
+    const buildingAddr = row.building_display_address ? titleCase(row.building_display_address) : 'Building';
     const displayAddress = row.unit_display_address
       ? titleCase(row.unit_display_address)
-      : row.building_display_address
-        ? `${titleCase(row.building_display_address)}${row.unit_designation ? `, ${row.unit_designation}` : ''}`
-        : 'Property';
+      : `${buildingAddr}${row.unit_designation ? `, ${row.unit_designation}` : ''}`;
 
     const locationParts = [borough, zip].filter(Boolean).join(' ');
     const title = `${displayAddress}${locationParts ? ` - ${locationParts}` : ''} | Realtors Dashboard`;
 
-    let description = `View details for ${displayAddress}`;
-    if (locationParts) description += ` in ${locationParts}`;
-    description += '.';
-    if (price) description += ` Last sale: ${price}.`;
-    description += ' Verified transaction data, opportunity scoring, and market comparisons.';
+    const beds = row.beds ? Number(row.beds) : null;
+    const baths = row.baths ? Number(row.baths) : null;
+    const sqftNum = row.sqft ? Number(row.sqft) : null;
+    const medianPrice = stats.median_price ? Number(stats.median_price) : null;
+    const buildingSaleCount = stats.sale_count ? Number(stats.sale_count) : 0;
 
-    const bodyHtml = `
-      <p><strong>Address:</strong> ${escapeHtml(displayAddress)}${borough ? `, ${escapeHtml(borough)}` : ''}${zip ? ` ${escapeHtml(zip)}` : ', NY'}</p>
-      ${price ? `<p><strong>Last recorded sale:</strong> ${escapeHtml(price)}${row.sale_date ? ` on ${escapeHtml(String(row.sale_date).slice(0, 10))}` : ''}</p>` : ''}
-      <p>This page shows verified transaction history, opportunity scoring, building-level price trends, and comparable sales for this condo unit.</p>
+    const descParts: string[] = [];
+    if (price) descParts.push(`last sold ${price}`);
+    if (beds) descParts.push(`${beds} bed${beds === 1 ? '' : 's'}`);
+    if (baths) descParts.push(`${baths} bath${baths === 1 ? '' : 's'}`);
+    if (sqftNum) descParts.push(`${sqftNum.toLocaleString()} sqft`);
+    if (medianPrice && buildingSaleCount >= 3) {
+      descParts.push(`building median ${formatPrice(medianPrice)} (${buildingSaleCount} recent sales)`);
+    }
+    let description = `${displayAddress}${locationParts ? ` in ${locationParts}` : ''}. `;
+    description += descParts.length
+      ? descParts.join(', ') + '. '
+      : '';
+    description += 'Verified ACRIS sale history, opportunity score, building comps, and market context.';
+    description = description.slice(0, 300);
+
+    // Build the noscript body — this is what crawlers actually index.
+    const factsList = [
+      buildingAddr ? `<li><strong>Building:</strong> <a href="/building/${escapeHtml(row.base_bbl)}">${escapeHtml(buildingAddr)}</a></li>` : '',
+      row.unit_designation ? `<li><strong>Unit:</strong> ${escapeHtml(row.unit_designation)}</li>` : '',
+      borough ? `<li><strong>Borough:</strong> ${escapeHtml(borough)}</li>` : '',
+      zip ? `<li><strong>ZIP code:</strong> <a href="/neighborhood/${escapeHtml(zip)}?geoType=zip">${escapeHtml(zip)}</a></li>` : '',
+      beds ? `<li><strong>Bedrooms:</strong> ${beds}</li>` : '',
+      baths ? `<li><strong>Bathrooms:</strong> ${baths}</li>` : '',
+      sqftNum ? `<li><strong>Square feet:</strong> ${sqftNum.toLocaleString()}</li>` : '',
+      `<li><strong>Unit BBL:</strong> ${escapeHtml(row.unit_bbl)}</li>`,
+    ].filter(Boolean).join('');
+
+    const unitSalesHtml = unitSales.length
+      ? `<h2>Sale history for this unit</h2>
+         <p>This condo unit has ${unitSales.length} recorded transaction${unitSales.length === 1 ? '' : 's'} in our verified ACRIS dataset.</p>
+         <ul>${unitSales.map(s => `<li>${escapeHtml(formatPrice(Number(s.sale_price)))} on ${escapeHtml(String(s.sale_date).slice(0, 10))}</li>`).join('')}</ul>`
+      : `<h2>Sale history for this unit</h2><p>No verified transactions are currently recorded for this specific unit in our dataset. See building-level activity below for context.</p>`;
+
+    const buildingSalesHtml = buildingSales.length
+      ? `<h2>Recent sales in the same building</h2>
+         <p>${buildingSales.length} other recorded transactions at ${escapeHtml(buildingAddr)} help benchmark this unit.</p>
+         <ul>${buildingSales.map(s => {
+            const url = s.slug ? `/unit/${escapeHtml(s.slug)}` : (s.unit_bbl ? `/unit/${escapeHtml(s.unit_bbl)}` : null);
+            const label = `${s.raw_apt_number || s.unit_designation || 'Unit'} — ${formatPrice(Number(s.sale_price))} on ${String(s.sale_date).slice(0, 10)}`;
+            return `<li>${url ? `<a href="${url}">${escapeHtml(label)}</a>` : escapeHtml(label)}</li>`;
+         }).join('')}</ul>`
+      : '';
+
+    const buildingStatsHtml = (medianPrice && buildingSaleCount >= 3) ? `
+      <h2>Building market context</h2>
+      <p>Across the past 36 months, ${escapeHtml(buildingAddr)} recorded ${buildingSaleCount} verified sale${buildingSaleCount === 1 ? '' : 's'}.
+      Median price was ${escapeHtml(formatPrice(medianPrice))}, with a range of
+      ${escapeHtml(formatPrice(Number(stats.min_price)))} to ${escapeHtml(formatPrice(Number(stats.max_price)))}.
+      ${priceNum ? `This unit's last recorded sale of ${escapeHtml(price!)} ${priceNum < medianPrice ? 'sits below' : priceNum > medianPrice ? 'sits above' : 'matches'} the building median.` : ''}</p>
+    ` : '';
+
+    const siblingsHtml = siblings.length
+      ? `<h2>Other units in this building</h2>
+         <ul>${siblings.map(u => {
+            const url = u.slug ? `/unit/${escapeHtml(u.slug)}` : `/unit/${escapeHtml(u.unit_bbl)}`;
+            const label = `${u.unit_designation || 'Unit'}${u.beds ? ` · ${u.beds} bed` : ''}${u.baths ? ` · ${u.baths} bath` : ''}${u.sqft ? ` · ${Number(u.sqft).toLocaleString()} sqft` : ''}`;
+            return `<li><a href="${url}">${escapeHtml(label)}</a></li>`;
+         }).join('')}</ul>`
+      : '';
+
+    const relatedLinksHtml = `
+      <h2>Explore related</h2>
+      <ul>
+        <li><a href="/building/${escapeHtml(row.base_bbl)}">All units at ${escapeHtml(buildingAddr)}</a></li>
+        ${zip ? `<li><a href="/neighborhood/${escapeHtml(zip)}?geoType=zip">Neighborhood report for ${escapeHtml(zip)}</a></li>` : ''}
+        ${borough ? `<li><a href="/browse/ny">Browse condos in New York</a></li>` : ''}
+        <li><a href="/screener">Opportunity screener — find underpriced condos</a></li>
+        <li><a href="/methodology/opportunity-score">How the opportunity score is calculated</a></li>
+      </ul>
     `;
 
-    const jsonLd: Record<string, any> = {
+    const intro = `
+      <p>${escapeHtml(displayAddress)}${locationParts ? ` is located in ${escapeHtml(locationParts)}` : ''}.
+      This page combines verified ACRIS sale history, our proprietary opportunity score, building-level price trends, and
+      comparable transactions${beds ? ` for similar ${beds}-bedroom units` : ''} to help buyers and investors evaluate this condo.</p>
+      <ul>${factsList}</ul>
+    `;
+
+    const bodyHtml = `${intro}${unitSalesHtml}${buildingSalesHtml}${buildingStatsHtml}${siblingsHtml}${relatedLinksHtml}`;
+
+    // Richer JSON-LD: Residence with floorSize/numberOfRooms + Place containedInPlace.
+    const residenceJsonLd: Record<string, any> = {
       '@context': 'https://schema.org',
       '@type': 'Residence',
       name: displayAddress,
+      url: `${SITE_URL}/unit/${row.slug || row.unit_bbl}`,
       address: {
         '@type': 'PostalAddress',
         streetAddress: displayAddress,
@@ -568,11 +671,21 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
         addressCountry: 'US',
       },
     };
+    if (sqftNum) residenceJsonLd.floorSize = { '@type': 'QuantitativeValue', value: sqftNum, unitCode: 'FTK' };
+    if (beds) residenceJsonLd.numberOfRooms = beds;
     if (row.latitude && row.longitude) {
-      jsonLd.geo = {
+      residenceJsonLd.geo = {
         '@type': 'GeoCoordinates',
         latitude: Number(row.latitude),
         longitude: Number(row.longitude),
+      };
+    }
+    if (lastSale && priceNum) {
+      residenceJsonLd.subjectOf = {
+        '@type': 'Event',
+        name: 'Last recorded sale',
+        startDate: String(lastSale.sale_date).slice(0, 10),
+        about: { '@type': 'PriceSpecification', price: priceNum, priceCurrency: 'USD' },
       };
     }
 
@@ -583,7 +696,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       canonicalPath: `/unit/${row.slug || row.unit_bbl}`,
       h1: displayAddress,
       bodyHtml,
-      jsonLd,
+      jsonLd: residenceJsonLd,
     };
   } catch (err) {
     console.error('[SEO] Error fetching unit meta:', err);
@@ -603,37 +716,60 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
   try {
     const propertyId = extractPropertyId(slug);
     const result = await db.execute(sql`
-      SELECT 
-        address,
-        city,
-        state,
-        zip_code,
-        property_type,
-        estimated_value,
-        sqft,
-        beds,
-        baths,
-        year_built,
-        opportunity_score,
-        latitude,
-        longitude
-      FROM properties
-      WHERE id = ${propertyId}
-      LIMIT 1
+      SELECT id, address, city, state, zip_code, property_type, estimated_value,
+             last_sale_price, last_sale_date, sqft, beds, baths, year_built,
+             opportunity_score, latitude, longitude
+      FROM properties WHERE id = ${propertyId} LIMIT 1
     `);
-
     if (result.rows.length === 0) return null;
-
     const row = result.rows[0] as any;
+
+    // Pull related data in parallel.
+    const [salesRes, compsRes, zipStatsRes] = await Promise.all([
+      db.execute(sql`
+        SELECT sale_price, sale_date FROM sales
+        WHERE property_id = ${row.id}
+        ORDER BY sale_date DESC LIMIT 8
+      `),
+      row.zip_code
+        ? db.execute(sql`
+            SELECT id, address, city, last_sale_price, last_sale_date,
+                   beds, baths, sqft, opportunity_score
+            FROM properties
+            WHERE zip_code = ${row.zip_code}
+              AND id != ${row.id}
+              AND last_sale_price > 0
+              AND latitude IS NOT NULL
+            ORDER BY last_sale_date DESC NULLS LAST
+            LIMIT 6
+          `)
+        : Promise.resolve({ rows: [] } as any),
+      row.zip_code
+        ? db.execute(sql`
+            SELECT
+              COUNT(*) FILTER (WHERE last_sale_price > 0)::int AS sale_count,
+              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY last_sale_price)
+                FILTER (WHERE last_sale_price > 0) AS median_price,
+              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)
+                FILTER (WHERE estimated_value > 0) AS median_estimate
+            FROM properties WHERE zip_code = ${row.zip_code}
+          `)
+        : Promise.resolve({ rows: [{}] } as any),
+    ]);
+
+    const sales = (salesRes as any).rows as any[];
+    const comps = (compsRes as any).rows as any[];
+    const zipStats = ((zipStatsRes as any).rows[0] || {}) as any;
+
     const address = titleCase(row.address || 'Property');
     const city = row.city ? titleCase(row.city) : '';
     const state = row.state || '';
     const zip = row.zip_code || '';
     const priceNum = row.estimated_value ? Number(row.estimated_value) : null;
     const price = priceNum ? formatPrice(priceNum) : null;
+    const lastSalePriceNum = row.last_sale_price ? Number(row.last_sale_price) : null;
     const type = row.property_type || '';
     const sqftNum = row.sqft ? Number(row.sqft) : null;
-    const sqft = sqftNum ? sqftNum.toLocaleString() : null;
     const beds = row.beds ? Number(row.beds) : null;
     const baths = row.baths ? Number(row.baths) : null;
     const yearBuilt = row.year_built ? Number(row.year_built) : null;
@@ -644,35 +780,78 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
 
     const descParts: string[] = [];
     if (type) descParts.push(type);
-    if (price) descParts.push(`estimated at ${price}`);
-    if (sqft) descParts.push(`${sqft} sqft`);
+    if (price) descParts.push(`est. ${price}`);
+    if (lastSalePriceNum) descParts.push(`last sold ${formatPrice(lastSalePriceNum)}`);
+    if (sqftNum) descParts.push(`${sqftNum.toLocaleString()} sqft`);
     if (score && score >= 60) descParts.push(`opportunity score ${score}/100`);
 
-    let description = `${address}`;
-    if (locationParts) description += `, ${locationParts}`;
-    if (descParts.length > 0) description += ` - ${descParts.join(', ')}`;
-    description += '. View detailed analysis, market comparisons, and AI insights on Realtors Dashboard.';
+    let description = `${address}${locationParts ? `, ${locationParts}` : ''}`;
+    if (descParts.length) description += ` — ${descParts.join(', ')}`;
+    description += '. Verified sale history, comparable sales, neighborhood context, and AI insights.';
+    description = description.slice(0, 300);
 
     const factsHtml = [
       type ? `<li><strong>Property type:</strong> ${escapeHtml(type)}</li>` : '',
       price ? `<li><strong>Estimated value:</strong> ${escapeHtml(price)}</li>` : '',
-      sqft ? `<li><strong>Square footage:</strong> ${escapeHtml(sqft)} sqft</li>` : '',
+      lastSalePriceNum ? `<li><strong>Last sale:</strong> ${escapeHtml(formatPrice(lastSalePriceNum))}${row.last_sale_date ? ` on ${escapeHtml(String(row.last_sale_date).slice(0, 10))}` : ''}</li>` : '',
+      sqftNum ? `<li><strong>Square footage:</strong> ${sqftNum.toLocaleString()} sqft</li>` : '',
       beds ? `<li><strong>Bedrooms:</strong> ${beds}</li>` : '',
       baths ? `<li><strong>Bathrooms:</strong> ${baths}</li>` : '',
       yearBuilt ? `<li><strong>Year built:</strong> ${yearBuilt}</li>` : '',
       score ? `<li><strong>Opportunity score:</strong> ${score}/100</li>` : '',
+      zip ? `<li><strong>ZIP:</strong> <a href="/neighborhood/${escapeHtml(zip)}?geoType=zip">${escapeHtml(zip)}</a></li>` : '',
     ].filter(Boolean).join('');
 
-    const bodyHtml = `
-      <p><strong>Address:</strong> ${escapeHtml(address)}${locationParts ? `, ${escapeHtml(locationParts)}` : ''}</p>
-      ${factsHtml ? `<ul>${factsHtml}</ul>` : ''}
-      <p>This page shows property details, opportunity scoring, comparable sales, market context, and AI-generated insights.</p>
+    const salesHtml = sales.length
+      ? `<h2>Sale history</h2>
+         <p>${sales.length} verified transaction${sales.length === 1 ? '' : 's'} on record for this property.</p>
+         <ul>${sales.map(s => `<li>${escapeHtml(formatPrice(Number(s.sale_price)))} on ${escapeHtml(String(s.sale_date).slice(0, 10))}</li>`).join('')}</ul>`
+      : '';
+
+    const compsHtml = comps.length
+      ? `<h2>Comparable properties in ${escapeHtml(zip)}</h2>
+         <ul>${comps.map(c => {
+            const label = `${titleCase(c.address || '')}${c.last_sale_price ? ` — ${formatPrice(Number(c.last_sale_price))}` : ''}${c.beds ? `, ${c.beds} bd` : ''}${c.baths ? `/${c.baths} ba` : ''}${c.sqft ? `, ${Number(c.sqft).toLocaleString()} sqft` : ''}`;
+            return `<li><a href="/properties/${escapeHtml(c.id)}">${escapeHtml(label)}</a></li>`;
+         }).join('')}</ul>`
+      : '';
+
+    const zipMedian = zipStats.median_price ? Number(zipStats.median_price) : null;
+    const zipEstMedian = zipStats.median_estimate ? Number(zipStats.median_estimate) : null;
+    const zipCount = zipStats.sale_count ? Number(zipStats.sale_count) : 0;
+    const neighborhoodHtml = (zipMedian || zipEstMedian) ? `
+      <h2>Neighborhood context</h2>
+      <p>${escapeHtml(zip)}${city ? ` (${escapeHtml(city)})` : ''} contains ${zipCount.toLocaleString()} tracked properties with sale history.
+      ${zipMedian ? `Median recorded sale price: ${escapeHtml(formatPrice(zipMedian))}.` : ''}
+      ${zipEstMedian ? ` Median estimated value: ${escapeHtml(formatPrice(zipEstMedian))}.` : ''}
+      ${(lastSalePriceNum && zipMedian) ? ` This property's last sale ${lastSalePriceNum < zipMedian ? 'sits below' : lastSalePriceNum > zipMedian ? 'sits above' : 'matches'} the ZIP median.` : ''}</p>
+    ` : '';
+
+    const relatedLinksHtml = `
+      <h2>Explore related</h2>
+      <ul>
+        ${zip ? `<li><a href="/neighborhood/${escapeHtml(zip)}?geoType=zip">Full neighborhood report for ${escapeHtml(zip)}</a></li>` : ''}
+        ${state && city ? `<li><a href="/browse/${escapeHtml(state.toLowerCase())}/${escapeHtml(encodeURIComponent(city.toLowerCase()))}">More properties in ${escapeHtml(city)}, ${escapeHtml(state)}</a></li>` : ''}
+        ${state ? `<li><a href="/browse/${escapeHtml(state.toLowerCase())}">Browse all ${escapeHtml(STATE_NAMES[state] || state)} listings</a></li>` : ''}
+        <li><a href="/screener">Opportunity screener — find underpriced properties</a></li>
+        <li><a href="/methodology/opportunity-score">How the opportunity score is calculated</a></li>
+      </ul>
     `;
+
+    const intro = `
+      <p>${escapeHtml(address)}${locationParts ? ` is a ${type ? escapeHtml(type.toLowerCase()) + ' ' : ''}property located in ${escapeHtml(locationParts)}` : ''}.
+      This page combines verified sale history, comparable transactions${zip ? ` in ZIP ${escapeHtml(zip)}` : ''},
+      neighborhood market statistics, and our proprietary opportunity score to help buyers and investors evaluate the property.</p>
+      ${factsHtml ? `<ul>${factsHtml}</ul>` : ''}
+    `;
+
+    const bodyHtml = `${intro}${salesHtml}${neighborhoodHtml}${compsHtml}${relatedLinksHtml}`;
 
     const jsonLd: Record<string, any> = {
       '@context': 'https://schema.org',
       '@type': 'SingleFamilyResidence',
       name: address,
+      url: `${SITE_URL}/properties/${slug}`,
       address: {
         '@type': 'PostalAddress',
         streetAddress: address,
@@ -692,10 +871,18 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
         longitude: Number(row.longitude),
       };
     }
+    if (lastSalePriceNum && row.last_sale_date) {
+      jsonLd.subjectOf = {
+        '@type': 'Event',
+        name: 'Last recorded sale',
+        startDate: String(row.last_sale_date).slice(0, 10),
+        about: { '@type': 'PriceSpecification', price: lastSalePriceNum, priceCurrency: 'USD' },
+      };
+    }
 
     return {
       title,
-      description: description.slice(0, 300),
+      description,
       ogType: 'website',
       canonicalPath: `/properties/${slug}`,
       h1: address,

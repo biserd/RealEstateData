@@ -266,10 +266,10 @@ Sitemap: ${baseUrl}/sitemap.xml
       const baseUrl = `https://${req.get("host")}`;
       const today = new Date().toISOString().split("T")[0];
       
-      const propertyCount = await storage.getPropertyCountForSitemap();
+      const propertyCount = await storage.getPropertyCountForSitemapEligible();
       const propertySitemapCount = Math.ceil(propertyCount / ITEMS_PER_SITEMAP);
       
-      const unitCount = await storage.getUnitCountForSitemap();
+      const unitCount = await storage.getUnitCountForSitemapEligible();
       const unitSitemapCount = Math.ceil(unitCount / ITEMS_PER_SITEMAP);
       
       let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -555,7 +555,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       const today = new Date().toISOString().split("T")[0];
       
       const offset = (page - 1) * ITEMS_PER_SITEMAP;
-      const properties = await storage.getPropertiesForSitemapPaginated(ITEMS_PER_SITEMAP, offset);
+      const properties = await storage.getPropertiesForSitemapEligible(ITEMS_PER_SITEMAP, offset);
       
       if (properties.length === 0) {
         return res.status(404).send("Sitemap page not found");
@@ -603,7 +603,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       const today = new Date().toISOString().split("T")[0];
       
       const offset = (page - 1) * ITEMS_PER_SITEMAP;
-      const units = await storage.getUnitsForSitemapPaginated(ITEMS_PER_SITEMAP, offset);
+      const units = await storage.getUnitsForSitemapEligible(ITEMS_PER_SITEMAP, offset);
       
       if (units.length === 0) {
         return res.status(404).send("Sitemap page not found");

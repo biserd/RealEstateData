@@ -87,6 +87,8 @@ export interface IStorage {
   getTopOpportunities(limit?: number): Promise<Property[]>;
   getAllPropertiesForSitemap(): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   getPropertyCountForSitemap(): Promise<number>;
+  getPropertyCountForSitemapEligible(): Promise<number>;
+  getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   getPropertiesForSitemapPaginated(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property | undefined>;
@@ -426,6 +428,14 @@ export interface IStorage {
   
   // Unit sitemap operations
   getUnitCountForSitemap(): Promise<number>;
+  getUnitCountForSitemapEligible(): Promise<number>;
+  getUnitsForSitemapEligible(limit: number, offset: number): Promise<Array<{
+    unitBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    buildingDisplayAddress: string | null;
+    borough: string | null;
+  }>>;
   getUnitsForSitemapPaginated(limit: number, offset: number): Promise<Array<{
     unitBbl: string;
     slug: string | null;
@@ -790,6 +800,43 @@ export class DatabaseStorage implements IStorage {
       .from(properties)
       .limit(limit)
       .offset(offset);
+  }
+
+  // SEO: only include properties with real signal — coordinates + a price.
+  // Pages without these read as templates and trigger crawled-not-indexed.
+  async getPropertyCountForSitemapEligible(): Promise<number> {
+    const result: any = await db.execute(sql`
+      SELECT COUNT(*)::int AS count
+      FROM properties p
+      WHERE p.latitude IS NOT NULL
+        AND p.longitude IS NOT NULL
+        AND (
+          (p.estimated_value IS NOT NULL AND p.estimated_value > 0)
+          OR (p.last_sale_price IS NOT NULL AND p.last_sale_price > 0)
+        )
+    `);
+    return Number(result.rows?.[0]?.count || 0);
+  }
+
+  async getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]> {
+    const result: any = await db.execute(sql`
+      SELECT p.id, p.address, p.city, p.zip_code
+      FROM properties p
+      WHERE p.latitude IS NOT NULL
+        AND p.longitude IS NOT NULL
+        AND (
+          (p.estimated_value IS NOT NULL AND p.estimated_value > 0)
+          OR (p.last_sale_price IS NOT NULL AND p.last_sale_price > 0)
+        )
+      ORDER BY p.id
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    return (result.rows || []).map((r: any) => ({
+      id: r.id,
+      address: r.address,
+      city: r.city,
+      zipCode: r.zip_code,
+    }));
   }
 
   async createProperty(property: InsertProperty): Promise<Property> {
@@ -2835,6 +2882,58 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Unit sitemap operations
+  // SEO: only include units that are worth indexing — residential + has lat/lng
+  // + has at least one sale recorded for the unit or its building. Pages without
+  // these are essentially empty templates and trigger soft-404s in Google.
+  async getUnitCountForSitemapEligible(): Promise<number> {
+    const result: any = await db.execute(sql`
+      SELECT COUNT(*)::int AS count
+      FROM condo_units cu
+      WHERE cu.unit_type_hint = 'residential'
+        AND cu.latitude IS NOT NULL
+        AND cu.longitude IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM sales s
+          WHERE (s.unit_bbl = cu.unit_bbl OR s.base_bbl = cu.base_bbl)
+            AND s.sale_price >= 100000
+            AND s.sale_date >= NOW() - INTERVAL '60 months'
+        )
+    `);
+    return Number(result.rows?.[0]?.count || 0);
+  }
+
+  async getUnitsForSitemapEligible(limit: number, offset: number): Promise<Array<{
+    unitBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    buildingDisplayAddress: string | null;
+    borough: string | null;
+  }>> {
+    const result: any = await db.execute(sql`
+      SELECT cu.unit_bbl, cu.slug, cu.unit_designation,
+             cu.building_display_address, cu.borough
+      FROM condo_units cu
+      WHERE cu.unit_type_hint = 'residential'
+        AND cu.latitude IS NOT NULL
+        AND cu.longitude IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM sales s
+          WHERE (s.unit_bbl = cu.unit_bbl OR s.base_bbl = cu.base_bbl)
+            AND s.sale_price >= 100000
+            AND s.sale_date >= NOW() - INTERVAL '60 months'
+        )
+      ORDER BY cu.unit_bbl
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    return (result.rows || []).map((r: any) => ({
+      unitBbl: r.unit_bbl,
+      slug: r.slug,
+      unitDesignation: r.unit_designation,
+      buildingDisplayAddress: r.building_display_address,
+      borough: r.borough,
+    }));
+  }
+
   async getUnitCountForSitemap(): Promise<number> {
     const [result] = await db
       .select({ count: sql<number>`count(*)` })
