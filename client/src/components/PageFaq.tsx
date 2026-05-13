@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Accordion,
@@ -18,6 +19,7 @@ interface PageFaqProps {
 }
 
 export function PageFaq({ items, title = "Frequently asked questions" }: PageFaqProps) {
+  const [open, setOpen] = useState<string[]>(() => items.map((_, i) => `faq-${i}`));
   if (!items || items.length === 0) return null;
   return (
     <Card data-testid="card-page-faq">
@@ -28,7 +30,7 @@ export function PageFaq({ items, title = "Frequently asked questions" }: PageFaq
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Accordion type="multiple" defaultValue={items.map((_, i) => `faq-${i}`)} className="w-full">
+        <Accordion type="multiple" value={open} onValueChange={setOpen} className="w-full">
           {items.map((item, i) => (
             <AccordionItem key={i} value={`faq-${i}`} data-testid={`faq-item-${i}`}>
               <AccordionTrigger className="text-left text-sm font-medium">

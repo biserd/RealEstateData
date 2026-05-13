@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { MarketingLayout } from "@/components/layouts";
 import {
   Accordion,
@@ -68,6 +69,10 @@ export default function FAQ() {
 
   const allFAQs = [...generalFAQs, ...featureFAQs, ...pricingFAQs];
 
+  const [openGeneral, setOpenGeneral] = useState<string[]>(() => generalFAQs.map((_, i) => `general-${i}`));
+  const [openFeature, setOpenFeature] = useState<string[]>(() => featureFAQs.map((_, i) => `feature-${i}`));
+  const [openPricing, setOpenPricing] = useState<string[]>(() => pricingFAQs.map((_, i) => `pricing-${i}`));
+
   return (
     <MarketingLayout showBackButton={false}>
       <SEO
@@ -94,7 +99,7 @@ export default function FAQ() {
             </h2>
             <Card>
               <CardContent className="pt-6">
-                <Accordion type="multiple" defaultValue={generalFAQs.map((_, i) => `general-${i}`)} className="w-full">
+                <Accordion type="multiple" value={openGeneral} onValueChange={setOpenGeneral} className="w-full">
                   {generalFAQs.map((faq, index) => (
                     <AccordionItem key={index} value={`general-${index}`}>
                       <AccordionTrigger className="text-left" data-testid={`faq-general-${index}`}>
@@ -117,7 +122,7 @@ export default function FAQ() {
             </h2>
             <Card>
               <CardContent className="pt-6">
-                <Accordion type="multiple" defaultValue={featureFAQs.map((_, i) => `feature-${i}`)} className="w-full">
+                <Accordion type="multiple" value={openFeature} onValueChange={setOpenFeature} className="w-full">
                   {featureFAQs.map((faq, index) => (
                     <AccordionItem key={index} value={`feature-${index}`}>
                       <AccordionTrigger className="text-left" data-testid={`faq-feature-${index}`}>
@@ -140,7 +145,7 @@ export default function FAQ() {
             </h2>
             <Card>
               <CardContent className="pt-6">
-                <Accordion type="multiple" defaultValue={pricingFAQs.map((_, i) => `pricing-${i}`)} className="w-full">
+                <Accordion type="multiple" value={openPricing} onValueChange={setOpenPricing} className="w-full">
                   {pricingFAQs.map((faq, index) => (
                     <AccordionItem key={index} value={`pricing-${index}`}>
                       <AccordionTrigger className="text-left" data-testid={`faq-pricing-${index}`}>
