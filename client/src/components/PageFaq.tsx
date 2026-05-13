@@ -28,7 +28,7 @@ export function PageFaq({ items, title = "Frequently asked questions" }: PageFaq
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Accordion type="single" collapsible className="w-full">
+        <Accordion type="multiple" defaultValue={items.map((_, i) => `faq-${i}`)} className="w-full">
           {items.map((item, i) => (
             <AccordionItem key={i} value={`faq-${i}`} data-testid={`faq-item-${i}`}>
               <AccordionTrigger className="text-left text-sm font-medium">
