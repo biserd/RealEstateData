@@ -1,10 +1,11 @@
 import { useCallback, useRef, useMemo, useState } from "react";
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { MapProvider, useMap } from "./MapProvider";
+import { StaticMapImage } from "./StaticMapImage";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bed, Bath, Square, MapPin, ExternalLink } from "lucide-react";
+import { Bed, Bath, Square, MapPin, ExternalLink, Map as MapIcon } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { getPropertyUrl, formatPropertyAddress } from "@/lib/propertySlug";
@@ -20,6 +21,7 @@ interface PropertyMapProps {
   onPropertySelect?: (property: Property) => void;
   selectedPropertyId?: string;
   getMarkerUrl?: (property: Property) => string;
+  interactiveByDefault?: boolean;
 }
 
 const defaultCenter = { lat: 40.7128, lng: -74.006 };
@@ -48,11 +50,80 @@ const mapOptions: google.maps.MapOptions = {
 // is only requested on routes that actually render <PropertyMap>.
 // `useJsApiLoader` is module-scoped, so multiple <MapProvider> mounts dedupe
 // to a single script load.
+//
+// Cost optimization: by default we render a cheap cached Static Map preview
+// and only mount the Maps JS API (Dynamic Maps, billed per load) once the
+// user clicks "Load interactive map". Pass `interactiveByDefault` to opt out.
 export function PropertyMap(props: PropertyMapProps) {
+  const [activated, setActivated] = useState(!!props.interactiveByDefault);
+
+  if (activated) {
+    return (
+      <MapProvider>
+        <PropertyMapInner {...props} />
+      </MapProvider>
+    );
+  }
+
+  const height = props.height || "400px";
+  const center =
+    props.center ||
+    (props.subjectProperty?.latitude && props.subjectProperty?.longitude
+      ? { lat: props.subjectProperty.latitude, lng: props.subjectProperty.longitude }
+      : props.properties.find((p) => p.latitude && p.longitude)
+        ? {
+            lat: props.properties.find((p) => p.latitude && p.longitude)!.latitude!,
+            lng: props.properties.find((p) => p.latitude && p.longitude)!.longitude!,
+          }
+        : null);
+
+  const markerCount = props.properties.filter((p) => p.latitude && p.longitude).length +
+    (props.subjectProperty?.latitude && props.subjectProperty?.longitude ? 1 : 0);
+
   return (
-    <MapProvider>
-      <PropertyMapInner {...props} />
-    </MapProvider>
+    <div
+      className="relative rounded-lg overflow-hidden border bg-muted"
+      style={{ height }}
+      data-testid="map-static-preview"
+    >
+      {center ? (
+        <StaticMapImage
+          center={center}
+          zoom={props.zoom || 15}
+          markers={[{ lat: center.lat, lng: center.lng, color: "blue" }]}
+          width={640}
+          height={400}
+          className="w-full h-full"
+          rounded={false}
+          loading="lazy"
+          alt="Map preview"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <MapIcon className="h-10 w-10 text-muted-foreground opacity-50" />
+        </div>
+      )}
+
+      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+        <Button
+          onClick={() => setActivated(true)}
+          size="lg"
+          className="shadow-xl"
+          data-testid="button-activate-map"
+        >
+          <MapIcon className="mr-2 h-4 w-4" />
+          Load interactive map
+        </Button>
+      </div>
+
+      {markerCount > 0 && (
+        <div className="absolute top-4 right-4 z-10">
+          <Badge variant="secondary" className="shadow-lg">
+            {markerCount} {markerCount === 1 ? "property" : "properties"}
+          </Badge>
+        </div>
+      )}
+    </div>
   );
 }
 

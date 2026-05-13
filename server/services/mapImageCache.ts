@@ -49,9 +49,10 @@ async function readFromObjStorage(filename: string): Promise<Buffer | null> {
   const obj = getObjStorage();
   if (!obj) return null;
   try {
+    // Skip the .exists() round trip — just attempt to download and treat any
+    // failure (404, network) as a miss. Halves Object Storage requests on
+    // every cache check.
     const file = objectStorageClient.bucket(obj.bucketName).file(`${obj.prefix}/${filename}`);
-    const [exists] = await file.exists();
-    if (!exists) return null;
     const [buf] = await file.download();
     return buf;
   } catch {
