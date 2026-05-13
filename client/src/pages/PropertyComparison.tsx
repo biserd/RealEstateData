@@ -8,8 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AppLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
-import { StreetViewImage } from "@/components/StreetViewImage";
-import { StaticMapImage } from "@/components/StaticMapImage";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { generatePropertySlug } from "@/lib/propertySlug";
@@ -344,47 +342,6 @@ export default function PropertyComparison() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b">
-                      <td className="sticky left-0 z-[1] bg-card px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap align-top">
-                        Street View / Map
-                      </td>
-                      {selectedProperties.map((property) => (
-                        <td key={property.id} className="px-4 py-3 align-top" data-testid={`cell-streetview-${property.id}`}>
-                          <div className="space-y-2 min-w-[200px] max-w-[260px]">
-                            {property.latitude && property.longitude ? (
-                              <>
-                                <div className="aspect-[4/3] overflow-hidden rounded-md border">
-                                  <StreetViewImage
-                                    lat={property.latitude}
-                                    lng={property.longitude}
-                                    address={`${property.address}, ${property.city}, ${property.state}`}
-                                    width={400}
-                                    height={300}
-                                    rounded={false}
-                                    alt={`Street view of ${property.address}`}
-                                  />
-                                </div>
-                                <div className="aspect-[4/3] overflow-hidden rounded-md border">
-                                  <StaticMapImage
-                                    center={{ lat: property.latitude, lng: property.longitude }}
-                                    zoom={15}
-                                    markers={[{ lat: property.latitude, lng: property.longitude, color: "red" }]}
-                                    width={400}
-                                    height={300}
-                                    rounded={false}
-                                    alt={`Map of ${property.address}`}
-                                  />
-                                </div>
-                              </>
-                            ) : (
-                              <div className="aspect-[4/3] flex items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
-                                No location data
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      ))}
-                    </tr>
                     {metrics.map((metric, idx) => (
                       <tr key={metric.key} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
                         <td className="sticky left-0 z-[1] bg-inherit px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">
