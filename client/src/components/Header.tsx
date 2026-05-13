@@ -323,7 +323,7 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
               </DropdownMenu>
             ) : (
               <>
-                <Link href="/auth">
+                <Link href="/login">
                   <Button variant="ghost" size="sm" data-testid="button-login">
                     Login
                   </Button>
