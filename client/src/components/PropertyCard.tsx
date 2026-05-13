@@ -21,6 +21,7 @@ interface PropertyCardProps {
   onSave?: (propertyId: string) => void;
   isSaved?: boolean;
   scoreDrivers?: ScoreDriver[];
+  showStreetView?: boolean;
 }
 
 export function PropertyCard({
@@ -29,6 +30,7 @@ export function PropertyCard({
   onSave,
   isSaved = false,
   scoreDrivers,
+  showStreetView = false,
 }: PropertyCardProps) {
   const formatPrice = (price: number | null) => {
     if (!price) return "N/A";
@@ -143,7 +145,7 @@ export function PropertyCard({
       <CardContent className="pt-0">
         <Link href={getPropertyUrl(property)}>
           <div className="space-y-3">
-            {(property.latitude && property.longitude) && (
+            {showStreetView && property.latitude && property.longitude && (
               <div className="aspect-[16/9] -mx-1 overflow-hidden rounded-md" data-testid={`img-card-streetview-${property.id}`}>
                 <StreetViewImage
                   lat={property.latitude}

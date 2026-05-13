@@ -657,7 +657,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
 
     // Static Street View image (proxied/cached server-side) — visible to crawlers without JS.
     const streetViewHtml = (row.latitude && row.longitude)
-      ? `<p><img src="/api/img/streetview?lat=${Number(row.latitude)}&lng=${Number(row.longitude)}&w=600&h=400" alt="Street view of ${escapeHtml(buildingAddr || displayAddress)}" width="600" height="400" loading="lazy" /></p>`
+      ? `<p><em>Street-level view available on the live page.</em></p>`
       : '';
 
     // AI narrative — render only if a fresh cached version exists. Otherwise
@@ -937,7 +937,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
     `;
 
     const streetViewHtml = (row.latitude && row.longitude)
-      ? `<p><img src="/api/img/streetview?lat=${Number(row.latitude)}&lng=${Number(row.longitude)}&w=600&h=400" alt="Street view of ${escapeHtml(address)}" width="600" height="400" loading="lazy" /></p>`
+      ? `<p><em>Street-level view available on the live page.</em></p>`
       : '';
 
     const cachedNarrative = await getCachedNarrative('property', row.id);

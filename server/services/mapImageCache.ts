@@ -22,7 +22,9 @@ function cacheKey(prefix: string, params: Record<string, string | number>): stri
 }
 
 function roundCoord(n: number): string {
-  return n.toFixed(5);
+  // 4 decimals ≈ 11m. All units in the same condo building collapse to one
+  // cache key, dramatically increasing hit rate.
+  return n.toFixed(4);
 }
 
 function clampInt(v: unknown, min: number, max: number, fallback: number): number {
