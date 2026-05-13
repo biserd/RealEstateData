@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface FaqItem {
   q: string;
@@ -18,8 +13,27 @@ interface PageFaqProps {
   title?: string;
 }
 
+function FaqRow({ q, a, index }: { q: string; a: string; index: number }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="border-b last:border-0" data-testid={`faq-item-${index}`}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between py-4 text-left text-sm font-medium transition-all hover:underline"
+      >
+        {q}
+        <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform duration-200", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="pb-4 text-sm text-muted-foreground">
+          {a}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PageFaq({ items, title = "Frequently asked questions" }: PageFaqProps) {
-  const [open, setOpen] = useState<string[]>(() => items.map((_, i) => `faq-${i}`));
   if (!items || items.length === 0) return null;
   return (
     <Card data-testid="card-page-faq">
@@ -30,18 +44,9 @@ export function PageFaq({ items, title = "Frequently asked questions" }: PageFaq
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Accordion type="multiple" value={open} onValueChange={setOpen} className="w-full">
-          {items.map((item, i) => (
-            <AccordionItem key={i} value={`faq-${i}`} data-testid={`faq-item-${i}`}>
-              <AccordionTrigger className="text-left text-sm font-medium">
-                {item.q}
-              </AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground">
-                {item.a}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        {items.map((item, i) => (
+          <FaqRow key={i} q={item.q} a={item.a} index={i} />
+        ))}
       </CardContent>
     </Card>
   );
