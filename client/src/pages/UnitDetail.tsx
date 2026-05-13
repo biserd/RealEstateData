@@ -45,6 +45,8 @@ import { Button } from "@/components/ui/button";
 import { Crown, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAnonUnitViewLimit } from "@/hooks/useAnonViewLimit";
+import { PriceGate, LoginGateCard, AnonLimitDialog } from "@/components/UnitGating";
 
 interface CondoUnit {
   unitBbl: string;
@@ -250,7 +252,7 @@ function OpportunityScoreCard({ score, breakdown, opportunityData }: {
   );
 }
 
-function MarketComparisonCard({ data }: { data: OpportunityData | undefined }) {
+function MarketComparisonCard({ data, isAuthenticated }: { data: OpportunityData | undefined; isAuthenticated: boolean }) {
   if (!data || !data.buildingMedianPrice) {
     return null;
   }
@@ -278,7 +280,7 @@ function MarketComparisonCard({ data }: { data: OpportunityData | undefined }) {
           <div>
             <p className="text-xs text-muted-foreground">Last Unit Sale</p>
             <p className="text-lg font-semibold" data-testid="text-last-unit-sale">
-              ${data.lastSalePrice.toLocaleString()}
+              <PriceGate value={data.lastSalePrice} authenticated={isAuthenticated} />
             </p>
           </div>
         )}
@@ -529,7 +531,7 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
   );
 }
 
-function SimilarUnitsCard({ baseBbl, currentBbl }: { baseBbl: string; currentBbl: string }) {
+function SimilarUnitsCard({ baseBbl, currentBbl, isAuthenticated }: { baseBbl: string; currentBbl: string; isAuthenticated: boolean }) {
   const { data } = useQuery<{ units: Array<{ unitBbl: string; slug: string | null; unitDesignation: string | null; unitDisplayAddress: string | null; lastSalePrice: number | null; lastSaleDate: string | null }> }>({
     queryKey: ["/api/buildings", baseBbl, "top-units", currentBbl],
     queryFn: async () => {
@@ -566,7 +568,7 @@ function SimilarUnitsCard({ baseBbl, currentBbl }: { baseBbl: string; currentBbl
                   <p className="text-sm font-medium truncate">Unit {label}</p>
                   {u.lastSalePrice && (
                     <p className="text-xs text-muted-foreground">
-                      ${u.lastSalePrice.toLocaleString()}
+                      <PriceGate value={u.lastSalePrice} authenticated={isAuthenticated} />
                       {u.lastSaleDate ? ` · ${new Date(u.lastSaleDate).getFullYear()}` : ""}
                     </p>
                   )}
@@ -596,6 +598,7 @@ export default function UnitDetail() {
   const { isAuthenticated } = useAuth();
   const { isPro, isPremium } = useSubscription();
   const hasPro = isPro || isPremium;
+  const anonView = useAnonUnitViewLimit(idOrSlug, !isAuthenticated);
 
   // First resolve the slug/id to get the actual unit data
   const { data: unit, isLoading, error } = useQuery<CondoUnit>({
@@ -803,7 +806,7 @@ export default function UnitDetail() {
                       <div className="p-3 rounded-md bg-muted/50">
                         <p className="text-xs text-muted-foreground">Last Sale</p>
                         <p className="font-semibold text-green-600" data-testid="text-header-last-sale">
-                          ${lastSale.salePrice.toLocaleString()}
+                          <PriceGate value={lastSale.salePrice} authenticated={isAuthenticated} />
                         </p>
                       </div>
                       <div className="p-3 rounded-md bg-muted/50">
@@ -842,7 +845,7 @@ export default function UnitDetail() {
                     breakdown={opportunityData?.scoreBreakdown ?? null}
                     opportunityData={opportunityData}
                   />
-                  <MarketComparisonCard data={opportunityData} />
+                  <MarketComparisonCard data={opportunityData} isAuthenticated={isAuthenticated} />
                 </div>
                 
                 {opportunityData?.buildingAvgPricePerYear && opportunityData.buildingAvgPricePerYear.length > 0 && (() => {
@@ -1009,7 +1012,7 @@ export default function UnitDetail() {
                               <DollarSign className="h-4 w-4 text-green-600" />
                               <div>
                                 <p className="font-medium">
-                                  ${sale.salePrice.toLocaleString()}
+                                  <PriceGate value={sale.salePrice} authenticated={isAuthenticated} />
                                 </p>
                                 {sale.rawAptNumber && (
                                   <p className="text-xs text-muted-foreground">
@@ -1062,7 +1065,7 @@ export default function UnitDetail() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold text-green-600" data-testid="text-last-sale-price">
-                    ${lastSale.salePrice.toLocaleString()}
+                    <PriceGate value={lastSale.salePrice} authenticated={isAuthenticated} />
                   </p>
                   <p className="text-sm text-muted-foreground" data-testid="text-last-sale-date">
                     {format(new Date(lastSale.saleDate), "MMMM d, yyyy")}
@@ -1095,10 +1098,115 @@ export default function UnitDetail() {
               </Card>
             )}
 
-            <SimilarUnitsCard baseBbl={unit.baseBbl} currentBbl={unit.unitBbl} />
+            {isAuthenticated ? (
+              <>
+                <SimilarUnitsCard
+                  baseBbl={unit.baseBbl}
+                  currentBbl={unit.unitBbl}
+                  isAuthenticated={isAuthenticated}
+                />
+                <RecentNeighborhoodSalesCard
+                  zipCode={unit.zipCode}
+                  borough={unit.borough}
+                  isAuthenticated={isAuthenticated}
+                />
+              </>
+            ) : (
+              <>
+                <LoginGateCard
+                  title="Similar units in this building"
+                  description="Sign up free to see comparable units, or unlock full data with Premium."
+                  authenticated={false}
+                  testId="card-gate-similar-units"
+                />
+                <LoginGateCard
+                  title="Recent sales in this neighborhood"
+                  description="Create a free account to compare recent sales nearby, or upgrade to Premium for unlimited access."
+                  authenticated={false}
+                  testId="card-gate-recent-sales"
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
+      <AnonLimitDialog open={anonView.limitReached} authenticated={isAuthenticated} />
     </AppLayout>
+  );
+}
+
+function RecentNeighborhoodSalesCard({
+  zipCode,
+  borough,
+  isAuthenticated,
+}: {
+  zipCode: string | null;
+  borough: string | null;
+  isAuthenticated: boolean;
+}) {
+  type RecentSale = {
+    id: string;
+    salePrice: number;
+    saleDate: string;
+    property?: { address?: string | null; slug?: string | null; id?: string };
+  };
+  const { data: sales = [] } = useQuery<RecentSale[]>({
+    queryKey: ["/api/market/recent-sales", "zip", zipCode],
+    queryFn: async () => {
+      if (!zipCode) return [];
+      const res = await fetch(
+        `/api/market/recent-sales?geoType=zip&geoId=${encodeURIComponent(zipCode)}&limit=8`,
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!zipCode,
+  });
+
+  if (!sales.length) return null;
+
+  return (
+    <Card data-testid="card-recent-neighborhood-sales">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <History className="h-4 w-4 text-muted-foreground" />
+          Recent Sales Nearby
+        </CardTitle>
+        <CardDescription className="text-xs">
+          {borough || `ZIP ${zipCode}`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-1 pt-0">
+        {sales.slice(0, 6).map((s) => {
+          const addr = s.property?.address || "Recent sale";
+          const href = s.property?.slug
+            ? `/property/${s.property.slug}`
+            : s.property?.id
+            ? `/property/${s.property.id}`
+            : null;
+          const inner = (
+            <div
+              className="flex items-center justify-between gap-2 p-2.5 rounded-md hover-elevate cursor-pointer"
+              data-testid={`row-recent-sale-${s.id}`}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{addr}</p>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(s.saleDate), "MMM yyyy")}
+                </p>
+              </div>
+              <div className="text-sm font-semibold shrink-0">
+                <PriceGate value={s.salePrice} authenticated={isAuthenticated} />
+              </div>
+            </div>
+          );
+          return href ? (
+            <Link key={s.id} href={href}>{inner}</Link>
+          ) : (
+            <div key={s.id}>{inner}</div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
