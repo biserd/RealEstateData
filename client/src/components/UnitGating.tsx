@@ -105,11 +105,6 @@ export function PriceGate({ value, authenticated, className, testId }: PriceGate
       <span className="sr-only">
         Estimated range {formatCompactUsd(low)} to {formatCompactUsd(high)}
       </span>
-      <Link href="/login">
-        <span className="text-xs font-normal text-primary hover:underline cursor-pointer ml-1">
-          Sign in to view
-        </span>
-      </Link>
     </span>
   );
 }
@@ -134,12 +129,6 @@ export function LoginGateCard({ title, description, authenticated, testId }: Log
           <p className="text-xs text-muted-foreground mt-1">{description}</p>
         </div>
         <div className="flex flex-col gap-2 w-full">
-          <Link href="/register">
-            <Button size="sm" variant="outline" className="w-full" data-testid="button-signup-gate">
-              <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-              Sign up free
-            </Button>
-          </Link>
           <PremiumCheckoutButton
             authenticated={authenticated}
             size="sm"
@@ -185,17 +174,6 @@ export function AnonLimitDialog({ open, authenticated }: AnonLimitDialogProps) {
             label="Continue with Premium"
             testId="button-anon-limit-premium"
           />
-          <Link href="/register">
-            <Button variant="outline" className="w-full" data-testid="button-anon-limit-signup">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Create free account
-            </Button>
-          </Link>
-          <Link href="/login">
-            <span className="text-xs text-center text-muted-foreground hover:underline cursor-pointer">
-              Already have an account? Sign in
-            </span>
-          </Link>
         </div>
       </DialogContent>
     </Dialog>
