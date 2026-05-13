@@ -11,7 +11,14 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Vite writes hashed filenames into /assets/ — safe to cache immutably for 1yr.
+  app.use(express.static(distPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  }));
 
   app.use("*", async (req, res) => {
     try {

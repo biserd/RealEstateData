@@ -1,13 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearch, useLocation } from "wouter";
-import { Shield, HardHat, Train, Trees, Droplets, Building2, MapPin, ArrowRight, Lock, DollarSign, Home, Activity, TrendingUp, TrendingDown, BarChart3, Minus } from "lucide-react";
+import { Shield, HardHat, Train, Trees, Droplets, Building2, MapPin, ArrowRight, Lock, DollarSign, Home, Activity, TrendingUp, TrendingDown, BarChart3, Minus, History } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid, Legend, Area } from "recharts";
 import { AppLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
 import { PlaceJsonLd } from "@/components/JsonLd";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { PropertyMap } from "@/components/PropertyMap";
-import type { Property } from "@shared/schema";
+import { getPropertyUrl } from "@/lib/propertySlug";
+import { format } from "date-fns";
+import type { Property, Sale } from "@shared/schema";
 import { MarketStatsCard } from "@/components/MarketStatsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -178,6 +180,17 @@ export default function NeighborhoodReport() {
     queryFn: async () => {
       if (!geoId) return [];
       const res = await fetch(`/api/properties/area?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=100`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!geoId,
+  });
+
+  const { data: recentSales = [] } = useQuery<Sale[]>({
+    queryKey: ["/api/market/recent-sales", geoType, geoId],
+    queryFn: async () => {
+      if (!geoId) return [];
+      const res = await fetch(`/api/market/recent-sales?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=8`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -674,6 +687,48 @@ export default function NeighborhoodReport() {
             </CardContent>
           </Card>
         </div>
+
+        {recentSales.length > 0 && (
+          <Card className="mb-8" data-testid="card-recent-sales">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <History className="h-4 w-4 text-muted-foreground" />
+                Recent Sales
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="divide-y">
+                {recentSales.map((sale: any, i: number) => {
+                  const propertyUrl = sale.property ? getPropertyUrl(sale.property) : null;
+                  const address = sale.property?.address || sale.address || `Property ${sale.propertyId}`;
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-3 py-2.5" data-testid={`row-recent-sale-${i}`}>
+                      <div className="min-w-0 flex-1">
+                        {propertyUrl ? (
+                          <Link href={propertyUrl}>
+                            <span className="text-sm font-medium hover:underline truncate block cursor-pointer">{address}</span>
+                          </Link>
+                        ) : (
+                          <span className="text-sm font-medium truncate block">{address}</span>
+                        )}
+                        {sale.saleDate && (
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(sale.saleDate), "MMM d, yyyy")}
+                          </p>
+                        )}
+                      </div>
+                      {sale.salePrice && (
+                        <p className="text-sm font-semibold shrink-0">
+                          ${Number(sale.salePrice).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="mb-8" data-testid="card-actions">
           <CardContent className="flex flex-wrap gap-3 p-4">

@@ -1142,6 +1142,11 @@ export default function PropertyDetail() {
               <Link href={`/browse/${property.state.toLowerCase()}/${encodeURIComponent(property.city)}`} className="text-foreground hover:underline font-medium" data-testid="link-browse-city">
                 More properties in {property.city}
               </Link>
+              {property.zipCode && (
+                <Link href={`/neighborhood/${property.zipCode}?geoType=zip`} className="text-foreground hover:underline font-medium" data-testid="link-neighborhood-report">
+                  Neighborhood report for ZIP {property.zipCode}
+                </Link>
+              )}
             </div>
           )}
         </div>

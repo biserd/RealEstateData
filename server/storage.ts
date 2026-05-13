@@ -107,6 +107,14 @@ export interface IStorage {
   // Sales operations
   getSalesForProperty(propertyId: string): Promise<Sale[]>;
   getRecentSalesForArea(geoType: string, geoId: string, limit?: number): Promise<(Sale & { property: Property })[]>;
+  getTopUnitsForBuilding(baseBbl: string, options?: { excludeBbl?: string; limit?: number }): Promise<Array<{
+    unitBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitDisplayAddress: string | null;
+    lastSalePrice: number | null;
+    lastSaleDate: string | null;
+  }>>;
   createSale(sale: InsertSale): Promise<Sale>;
   
   // Market aggregate operations
@@ -1030,6 +1038,48 @@ export class DatabaseStorage implements IStorage {
     return results.map((r) => ({
       ...r.sale,
       property: r.property,
+    }));
+  }
+
+  async getTopUnitsForBuilding(baseBbl: string, options: { excludeBbl?: string; limit?: number } = {}): Promise<Array<{
+    unitBbl: string;
+    slug: string | null;
+    unitDesignation: string | null;
+    unitDisplayAddress: string | null;
+    lastSalePrice: number | null;
+    lastSaleDate: string | null;
+  }>> {
+    const { excludeBbl, limit = 8 } = options;
+    const result: any = await db.execute(sql`
+      SELECT
+        cu.unit_bbl,
+        cu.slug,
+        cu.unit_designation,
+        cu.unit_display_address,
+        (SELECT s.sale_price FROM sales s
+         WHERE s.unit_bbl = cu.unit_bbl AND s.sale_price >= 100000
+         ORDER BY s.sale_date DESC LIMIT 1) AS last_sale_price,
+        (SELECT s.sale_date FROM sales s
+         WHERE s.unit_bbl = cu.unit_bbl AND s.sale_price >= 100000
+         ORDER BY s.sale_date DESC LIMIT 1) AS last_sale_date
+      FROM condo_units cu
+      WHERE cu.base_bbl = ${baseBbl}
+        AND cu.unit_type_hint = 'residential'
+        AND (${excludeBbl ?? null} IS NULL OR cu.unit_bbl != ${excludeBbl ?? ""})
+        AND EXISTS (
+          SELECT 1 FROM sales s
+          WHERE s.unit_bbl = cu.unit_bbl AND s.sale_price >= 100000
+        )
+      ORDER BY last_sale_date DESC NULLS LAST
+      LIMIT ${limit}
+    `);
+    return (result.rows || []).map((r: any) => ({
+      unitBbl: r.unit_bbl,
+      slug: r.slug,
+      unitDesignation: r.unit_designation,
+      unitDisplayAddress: r.unit_display_address,
+      lastSalePrice: r.last_sale_price ? Number(r.last_sale_price) : null,
+      lastSaleDate: r.last_sale_date ? String(r.last_sale_date) : null,
     }));
   }
 

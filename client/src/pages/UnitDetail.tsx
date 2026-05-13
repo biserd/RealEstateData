@@ -1,4 +1,4 @@
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Home, 
@@ -18,7 +18,9 @@ import {
   Loader2,
   Info,
   FileText,
-  XCircle
+  XCircle,
+  ArrowRight,
+  ChevronRight,
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { ResidenceJsonLd, BreadcrumbsJsonLd } from "@/components/JsonLd";
@@ -527,6 +529,67 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
   );
 }
 
+function SimilarUnitsCard({ baseBbl, currentBbl }: { baseBbl: string; currentBbl: string }) {
+  const { data } = useQuery<{ units: Array<{ unitBbl: string; slug: string | null; unitDesignation: string | null; unitDisplayAddress: string | null; lastSalePrice: number | null; lastSaleDate: string | null }> }>({
+    queryKey: ["/api/buildings", baseBbl, "top-units", currentBbl],
+    queryFn: async () => {
+      const params = new URLSearchParams({ excludeBbl: currentBbl, limit: "6" });
+      const res = await fetch(`/api/buildings/${baseBbl}/top-units?${params}`);
+      if (!res.ok) return { units: [] };
+      return res.json();
+    },
+    enabled: !!baseBbl,
+  });
+
+  const units = data?.units ?? [];
+  if (!units.length) return null;
+
+  return (
+    <Card data-testid="card-similar-units">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          More Units in This Building
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1 pt-0">
+        {units.map((u) => {
+          const href = u.slug ? `/unit/${u.slug}` : `/unit/${u.unitBbl}`;
+          const label = u.unitDesignation || u.unitBbl.slice(-4);
+          return (
+            <Link key={u.unitBbl} href={href}>
+              <div
+                className="flex items-center justify-between gap-2 p-2.5 rounded-md hover-elevate cursor-pointer"
+                data-testid={`row-similar-unit-${u.unitBbl}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">Unit {label}</p>
+                  {u.lastSalePrice && (
+                    <p className="text-xs text-muted-foreground">
+                      ${u.lastSalePrice.toLocaleString()}
+                      {u.lastSaleDate ? ` · ${new Date(u.lastSaleDate).getFullYear()}` : ""}
+                    </p>
+                  )}
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </div>
+            </Link>
+          );
+        })}
+        <Link href={`/building/${baseBbl}`}>
+          <div
+            className="flex items-center justify-between gap-2 p-2.5 rounded-md hover-elevate cursor-pointer mt-1 border-t pt-3"
+            data-testid="link-view-all-units"
+          >
+            <span className="text-sm text-muted-foreground">View all units</span>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function UnitDetail() {
   const { unitBbl: idOrSlug } = useParams<{ unitBbl: string }>();
   const [, navigate] = useLocation();
@@ -1007,6 +1070,32 @@ export default function UnitDetail() {
                 </CardContent>
               </Card>
             )}
+
+            {unit.zipCode && (
+              <Card data-testid="card-neighborhood-link">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Neighborhood</p>
+                  <p className="font-medium">ZIP {unit.zipCode}</p>
+                  {unit.borough && (
+                    <p className="text-xs text-muted-foreground">{unit.borough}</p>
+                  )}
+                  <Link href={`/neighborhood/${unit.zipCode}?geoType=zip`}>
+                    <button
+                      className="mt-3 w-full flex items-center justify-between gap-2 text-sm font-medium text-foreground border rounded-md px-3 py-2 hover-elevate"
+                      data-testid="button-neighborhood-report"
+                    >
+                      <span className="flex items-center gap-2">
+                        <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                        Neighborhood Report
+                      </span>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
+
+            <SimilarUnitsCard baseBbl={unit.baseBbl} currentBbl={unit.unitBbl} />
           </div>
         </div>
       </div>

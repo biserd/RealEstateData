@@ -1520,6 +1520,19 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
+  app.get("/api/buildings/:baseBbl/top-units", async (req, res) => {
+    try {
+      const { baseBbl } = req.params;
+      const excludeBbl = req.query.excludeBbl as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 8, 20);
+      const units = await storage.getTopUnitsForBuilding(baseBbl, { excludeBbl, limit });
+      res.json({ baseBbl, units });
+    } catch (error) {
+      console.error("Error fetching top units for building:", error);
+      res.status(500).json({ message: "Failed to fetch top units" });
+    }
+  });
+
   app.get("/api/condo-units/:unitBbl", async (req, res) => {
     try {
       const { unitBbl } = req.params;

@@ -1,4 +1,4 @@
-import { useParams } from "wouter";
+import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
@@ -14,6 +14,8 @@ import {
   Car,
   Package,
   Store,
+  ArrowRight,
+  BarChart3,
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { BuildingJsonLd, BreadcrumbsJsonLd } from "@/components/JsonLd";
@@ -325,6 +327,27 @@ export default function BuildingDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {building.zipCode && (
+          <div className="flex flex-wrap gap-3 text-sm" data-testid="section-building-links">
+            <Link href={`/neighborhood/${building.zipCode}?geoType=zip`}>
+              <button className="flex items-center gap-2 text-foreground font-medium border rounded-md px-3 py-2 hover-elevate" data-testid="button-neighborhood-report">
+                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                Neighborhood Report · ZIP {building.zipCode}
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </Link>
+            {building.borough && (
+              <Link href={`/browse/ny/${encodeURIComponent(building.borough.toLowerCase())}`}>
+                <button className="flex items-center gap-2 text-foreground font-medium border rounded-md px-3 py-2 hover-elevate" data-testid="button-browse-borough">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  More in {building.borough}
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </Link>
+            )}
+          </div>
+        )}
 
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList data-testid="tabs-building">
