@@ -13,7 +13,7 @@ import { getPropertyUrl, formatFullAddress } from "@/lib/propertySlug";
 import type { Property, ConfidenceLevel } from "@shared/schema";
 import { EntityTypeBadge, PriceTypeBadge } from "./UnitOpportunityCard";
 import { ScoreDriversList, type ScoreDriver } from "@/components/ScoreDriversList";
-import { StreetViewImage } from "@/components/StreetViewImage";
+import { StaticMapImage } from "@/components/StaticMapImage";
 
 interface PropertyCardProps {
   property: Property;
@@ -146,14 +146,15 @@ export function PropertyCard({
         <Link href={getPropertyUrl(property)}>
           <div className="space-y-3">
             {showStreetView && property.latitude && property.longitude && (
-              <div className="aspect-[16/9] -mx-1 overflow-hidden rounded-md" data-testid={`img-card-streetview-${property.id}`}>
-                <StreetViewImage
-                  lat={property.latitude}
-                  lng={property.longitude}
-                  address={formatFullAddress(property)}
+              <div className="aspect-[16/9] -mx-1 overflow-hidden rounded-md" data-testid={`img-card-staticmap-${property.id}`}>
+                <StaticMapImage
+                  center={{ lat: property.latitude, lng: property.longitude }}
+                  zoom={16}
+                  markers={[{ lat: property.latitude, lng: property.longitude, color: "red" }]}
                   width={480}
                   height={270}
                   rounded={false}
+                  alt={formatFullAddress(property)}
                 />
               </div>
             )}
