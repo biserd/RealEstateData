@@ -838,7 +838,7 @@ export default function UnitDetail() {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
-                <PageNarrative kind="unit" refId={unit.unitBbl} />
+                {isAuthenticated && <PageNarrative kind="unit" refId={unit.unitBbl} />}
                 <div className="grid md:grid-cols-2 gap-4">
                   <OpportunityScoreCard 
                     score={opportunityData?.opportunityScore ?? null}

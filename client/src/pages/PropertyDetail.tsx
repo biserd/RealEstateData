@@ -758,7 +758,7 @@ export default function PropertyDetail() {
           </div>
 
           <TabsContent value="pricing" className="space-y-6">
-            <PageNarrative kind="property" refId={id!} />
+            {isAuthenticated && <PageNarrative kind="property" refId={id!} />}
             {isPropertyUnlocked ? (
               <>
                 <div className="grid gap-6 lg:grid-cols-2">
