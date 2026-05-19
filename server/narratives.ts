@@ -3,8 +3,8 @@ import { sql } from "drizzle-orm";
 import OpenAI from "openai";
 
 const MODEL = "gpt-5-mini";
-const STALE_AFTER_DAYS = 90;
-const MAX_NARRATIVE_TOKENS = 4096;
+const STALE_AFTER_DAYS = 365;
+const MAX_NARRATIVE_TOKENS = 400;
 
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -314,10 +314,20 @@ export function maybeGenerateNarrative(
 export async function getOrGenerateNarrative(
   kind: "unit" | "property",
   refId: string,
+  opts: { allowGenerate?: boolean } = {},
 ): Promise<{ narrative: string; generatedAt: string } | null> {
   const cached = await getCachedNarrative(kind, refId);
   if (cached?.fresh) {
     return { narrative: cached.narrative, generatedAt: cached.generatedAt.toISOString() };
+  }
+  // For anonymous traffic / bots we never trigger a paid generation; return
+  // whatever we have (possibly stale) or null. Generation only happens when
+  // an authenticated user views the page.
+  if (!opts.allowGenerate) {
+    if (cached) {
+      return { narrative: cached.narrative, generatedAt: cached.generatedAt.toISOString() };
+    }
+    return null;
   }
   const text =
     kind === "unit"

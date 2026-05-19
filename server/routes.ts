@@ -519,10 +519,10 @@ Sitemap: ${baseUrl}/sitemap.xml
     res.json(stats);
   });
 
-  // Public AI narrative for unit/property pages. Cached in DB, regenerated
-  // every ~90 days. No auth — these are factual SEO summaries grounded in
-  // public sale data.
-  app.get("/api/seo/narrative/:kind/:id", async (req, res) => {
+  // Public AI narrative for unit/property pages. Cached in DB for ~365 days.
+  // To control OpenAI spend, fresh generation is only triggered for
+  // authenticated users; anonymous traffic and bots receive cached-or-null.
+  app.get("/api/seo/narrative/:kind/:id", optionalAuth, async (req: any, res) => {
     try {
       const kind = req.params.kind;
       if (kind !== "unit" && kind !== "property") {
@@ -530,7 +530,8 @@ Sitemap: ${baseUrl}/sitemap.xml
       }
       const refId = String(req.params.id || "").trim();
       if (!refId) return res.status(400).json({ error: "id required" });
-      const result = await getOrGenerateNarrative(kind, refId);
+      const allowGenerate = !!req.user;
+      const result = await getOrGenerateNarrative(kind, refId, { allowGenerate });
       if (!result) return res.status(404).json({ error: "Not found" });
       res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
       res.json(result);
