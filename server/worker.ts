@@ -33,21 +33,7 @@ const expressHandler = httpServerHandler({ port: workerPort });
 const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v4";
 
 function isBackendPath(pathname: string): boolean {
-  return pathname.startsWith("/api/")
-    || pathname.startsWith("/_data/")
-    || pathname === "/robots.txt"
-    || pathname.startsWith("/sitemap");
-}
-
-function canonicalBackendRequest(request: Request): { request: Request; pathname: string } {
-  const url = new URL(request.url);
-  if (!url.pathname.startsWith("/_data/")) return { request, pathname: url.pathname };
-
-  url.pathname = `/api/${url.pathname.slice("/_data/".length)}`;
-  return {
-    request: new Request(url.toString(), request),
-    pathname: url.pathname,
-  };
+  return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
 }
 
 const AI_CRAWLER_PATTERN = /(?:GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|CCBot|Google-Extended|PerplexityBot|Bytespider|Amazonbot)/i;
@@ -299,14 +285,13 @@ export default {
     }
 
     if (isBackendPath(url.pathname)) {
-      const backend = canonicalBackendRequest(request);
-      if (isBlockedApiCrawler(backend.request, backend.pathname)) {
+      if (isBlockedApiCrawler(request, url.pathname)) {
         return Response.json(
           { message: "Automated crawler access to API routes is not permitted." },
           { status: 403, headers: { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" } },
         );
       }
-      const rateLimited = await enforceBurstLimit(backend.request, env, backend.pathname);
+      const rateLimited = await enforceBurstLimit(request, env, url.pathname);
       if (rateLimited) return rateLimited;
       if (!databaseConfigured) {
         return Response.json(
@@ -317,7 +302,7 @@ export default {
       if (!expressHandler.fetch) {
         return Response.json({ message: "Express adapter is unavailable" }, { status: 500 });
       }
-      return fetchBackendWithCache(backend.request, env, ctx, backend.pathname);
+      return fetchBackendWithCache(request, env, ctx, url.pathname);
     }
 
     if (isDocumentRequest(request)) return serveDocument(request);

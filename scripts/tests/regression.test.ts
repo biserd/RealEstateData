@@ -208,21 +208,6 @@ test("HTML documents prevent zone-level JavaScript detection injection", () => {
   assert.match(workerSource, /public, max-age=60, stale-while-revalidate=300, no-transform/);
 });
 
-test("browser GET data uses a neutral route without bypassing API controls", () => {
-  const transportSource = readFileSync(new URL("../../client/src/lib/dataTransport.ts", import.meta.url), "utf8");
-  const mainSource = readFileSync(new URL("../../client/src/main.tsx", import.meta.url), "utf8");
-  const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
-  assert.match(transportSource, /requestMethod\(init\) !== "GET"/);
-  assert.match(transportSource, /\/_data\//);
-  assert.match(transportSource, /const body = await response\.text\(\)/);
-  assert.match(transportSource, /return new Response\(body/);
-  assert.match(mainSource, /installDataTransport\(\)/);
-  assert.match(workerSource, /function canonicalBackendRequest/);
-  assert.match(workerSource, /url\.pathname = `\/api\//);
-  assert.match(workerSource, /enforceBurstLimit\(backend\.request, env, backend\.pathname\)/);
-  assert.match(workerSource, /fetchBackendWithCache\(backend\.request, env, ctx, backend\.pathname\)/);
-});
-
 test("published ranking retries transient failures without reloading the application", () => {
   const pageSource = readFileSync(new URL("../../client/src/pages/UpAndComingZips.tsx", import.meta.url), "utf8");
   assert.match(pageSource, /retry: 2/);
