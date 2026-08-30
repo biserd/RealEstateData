@@ -205,7 +205,18 @@ function isDocumentRequest(request: Request): boolean {
   return request.method === "GET" && (request.headers.get("accept") || "").includes("text/html");
 }
 
-function protectDocumentResponse(response: Response, cacheControl: string): Response {
+function clearCachedHttp3Route(request: Request, headers: Headers): void {
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  if (hostname === "realtorsdashboard.com" || hostname === "www.realtorsdashboard.com") {
+    // HTTP/3 has been disabled for the production zone while a Chrome QUIC
+    // stall is investigated. Browsers may retain the previous Alt-Svc route
+    // for up to 24 hours, so explicitly evict that cached route on the next
+    // successful document response (RFC 7838 section 3).
+    headers.set("alt-svc", "clear");
+  }
+}
+
+function protectDocumentResponse(request: Request, response: Response, cacheControl: string): Response {
   const headers = new Headers(response.headers);
   // The public zone previously injected Cloudflare JavaScript Detections into
   // HTML documents. Some legitimate browsers then received bot challenges for
@@ -214,6 +225,7 @@ function protectDocumentResponse(response: Response, cacheControl: string): Resp
   // application shell; API, asset, DDoS, and Worker rate-limit behavior is
   // unchanged.
   headers.set("cache-control", `${cacheControl}, no-transform`);
+  clearCachedHttp3Route(request, headers);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -231,7 +243,7 @@ async function serveDocument(request: Request): Promise<Response> {
 
   const assetResponse = await bindings.ASSETS.fetch(request);
   if (!assetResponse.ok || !databaseConfigured) {
-    return protectDocumentResponse(assetResponse, "public, max-age=0, must-revalidate");
+    return protectDocumentResponse(request, assetResponse, "public, max-age=0, must-revalidate");
   }
 
   try {
@@ -242,6 +254,7 @@ async function serveDocument(request: Request): Promise<Response> {
       : await seo.getMetaForUrl(`${url.pathname}${url.search}`);
     const headers = new Headers(assetResponse.headers);
     headers.set("content-type", "text/html; charset=utf-8");
+    clearCachedHttp3Route(request, headers);
     if (!metadata) {
       headers.set("cache-control", "no-store, no-transform");
       headers.set("x-robots-tag", "noindex, follow, noarchive");
@@ -266,7 +279,7 @@ async function serveDocument(request: Request): Promise<Response> {
     });
   } catch (error) {
     console.error(JSON.stringify({ level: "error", source: "seo", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() }));
-    return protectDocumentResponse(assetResponse, "public, max-age=0, must-revalidate");
+    return protectDocumentResponse(request, assetResponse, "public, max-age=0, must-revalidate");
   }
 }
 
