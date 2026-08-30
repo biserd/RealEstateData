@@ -68,6 +68,7 @@ export default function UpAndComingZips() {
       
       const res = await fetch(`/api/market/trending-zips?${params.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch trending areas");
       const envelope = await res.json() as DataEnvelope<UpAndComingZip>;

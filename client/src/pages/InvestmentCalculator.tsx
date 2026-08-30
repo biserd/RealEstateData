@@ -450,7 +450,7 @@ function PropertyAutofill({ onAutofill }: { onAutofill: (data: { price: number; 
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/search/unified?q=${encodeURIComponent(query)}`);
+        const r = await fetch(`/api/search/unified?q=${encodeURIComponent(query)}`, { cache: "no-store" });
         if (r.ok) setResults(await r.json());
       } finally { setLoading(false); }
     }, 250);
@@ -462,7 +462,7 @@ function PropertyAutofill({ onAutofill }: { onAutofill: (data: { price: number; 
       // The unified search returns buildings/units (NYC). For autofill we need a generic property
       // record. We'll search the area for a representative property, but most users will land on
       // a property page directly. Here we try to fetch as a property id first.
-      const r = await fetch(`/api/calculator/property/${encodeURIComponent(propertyId)}`);
+      const r = await fetch(`/api/calculator/property/${encodeURIComponent(propertyId)}`, { cache: "no-store" });
       if (r.ok) {
         const p = await r.json() as {
           estimatedValue?: number;
@@ -494,7 +494,7 @@ function PropertyAutofill({ onAutofill }: { onAutofill: (data: { price: number; 
 
   async function pickLocation(geoId: string, name: string, state: string) {
     try {
-      const r = await fetch(`/api/properties/area?geoType=zip&geoId=${encodeURIComponent(geoId)}&limit=1&sortBy=opportunity`);
+      const r = await fetch(`/api/properties/area?geoType=zip&geoId=${encodeURIComponent(geoId)}&limit=1&sortBy=opportunity`, { cache: "no-store" });
       if (r.ok) {
         const data = await r.json() as { id?: string; address?: string }[] | { properties?: { id?: string; address?: string }[] };
         const p = Array.isArray(data) ? data[0] : data?.properties?.[0];

@@ -93,7 +93,7 @@ export default function MarketExplorer() {
   const { data: marketOverviewResponse, isLoading: loadingOverview, isError: overviewError } = useQuery<DataEnvelope<MarketAggregate>>({
     queryKey: ["/api/market/overview"],
     queryFn: async () => {
-      const response = await fetch("/api/market/overview?envelope=1", { credentials: "include" });
+      const response = await fetch("/api/market/overview?envelope=1", { credentials: "include", cache: "no-store" });
       if (!response.ok) throw new Error("Market overview is temporarily unavailable");
       return await response.json() as DataEnvelope<MarketAggregate>;
     },
@@ -116,6 +116,7 @@ export default function MarketExplorer() {
 
       const res = await fetch(`/api/market/aggregates?${params.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch market data");
       return await res.json() as DataEnvelope<MarketAggregate>;
@@ -136,6 +137,7 @@ export default function MarketExplorer() {
 
       const res = await fetch(`/api/properties/area?${params.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch published properties for this area");
       return await res.json() as Property[];
@@ -150,6 +152,7 @@ export default function MarketExplorer() {
     queryFn: async () => {
       const res = await fetch(`/api/search/geo?q=${encodeURIComponent(searchQuery)}`, {
         credentials: "include",
+        cache: "no-store",
       });
       if (res.status === 429) {
         setSearchLimitReached(true);
@@ -182,6 +185,7 @@ export default function MarketExplorer() {
 
       const res = await fetch(`/api/market/recent-sales?${params.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch recent recorded sales");
       return await res.json() as DataEnvelope<Sale & { property: Property }>;

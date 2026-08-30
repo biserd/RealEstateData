@@ -119,10 +119,17 @@ test("the application shell provides shared tooltip context and a visible crash 
 
 test("manual dataset publication cannot leave a day-old browser API response", () => {
   const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
+  const criticalPages = [
+    "../../client/src/pages/UpAndComingZips.tsx",
+    "../../client/src/pages/MarketExplorer.tsx",
+    "../../client/src/pages/OpportunityScreener.tsx",
+    "../../client/src/pages/InvestmentCalculator.tsx",
+  ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
   assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v2"/);
   assert.match(workerSource, /max-age=0, must-revalidate, s-maxage=\$\{ttl\}/);
   assert.match(workerSource, /private, no-store, max-age=0, must-revalidate/);
   assert.doesNotMatch(workerSource, /trending-zips"\) return 900/);
+  for (const pageSource of criticalPages) assert.match(pageSource, /cache: "no-store"/);
 });
 
 test("deployed legacy table models remain safe before the additive migration", () => {

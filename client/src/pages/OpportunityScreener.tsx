@@ -173,6 +173,7 @@ export default function OpportunityScreener() {
       
       const res = await fetch(`/api/properties/screener?${params.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch properties");
       return res.json();
@@ -211,6 +212,7 @@ export default function OpportunityScreener() {
       
       const res = await fetch(`/api/units/top-opportunities?${params.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch units");
       return res.json();
