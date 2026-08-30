@@ -214,6 +214,8 @@ test("browser GET data uses a neutral route without bypassing API controls", () 
   const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
   assert.match(transportSource, /requestMethod\(init\) !== "GET"/);
   assert.match(transportSource, /\/_data\//);
+  assert.match(transportSource, /const body = await response\.text\(\)/);
+  assert.match(transportSource, /return new Response\(body/);
   assert.match(mainSource, /installDataTransport\(\)/);
   assert.match(workerSource, /function canonicalBackendRequest/);
   assert.match(workerSource, /url\.pathname = `\/api\//);

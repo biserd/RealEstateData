@@ -28,7 +28,25 @@ function rewriteSameOriginGet(input: RequestInfo | URL, init?: RequestInit): Req
  */
 export function installDataTransport(): void {
   const nativeFetch = window.fetch.bind(window);
-  window.fetch = (input: RequestInfo | URL, init?: RequestInit) =>
-    nativeFetch(rewriteSameOriginGet(input, init), init);
-}
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const rewritten = rewriteSameOriginGet(input, init);
+    const response = await nativeFetch(rewritten, init);
+    if (rewritten === input || !(response.headers.get("content-type") || "").includes("application/json")) {
+      return response;
+    }
 
+    // Chromium has intermittently exposed an unreadable JSON response stream
+    // after the public Cloudflare zone processes it, although Worker tracing
+    // records a complete 200 response. Buffering the JSON into a fresh Response
+    // removes edge/browser stream metadata before React Query parses it.
+    const body = await response.text();
+    const headers = new Headers(response.headers);
+    headers.delete("content-encoding");
+    headers.delete("content-length");
+    return new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  };
+}
