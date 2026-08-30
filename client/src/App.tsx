@@ -1,8 +1,9 @@
 import { Switch, Route } from "wouter";
-import { lazy, Suspense } from "react";
+import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 // Every route is lazy, including the auth boundary. The static HTML/CSS shell
 // paints immediately while only the selected page module is downloaded.
@@ -55,6 +56,50 @@ function RouteFallback() {
       <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-foreground" />
     </div>
   );
+}
+
+class AppErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Application render failed", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <main className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
+          <div className="max-w-lg space-y-4 text-center">
+            <h1 className="text-2xl font-semibold">This page could not load</h1>
+            <p className="text-muted-foreground">
+              Please reload the page. If the problem continues, return to the dashboard and try again.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                className="rounded-md bg-primary px-4 py-2 text-primary-foreground"
+                onClick={() => window.location.reload()}
+              >
+                Reload page
+              </button>
+              <a className="rounded-md border px-4 py-2" href="/">
+                Return home
+              </a>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 function Router() {
@@ -115,14 +160,18 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <Suspense fallback={null}>
-          <Toaster />
-        </Suspense>
-        <Router />
-      </ThemeProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <TooltipProvider delayDuration={200}>
+            <Suspense fallback={null}>
+              <Toaster />
+            </Suspense>
+            <Router />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }
 

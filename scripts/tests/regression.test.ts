@@ -109,6 +109,14 @@ test("the schema push command is protected by the database write gate", () => {
   assert.match(packageJson.scripts["db:push"], /database-write-gate/);
 });
 
+test("the application shell provides shared tooltip context and a visible crash fallback", () => {
+  const appSource = readFileSync(new URL("../../client/src/App.tsx", import.meta.url), "utf8");
+  assert.match(appSource, /import \{ TooltipProvider \} from "@\/components\/ui\/tooltip"/);
+  assert.match(appSource, /<TooltipProvider delayDuration=\{200\}>[\s\S]*<Router \/>[\s\S]*<\/TooltipProvider>/);
+  assert.match(appSource, /class AppErrorBoundary/);
+  assert.match(appSource, /This page could not load/);
+});
+
 test("deployed legacy table models remain safe before the additive migration", () => {
   for (const [tableName, table] of Object.entries({ properties, sales, marketAggregates, condoUnits, buildings })) {
     assert.equal("geographyId" in table, false, `${tableName} must not select migration-only columns before 0001 is applied`);
