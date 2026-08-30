@@ -1,8 +1,5 @@
 import type { Property, MarketAggregate, AIResponse, ConfidenceLevel } from "@shared/schema";
-import { openai } from "./aiClient";
-
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const MODEL = "gpt-5";
+import { completeWithWorkersAI } from "./aiClient";
 
 interface ChatContext {
   property?: Property;
@@ -18,17 +15,16 @@ export async function analyzeProperty(
   const userPrompt = buildUserPrompt(question, context);
 
   try {
-    const response = await openai.chat.completions.create({
-      model: MODEL,
+    const response = await completeWithWorkersAI({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4096,
+      json: true,
+      maxCompletionTokens: 4096,
     });
 
-    const content = response.choices[0]?.message?.content;
+    const content = response.content;
     if (!content) {
       return createErrorResponse("No response received from AI");
     }
@@ -36,7 +32,7 @@ export async function analyzeProperty(
     const parsed = JSON.parse(content);
     return validateAndFormatResponse(parsed, context);
   } catch (error) {
-    console.error("OpenAI API error:", error);
+    console.error("Workers AI error:", error);
     return createErrorResponse("Failed to analyze property data");
   }
 }
@@ -290,17 +286,16 @@ TRANSACTION COUNT: ${marketData.transactionCount ?? "N/A"}
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: MODEL,
+    const response = await completeWithWorkersAI({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: dataSection + "\n\nGenerate a professional deal memo analysis for this property." }
       ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4096,
+      json: true,
+      maxCompletionTokens: 4096,
     });
 
-    const content = response.choices[0]?.message?.content;
+    const content = response.content;
     const parsed = content ? JSON.parse(content) : {};
 
     // Calculate comp averages
@@ -521,17 +516,16 @@ CALCULATED RESULTS:
 - 5-Year Total Return: ${results.year5TotalReturn}%`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: MODEL,
+    const response = await completeWithWorkersAI({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: dataSection + "\n\nAnalyze this investment scenario." }
       ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2048,
+      json: true,
+      maxCompletionTokens: 2048,
     });
 
-    const content = response.choices[0]?.message?.content;
+    const content = response.content;
     const parsed = content ? JSON.parse(content) : {};
 
     const validQualities = ["Excellent", "Good", "Fair", "Poor"];
@@ -688,17 +682,16 @@ Recent Transactions: ${marketData.transactionCount || "N/A"}
   dataSection += `USER TIER: ${userTier} (tailor recommendations accordingly)`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: MODEL,
+    const response = await completeWithWorkersAI({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: dataSection + "\n\nGenerate comprehensive property insights and actionable next steps." }
       ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4096,
+      json: true,
+      maxCompletionTokens: 4096,
     });
 
-    const content = response.choices[0]?.message?.content;
+    const content = response.content;
     const parsed = content ? JSON.parse(content) : {};
 
     const validRiskLevels = ["Low", "Medium", "High"];

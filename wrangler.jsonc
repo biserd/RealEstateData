@@ -29,6 +29,9 @@
       "allowed_sender_addresses": ["hello@realtorsdashboard.com"]
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
   "durable_objects": {
     "bindings": [
       {

@@ -10,7 +10,7 @@ The application is configured as a Cloudflare Worker with Workers Static Assets,
 - PostgreSQL application queries and login sessions use Neon's fetch-based driver, avoiding long-lived Node TCP connections in the Worker.
 - Transactional email uses the `EMAIL` `send_email` binding. Resend is no longer used.
 - Stripe uses direct API calls and signature-verified webhooks; the Replit Stripe connector and mirrored `stripe.*` schema are no longer required by request handling.
-- AI calls use a normal OpenAI key and can optionally be routed through Cloudflare AI Gateway. Replit's AI proxy variables are no longer used.
+- AI calls use the native Workers AI binding and the single approved `@cf/zai-org/glm-5.3-flash` model. No third-party AI key is required.
 - The unused Replit object-storage scaffold and its Google Cloud dependencies have been removed. The current application has no registered upload route; add an R2 binding if uploads are introduced later.
 - Default property/location previews are generated from application data and make no Google request.
 - Street View is loaded only after a click through the Maps Embed API. Rich multi-marker maps retain their existing click-to-load Maps JavaScript behavior.
@@ -39,6 +39,8 @@ npm run deploy:dry-run
 
 Copy `.dev.vars.example` to `.dev.vars` for local Worker development. Email sending should be tested only after the domain is onboarded; the binding is intentionally not configured as a remote development binding.
 
+Workers AI always executes remotely. Local AI feature testing therefore requires Cloudflare authentication and a Workers Paid plan because `glm-5.3-flash` is a paid-access model. Use `npm run dev`; the legacy `npm run dev:node` process does not have access to the native AI binding.
+
 ## Secrets and deployment
 
 After the database URL and the other production credentials are available:
@@ -49,10 +51,6 @@ npx wrangler secret put SESSION_SECRET
 npx wrangler secret put STRIPE_SECRET_KEY
 npx wrangler secret put STRIPE_PUBLISHABLE_KEY
 npx wrangler secret put STRIPE_WEBHOOK_SECRET
-npx wrangler secret put OPENAI_API_KEY
-# Optional when using an authenticated Cloudflare AI Gateway:
-npx wrangler secret put CLOUDFLARE_AI_GATEWAY_URL
-npx wrangler secret put CLOUDFLARE_AI_GATEWAY_TOKEN
 npm run build
 npx wrangler deploy
 ```
@@ -78,7 +76,7 @@ The current Worker deliberately returns HTTP 503 for API requests until `DATABAS
 - Register the direct Stripe webhook only after a staging Worker URL exists.
 - Decide where the heavyweight data-import/ETL scripts run. They remain CLI batch jobs and are not part of the request-serving Worker; Cloudflare Workflows or an external batch runner is a separate migration.
 
-No Cloudflare resource has been created and no deployment has been performed by this change.
+The Workers AI binding does not require an API-key secret. Deploy only after Workers Paid billing is enabled for the account.
 
 ## Cloudflare Email limits
 

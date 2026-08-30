@@ -24,7 +24,7 @@ The platform uses Drizzle ORM with PostgreSQL (Neon serverless driver) and a sch
 
 ### AI Integration
 
-AI features for Property Analysis, Market Intelligence, and Grounded Responses use the OpenAI API directly or through an optional Cloudflare AI Gateway. AI outputs are structured JSON, incorporate contextual data, include confidence scoring, and provide data citations to prevent hallucinations.
+AI features for Property Analysis, Market Intelligence, page narratives, and Grounded Responses use Cloudflare Workers AI with `@cf/zai-org/glm-5.3-flash`. AI outputs are structured JSON where appropriate, incorporate contextual data, include confidence scoring, and provide data citations to prevent hallucinations.
 
 ### Features
 
@@ -66,7 +66,7 @@ The guides hub at `/guides` and 8 long-form articles at `/guides/:slug` make up 
 
 ## External Dependencies
 
--   **AI Services:** OpenAI API, optionally routed through Cloudflare AI Gateway
+-   **AI Services:** Cloudflare Workers AI (`@cf/zai-org/glm-5.3-flash`)
 -   **Database:** Neon Serverless PostgreSQL
 -   **Payments:** Direct Stripe API calls and signed webhooks
 -   **Authentication:** Passport Local Strategy (bcryptjs for password hashing)

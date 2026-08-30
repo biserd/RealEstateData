@@ -4,7 +4,7 @@ import passport from "passport";
 import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, optionalAuth, hashPassword, hashActivationToken, generateActivationToken } from "./auth";
-import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, generatePropertyInsights, type ScenarioInputs, type PropertyInsights } from "./openai";
+import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, generatePropertyInsights, type ScenarioInputs, type PropertyInsights } from "./ai";
 import { insertWatchlistSchema, insertAlertSchema, insertNotificationSchema, type ScreenerFilters, properties, propertySignalSummary } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
@@ -572,7 +572,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // Public AI narrative for unit/property pages. Cached in DB for ~365 days.
-  // To control OpenAI spend, fresh generation is only triggered for
+  // To control Workers AI spend, fresh generation is only triggered for
   // authenticated users; anonymous traffic and bots receive cached-or-null.
   app.get("/api/seo/narrative/:kind/:id", optionalAuth, async (req: any, res) => {
     try {

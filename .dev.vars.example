@@ -4,11 +4,6 @@ SESSION_SECRET=replace-with-a-long-random-value
 STRIPE_SECRET_KEY=sk_test_replace_me
 STRIPE_PUBLISHABLE_KEY=pk_test_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
-OPENAI_API_KEY=sk_replace_me
-
-# Optional: route OpenAI requests through a Cloudflare AI Gateway.
-CLOUDFLARE_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account_id/gateway_id/openai
-CLOUDFLARE_AI_GATEWAY_TOKEN=replace_me
 
 # Optional only when running the legacy Node server instead of Wrangler.
 CLOUDFLARE_ACCOUNT_ID=replace_me

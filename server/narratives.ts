@@ -1,8 +1,7 @@
 import { db } from "./db";
 import { sql } from "drizzle-orm";
-import { openai } from "./aiClient";
+import { completeWithWorkersAI, WORKERS_AI_MODEL } from "./aiClient";
 
-const MODEL = "gpt-5-mini";
 const STALE_AFTER_DAYS = 365;
 const MAX_NARRATIVE_TOKENS = 400;
 
@@ -220,21 +219,19 @@ Write 2 short paragraphs (about 120-180 words total) for buyers and investors.
 Ground every claim in the structured data provided — do NOT invent prices, dates, or facts not present.
 Use plain natural prose, no bullets, no headings, no markdown. Be concrete and avoid filler. End with a 1-sentence neutral assessment of value vs. comparable benchmarks (e.g. building median or ZIP median) when those numbers are present.`;
 
-async function callOpenAI(userPrompt: string, label: string): Promise<string | null> {
+async function callWorkersAI(userPrompt: string, label: string): Promise<string | null> {
   try {
-    const resp = await openai.chat.completions.create({
-      model: MODEL,
+    const response = await completeWithWorkersAI({
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
-      max_completion_tokens: MAX_NARRATIVE_TOKENS,
+      maxCompletionTokens: MAX_NARRATIVE_TOKENS,
     });
-    const choice = resp.choices[0];
-    const text = choice?.message?.content?.trim();
+    const text = response.content;
     if (!text || text.length < 50) {
       console.error(
-        `[narratives] ${label} empty/short content. finish_reason=${choice?.finish_reason} len=${text?.length ?? 0}`,
+        `[narratives] ${label} empty/short content. finish_reason=${response.finishReason} len=${text?.length ?? 0}`,
       );
       return null;
     }
@@ -257,7 +254,7 @@ Unit data:
 ${JSON.stringify(ctx, null, 2)}
 
 Write 2 short paragraphs grounded in the above data only.`;
-  return callOpenAI(userPrompt, `unit ${unitBbl}`);
+  return callWorkersAI(userPrompt, `unit ${unitBbl}`);
 }
 
 async function generatePropertyNarrative(propertyId: string): Promise<string | null> {
@@ -272,7 +269,7 @@ Property data:
 ${JSON.stringify(ctx, null, 2)}
 
 Write 2 short paragraphs grounded in the above data only.`;
-  return callOpenAI(userPrompt, `property ${propertyId}`);
+  return callWorkersAI(userPrompt, `property ${propertyId}`);
 }
 
 // Fire-and-forget: triggers generation if no fresh cache exists. Safe to call
@@ -294,7 +291,7 @@ export function maybeGenerateNarrative(
           ? await generateUnitNarrative(refId)
           : await generatePropertyNarrative(refId);
       if (text) {
-        await upsertNarrative(kind, refId, text, MODEL);
+        await upsertNarrative(kind, refId, text, WORKERS_AI_MODEL);
       }
     } catch (err) {
       console.error("[narratives] background generation error:", err);
@@ -305,7 +302,7 @@ export function maybeGenerateNarrative(
 }
 
 // Synchronous-style fetcher for the public API: returns cached if fresh,
-// otherwise generates inline (with timeout-style guard via OpenAI itself).
+// otherwise generates inline through Workers AI.
 export async function getOrGenerateNarrative(
   kind: "unit" | "property",
   refId: string,
@@ -334,6 +331,6 @@ export async function getOrGenerateNarrative(
     }
     return null;
   }
-  await upsertNarrative(kind, refId, text, MODEL);
+  await upsertNarrative(kind, refId, text, WORKERS_AI_MODEL);
   return { narrative: text, generatedAt: new Date().toISOString() };
 }

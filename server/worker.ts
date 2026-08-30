@@ -14,13 +14,15 @@ if (!databaseConfigured) {
   process.env.DATABASE_URL =
     "postgresql://unconfigured:unconfigured@127.0.0.1:5432/unconfigured";
 }
-const [{ createApp }, { configureCloudflareEmail }, seo] = await Promise.all([
+const [{ createApp }, { configureCloudflareEmail }, { configureWorkersAI, isWorkersAIConfigured }, seo] = await Promise.all([
   import("./app"),
   import("./emailService"),
+  import("./aiClient"),
   import("./seoMetaTags"),
 ]);
 
 configureCloudflareEmail(bindings.EMAIL);
+configureWorkersAI(bindings.AI);
 
 const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
@@ -172,7 +174,13 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/health") {
-      return Response.json({ ok: true, runtime: "cloudflare-workers", databaseConfigured, emailConfigured: Boolean(bindings.EMAIL) });
+      return Response.json({
+        ok: true,
+        runtime: "cloudflare-workers",
+        databaseConfigured,
+        emailConfigured: Boolean(bindings.EMAIL),
+        aiConfigured: isWorkersAIConfigured(),
+      });
     }
 
     if (isBackendPath(url.pathname)) {
