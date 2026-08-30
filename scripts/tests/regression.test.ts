@@ -208,9 +208,7 @@ test("HTML documents prevent zone-level JavaScript detection injection", () => {
   assert.match(workerSource, /public, max-age=60, stale-while-revalidate=300, no-transform/);
   assert.match(workerSource, /hostname === "realtorsdashboard\.com"/);
   assert.match(workerSource, /headers\.set\("alt-svc", "clear"\)/);
-  assert.match(workerSource, /headers\.set\("speculation-rules"/);
-  assert.match(workerSource, /application\/speculationrules\+json/);
-  assert.match(workerSource, /'\{"prefetch":\[\]\}'/);
+  assert.match(workerSource, /entityPage \? "no-store, no-transform"/);
 });
 
 test("published ranking retries transient failures without reloading the application", () => {
