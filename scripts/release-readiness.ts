@@ -22,6 +22,7 @@ assert.match(read("wrangler.pipeline.example.jsonc"), /dead_letter_queue/);
 assert.match(read("server/dataPipelineWorkflow.ts"), /stableObjectKey|checksum|message\.retry/);
 assert.doesNotMatch(read("wrangler.pipeline.example.jsonc"), /"crons"\s*:/, "Data imports must remain manual-only");
 assert.doesNotMatch(read("server/worker.ts"), /async scheduled\s*\(/, "Worker must not expose a scheduled refresh handler");
+assert.doesNotMatch(read("vite.config.ts"), /manualChunks\s*\(/, "Do not force React dependencies into circular production chunks");
 
 const incorrectlyActive = SOURCE_CATALOG.filter((source) => source.active && source.redistributionStatus !== "approved");
 assert.deepEqual(incorrectlyActive, [], "No unapproved source may be active");
@@ -40,6 +41,7 @@ console.log(JSON.stringify({
     "candidate_publication_atomic",
     "queue_has_dlq_and_retries",
     "pipeline_is_manual_only",
+    "vite_dependency_chunks_are_safe",
     "unapproved_sources_fail_closed",
     "release_commands_present",
   ],
