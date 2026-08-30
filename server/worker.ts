@@ -35,7 +35,20 @@ function isBackendPath(pathname: string): boolean {
 const AI_CRAWLER_PATTERN = /(?:GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|CCBot|Google-Extended|PerplexityBot|Bytespider|Amazonbot)/i;
 
 function isBlockedApiCrawler(request: Request, pathname: string): boolean {
-  return pathname.startsWith("/api/") && AI_CRAWLER_PATTERN.test(request.headers.get("user-agent") || "");
+  if (!pathname.startsWith("/api/") || !AI_CRAWLER_PATTERN.test(request.headers.get("user-agent") || "")) {
+    return false;
+  }
+
+  // Let a public page load its own JSON in AI-assisted browsers. Direct bot API
+  // traffic has no same-origin browser context and remains blocked; all allowed
+  // requests still pass through the Cloudflare rate limiters below.
+  const requestOrigin = new URL(request.url).origin;
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  const sameOriginBrowserRequest = request.headers.get("sec-fetch-site") === "same-origin"
+    || origin === requestOrigin
+    || Boolean(referer && (referer === requestOrigin || referer.startsWith(`${requestOrigin}/`)));
+  return !sameOriginBrowserRequest;
 }
 
 function publicCacheTtl(pathname: string): number | null {
