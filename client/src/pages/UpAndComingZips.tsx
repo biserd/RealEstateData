@@ -87,7 +87,7 @@ export default function UpAndComingZips() {
 
   const upAndComingZips = (rawZips || []).filter((z) => {
     if (momentumFilter !== "all" && z.momentum !== momentumFilter) return false;
-    if (trendFilter === "rising" && !((z.trend12m ?? 0) > 0)) return false;
+    if (trendFilter === "rising" && !((z.trend6m ?? 0) > 0)) return false;
     if (trendFilter === "hot" && z.trendScore < 75) return false;
     if (trendFilter === "warming" && z.trendScore < 50) return false;
     return true;
@@ -461,16 +461,7 @@ export default function UpAndComingZips() {
                       
                       <div className="mt-4 grid grid-cols-3 gap-3 text-center">
                         <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground mb-1">12M</p>
-                          <p className={cn(
-                            "font-semibold text-sm",
-                            (zip.trend12m ?? 0) > 0 ? "text-emerald-600" : "text-red-600"
-                          )}>
-                            {formatTrend(zip.trend12m)}
-                          </p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground mb-1">6M</p>
+                          <p className="text-xs text-muted-foreground mb-1">6M trend</p>
                           <p className={cn(
                             "font-semibold text-sm",
                             (zip.trend6m ?? 0) > 0 ? "text-emerald-600" : "text-red-600"
@@ -479,13 +470,12 @@ export default function UpAndComingZips() {
                           </p>
                         </div>
                         <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground mb-1">3M</p>
-                          <p className={cn(
-                            "font-semibold text-sm",
-                            (zip.trend3m ?? 0) > 0 ? "text-emerald-600" : "text-red-600"
-                          )}>
-                            {formatTrend(zip.trend3m)}
-                          </p>
+                          <p className="text-xs text-muted-foreground mb-1">Recorded sales</p>
+                          <p className="font-semibold text-sm">{zip.transactionCount}</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-muted/50">
+                          <p className="text-xs text-muted-foreground mb-1">Market score</p>
+                          <p className="font-semibold text-sm">{zip.trendScore}/100</p>
                         </div>
                       </div>
                       
@@ -524,7 +514,7 @@ export default function UpAndComingZips() {
                             </div>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p className="text-xs">Median estimated value (not verified sales)</p>
+                            <p className="text-xs">Median recorded sale price in the current six-month window</p>
                           </TooltipContent>
                         </Tooltip>
                       </div>

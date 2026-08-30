@@ -145,8 +145,8 @@ function sale(id: string, geographyId: string, date: string, price: number, prop
 test("market snapshots and rankings are deterministic and reject empty destinations", () => {
   const sales: VerifiedSaleFact[] = [];
   for (let index = 0; index < 6; index++) {
-    sales.push(sale(`prior-${index}`, "zip:NY:10001", `2024-${String(index + 1).padStart(2, "0")}-15`, 500_000 + index * 10_000));
-    sales.push(sale(`current-${index}`, "zip:NY:10001", `2025-${String(index + 1).padStart(2, "0")}-15`, 600_000 + index * 10_000));
+    sales.push(sale(`prior-${index}`, "zip:NY:10001", `2025-${String(index + 1).padStart(2, "0")}-15`, 500_000 + index * 10_000));
+    sales.push(sale(`current-${index}`, "zip:NY:10001", `2025-${String(index + 7).padStart(2, "0")}-15`, 600_000 + index * 10_000));
   }
   const periodEnd = new Date("2026-01-01T00:00:00.000Z");
   const first = buildMarketSnapshots(sales, periodEnd);

@@ -1,5 +1,5 @@
-export const MARKET_RULE_VERSION = "market-v1.0.0";
-export const RANKING_RULE_VERSION = "up-and-coming-v1.0.0";
+export const MARKET_RULE_VERSION = "market-v1.1.0";
+export const RANKING_RULE_VERSION = "up-and-coming-v1.1.0";
 export const COMP_RULE_VERSION = "comps-v1.0.0";
 
 export interface VerifiedSaleFact {
@@ -90,7 +90,7 @@ export function isVerifiedCompSale(sale: VerifiedSaleFact, periodStart: Date, pe
 export function buildMarketSnapshots(
   sales: VerifiedSaleFact[],
   periodEnd: Date,
-  months = 12,
+  months = 6,
   minimumTransactions = 5,
 ): MarketSnapshotCandidate[] {
   const periodStart = new Date(periodEnd);

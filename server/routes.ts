@@ -2029,7 +2029,7 @@ Sitemap: ${baseUrl}/sitemap.xml
           liveListings: false,
           pendingValidation: ["non-NYC NY", "NJ", "CT"],
         },
-        methodologyVersion: "text-first-market-v1.0.0",
+        methodologyVersion: "text-first-market-v1.1.0",
       });
     } catch (error) {
       console.error("Error fetching data status:", error);

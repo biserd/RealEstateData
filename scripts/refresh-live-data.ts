@@ -109,7 +109,18 @@ function boroughName(code: string | null): string | null {
 async function syncCondoReference(): Promise<{ fetched: number; valid: number; written: number }> {
   assertSourceMayPublish(CONDO_UNITS_SOURCE);
   const records = await fetchSocrata(CONDO_UNITS_DATASET, new URLSearchParams({ "$order": "unit_bbl" }));
-  const valid = records.filter((record) => /^\d{10}$/.test(String(record.unit_bbl || "")) && /^\d{10}$/.test(String(record.condo_base_bbl || "")));
+  const validByUnitBbl = new Map<string, SocrataRecord>();
+  for (const record of records) {
+    const unitBbl = String(record.unit_bbl || "");
+    const baseBbl = String(record.condo_base_bbl || "");
+    if (/^\d{10}$/.test(unitBbl) && /^\d{10}$/.test(baseBbl) && !validByUnitBbl.has(unitBbl)) {
+      // The official snapshot occasionally contains byte-for-byte duplicate rows.
+      // PostgreSQL cannot update one conflict key twice in a single INSERT, so keep
+      // the first occurrence from the source's deterministic unit_bbl ordering.
+      validByUnitBbl.set(unitBbl, record);
+    }
+  }
+  const valid = [...validByUnitBbl.values()];
   if (valid.length < 250_000) throw new Error(`Condo reference safety check failed: expected at least 250,000 valid units, received ${valid.length}`);
   if (!apply) return { fetched: records.length, valid: valid.length, written: 0 };
 
