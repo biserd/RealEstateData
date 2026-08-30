@@ -199,6 +199,14 @@ test("manual dataset publication cannot leave a day-old browser API response", (
   for (const pageSource of criticalPages) assert.match(pageSource, /cache: "no-store"/);
 });
 
+test("published ranking retries transient failures without reloading the application", () => {
+  const pageSource = readFileSync(new URL("../../client/src/pages/UpAndComingZips.tsx", import.meta.url), "utf8");
+  assert.match(pageSource, /retry: 2/);
+  assert.match(pageSource, /void refetch\(\)/);
+  assert.doesNotMatch(pageSource, /window\.location\.reload\(\)/);
+  assert.doesNotMatch(pageSource, /strong appreciation potential|better investment opportunities/);
+});
+
 test("deployed legacy table models remain safe before the additive migration", () => {
   for (const [tableName, table] of Object.entries({ properties, sales, marketAggregates, condoUnits, buildings })) {
     assert.equal("geographyId" in table, false, `${tableName} must not select migration-only columns before 0001 is applied`);

@@ -42,7 +42,6 @@ import type { UpAndComingZip } from "@shared/schema";
 import type { DataEnvelope } from "@shared/dataEnvelope";
 
 export default function UpAndComingZips() {
-  const [stateFilter, setStateFilter] = useState<string>("all");
   const [momentumFilter, setMomentumFilter] = useState<string>("all");
   const [trendFilter, setTrendFilter] = useState<string>("all");
 
@@ -56,13 +55,10 @@ export default function UpAndComingZips() {
     warnings: string[];
   }
 
-  const { data: trendingResponse, isLoading, error } = useQuery<TrendingResponse>({
-    queryKey: ["/api/market/trending-zips", stateFilter],
+  const { data: trendingResponse, isLoading, isFetching, error, refetch } = useQuery<TrendingResponse>({
+    queryKey: ["/api/market/trending-zips", "published-nyc"],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (stateFilter !== "all") {
-        params.append("state", stateFilter);
-      }
       params.append("limit", "50");
       params.append("envelope", "1");
       
@@ -70,18 +66,20 @@ export default function UpAndComingZips() {
         credentials: "include",
         cache: "no-store",
       });
-      if (!res.ok) throw new Error("Failed to fetch trending areas");
+      if (!res.ok) throw new Error(`${res.status}: Failed to fetch trending areas`);
       const envelope = await res.json() as DataEnvelope<UpAndComingZip>;
       return {
         areas: envelope.records,
         matchMode: envelope.matchMode,
-        requestedGeography: envelope.requestedGeography.name || envelope.requestedGeography.id || stateFilter,
-        effectiveGeography: envelope.effectiveGeography.name || envelope.effectiveGeography.id || stateFilter,
+        requestedGeography: envelope.requestedGeography.name || envelope.requestedGeography.id || "published NYC",
+        effectiveGeography: envelope.effectiveGeography.name || envelope.effectiveGeography.id || "published NYC",
         fallbackReason: envelope.fallbackReason,
         freshness: envelope.freshness,
         warnings: envelope.warnings,
       };
     },
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
 
   const rawZips = trendingResponse?.areas;
@@ -177,18 +175,6 @@ export default function UpAndComingZips() {
             </div>
             
             <div className="flex flex-wrap items-center gap-3">
-              <Select value={stateFilter} onValueChange={setStateFilter}>
-                <SelectTrigger className="w-[140px]" data-testid="select-state-filter">
-                  <SelectValue placeholder="All States" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All States</SelectItem>
-                  <SelectItem value="NY">New York</SelectItem>
-                  <SelectItem value="NJ">New Jersey</SelectItem>
-                  <SelectItem value="CT">Connecticut</SelectItem>
-                </SelectContent>
-              </Select>
-
               <Select value={momentumFilter} onValueChange={setMomentumFilter}>
                 <SelectTrigger className="w-[170px]" data-testid="select-momentum-filter">
                   <SelectValue placeholder="All momentum" />
@@ -207,9 +193,9 @@ export default function UpAndComingZips() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All trends</SelectItem>
-                  <SelectItem value="rising">Rising (12M &gt; 0)</SelectItem>
-                  <SelectItem value="warming">Warming (50+)</SelectItem>
-                  <SelectItem value="hot">Hot (75+)</SelectItem>
+                  <SelectItem value="rising">Positive 6M trend</SelectItem>
+                  <SelectItem value="warming">Score 50+</SelectItem>
+                  <SelectItem value="hot">Score 75+</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -226,6 +212,7 @@ export default function UpAndComingZips() {
                   Reset
                 </Button>
               )}
+              {isFetching && !isLoading ? <span className="text-sm text-muted-foreground">Refreshing…</span> : null}
             </div>
           </div>
 
@@ -245,8 +232,8 @@ export default function UpAndComingZips() {
             <EmptyState
               icon={<Activity className="h-8 w-8" />}
               title="Unable to load data"
-              description="There was an error fetching trending ZIP codes. Please try again."
-              action={{ label: "Retry", onClick: () => window.location.reload() }}
+              description="The ranking service did not respond after multiple attempts. Retry the data request without reloading the page."
+              action={{ label: "Retry", onClick: () => { void refetch(); } }}
             />
           ) : !rawZips || rawZips.length === 0 ? (
             <EmptyState
@@ -263,7 +250,7 @@ export default function UpAndComingZips() {
                   <p className="mt-1 text-muted-foreground">
                     {filtersBroadened
                       ? `${filteredOutCount} eligible area${filteredOutCount === 1 ? " was" : "s were"} hidden by the selected momentum filters, so the full verified ranking is shown.`
-                      : trendingResponse?.fallbackReason || "The selected state has no eligible ranking snapshot, so verified Tri-State markets are shown."}
+                      : trendingResponse?.fallbackReason || "The exact published ranking is unavailable, so the closest eligible published set is shown and labeled."}
                   </p>
                 </div>
               )}
@@ -271,9 +258,9 @@ export default function UpAndComingZips() {
                 <HelpCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                 <div className="text-sm text-muted-foreground space-y-2">
                   <p>
-                    <span className="font-medium text-foreground">How it works:</span> We analyze price trends, 
-                    transaction volume, and market momentum to identify ZIP codes with strong appreciation potential. 
-                    Higher trend scores indicate better investment opportunities.
+                    <span className="font-medium text-foreground">How it works:</span> The ranking combines current recorded-price trend,
+                    transaction velocity, liquidity, comparable-sale depth, and confidence. Higher scores indicate stronger
+                    current recorded-sale signals, not a forecast or investment recommendation.
                   </p>
                   <div className="flex items-center gap-4 text-xs">
                     <span className="flex items-center gap-1">
@@ -321,8 +308,8 @@ export default function UpAndComingZips() {
                           </TooltipTrigger>
                           <TooltipContent className="max-w-[220px]">
                             <p className="text-xs">
-                              Composite score (0-100) based on price appreciation, market momentum, 
-                              and transaction volume. Higher = stronger growth trend.
+                              Composite score (0-100) based on current recorded-price trend, transaction velocity,
+                              liquidity, comparable-sale depth, and confidence.
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -352,7 +339,7 @@ export default function UpAndComingZips() {
                           </TooltipTrigger>
                           <TooltipContent className="max-w-[220px]">
                             <p className="text-xs">
-                              Areas where recent 3-month growth exceeds 6-month growth—momentum is increasing.
+                              Areas classified as accelerating by the current published ranking inputs. This is not a prediction.
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -371,7 +358,7 @@ export default function UpAndComingZips() {
                         <Building2 className="h-5 w-5 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">Total Properties</p>
+                        <p className="text-sm text-muted-foreground">Published Records</p>
                         <p className="text-2xl font-semibold" data-testid="text-total-properties">
                           {displayZips.reduce((sum, z) => sum + z.propertyCount, 0).toLocaleString()}
                         </p>
@@ -410,10 +397,10 @@ export default function UpAndComingZips() {
                                 <p className="font-medium text-xs">Trend Score: {zip.trendScore}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {zip.trendScore >= 75 
-                                    ? "Hot market—strong appreciation potential"
+                                    ? "Highest current recorded-sale signal tier"
                                     : zip.trendScore >= 50 
-                                    ? "Warming up—positive growth signals"
-                                    : "Emerging—early signs of growth"}
+                                    ? "Middle current recorded-sale signal tier"
+                                    : "Lower current recorded-sale signal tier"}
                                 </p>
                               </div>
                             </TooltipContent>
@@ -451,10 +438,10 @@ export default function UpAndComingZips() {
                           <TooltipContent className="max-w-[200px]">
                             <p className="text-xs">
                               {zip.momentum === "accelerating"
-                                ? "Growth is speeding up—recent appreciation exceeds historical rate."
+                                ? "Current ranking inputs are classified as accelerating. This is not a forecast."
                                 : zip.momentum === "decelerating"
-                                ? "Growth is slowing—still positive but losing momentum."
-                                : "Stable growth—consistent appreciation over time."}
+                                ? "Current ranking inputs are classified as decelerating. This is not a forecast."
+                                : "Current ranking inputs are classified as steady. This is not a forecast."}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -486,11 +473,11 @@ export default function UpAndComingZips() {
                             <TooltipTrigger asChild>
                               <div className="flex items-center gap-1.5 cursor-help">
                                 <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span>{zip.propertyCount} buildings</span>
+                                <span>{zip.propertyCount} published records</span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="text-xs">Number of buildings with estimated values in this ZIP</p>
+                              <p className="text-xs">Number of eligible published property records in this ZIP</p>
                             </TooltipContent>
                           </Tooltip>
                           {zip.avgOpportunityScore && (
