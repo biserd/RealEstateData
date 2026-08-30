@@ -31,6 +31,7 @@ const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
 const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v4";
+const EMPTY_SPECULATION_RULES_PATH = "/speculation-rules.json";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
@@ -216,6 +217,13 @@ function clearCachedHttp3Route(request: Request, headers: Headers): void {
   }
 }
 
+function disableSpeculativeNavigation(headers: Headers): void {
+  // Speed Brain's generic "/*" rule prefetches database-backed entity pages
+  // that a visitor merely points at. Supplying our own rule document prevents
+  // Cloudflare from injecting the generic rule while preserving normal links.
+  headers.set("speculation-rules", `"${EMPTY_SPECULATION_RULES_PATH}"`);
+}
+
 function protectDocumentResponse(request: Request, response: Response, cacheControl: string): Response {
   const headers = new Headers(response.headers);
   // The public zone previously injected Cloudflare JavaScript Detections into
@@ -226,6 +234,7 @@ function protectDocumentResponse(request: Request, response: Response, cacheCont
   // unchanged.
   headers.set("cache-control", `${cacheControl}, no-transform`);
   clearCachedHttp3Route(request, headers);
+  disableSpeculativeNavigation(headers);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -255,6 +264,7 @@ async function serveDocument(request: Request): Promise<Response> {
     const headers = new Headers(assetResponse.headers);
     headers.set("content-type", "text/html; charset=utf-8");
     clearCachedHttp3Route(request, headers);
+    disableSpeculativeNavigation(headers);
     if (!metadata) {
       headers.set("cache-control", "no-store, no-transform");
       headers.set("x-robots-tag", "noindex, follow, noarchive");
@@ -286,6 +296,15 @@ async function serveDocument(request: Request): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === EMPTY_SPECULATION_RULES_PATH) {
+      return new Response('{"prefetch":[]}', {
+        headers: {
+          "cache-control": "public, max-age=86400",
+          "content-type": "application/speculationrules+json; charset=utf-8",
+        },
+      });
+    }
 
     if (url.pathname === "/api/health") {
       return Response.json({
