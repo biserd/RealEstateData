@@ -61,7 +61,7 @@ const PRO_FEATURES = [
   { name: "Watchlists", included: true, limit: "Unlimited" },
   { name: "Basic Alerts", included: true, limit: "5 active alerts" },
   { name: "CSV/Bulk Exports", included: false },
-  { name: "Developer API Access", included: false },
+  { name: "Developer API Access", included: true, limit: "10K requests/day" },
 ];
 
 const PREMIUM_FEATURES = [

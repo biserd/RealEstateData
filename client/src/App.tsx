@@ -46,6 +46,7 @@ const Methodology = lazy(() => import("@/pages/Methodology"));
 const Comparisons = lazy(() => import("@/pages/Comparisons"));
 const Guides = lazy(() => import("@/pages/Guides"));
 const Guide = lazy(() => import("@/pages/Guide"));
+const Tools = lazy(() => import("@/pages/Tools"));
 
 function RouteFallback() {
   return (
@@ -150,6 +151,10 @@ function Router() {
         <Route path="/comparisons" component={Comparisons} />
         <Route path="/guides" component={Guides} />
         <Route path="/guides/:slug" component={Guide} />
+        <Route path="/tools" component={Tools} />
+        <Route path="/tools/nyc-zip-market-snapshot" component={Tools} />
+        <Route path="/tools/nyc-price-per-square-foot" component={Tools} />
+        <Route path="/tools/nyc-neighborhood-momentum" component={Tools} />
         <Route path="/browse/:state" component={StateBrowse} />
         <Route path="/browse/:state/:city" component={CityBrowse} />
         <Route component={NotFound} />

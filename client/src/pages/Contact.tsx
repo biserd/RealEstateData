@@ -1,40 +1,10 @@
 import { Mail, MapPin, MessageSquare, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { MarketingLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
 
 export default function Contact() {
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    toast({
-      title: "Message sent!",
-      description: "We'll get back to you within 1-2 business days.",
-    });
-    
-    setIsSubmitting(false);
-    (e.target as HTMLFormElement).reset();
-  };
-
   const contactInfo = [
     {
       icon: <Mail className="h-5 w-5" />,
@@ -81,81 +51,15 @@ export default function Contact() {
                   <MessageSquare className="h-5 w-5" />
                   Send us a message
                 </CardTitle>
-                <CardDescription>
-                  Fill out the form below and we'll get back to you as soon as possible.
-                </CardDescription>
+                <CardDescription>Email is the supported contact channel.</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First name</Label>
-                      <Input 
-                        id="firstName" 
-                        placeholder="John" 
-                        required 
-                        data-testid="input-first-name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last name</Label>
-                      <Input 
-                        id="lastName" 
-                        placeholder="Doe" 
-                        required 
-                        data-testid="input-last-name"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input 
-                      id="email" 
-                      type="email" 
-                      placeholder="john@example.com" 
-                      required 
-                      data-testid="input-email"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="subject">Subject</Label>
-                    <Select required>
-                      <SelectTrigger data-testid="select-subject">
-                        <SelectValue placeholder="Select a topic" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">General Inquiry</SelectItem>
-                        <SelectItem value="support">Technical Support</SelectItem>
-                        <SelectItem value="billing">Billing Question</SelectItem>
-                        <SelectItem value="data">Data Accuracy Issue</SelectItem>
-                        <SelectItem value="feature">Feature Request</SelectItem>
-                        <SelectItem value="partnership">Partnership Opportunity</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="message">Message</Label>
-                    <Textarea 
-                      id="message" 
-                      placeholder="Tell us how we can help..." 
-                      rows={5}
-                      required 
-                      data-testid="input-message"
-                    />
-                  </div>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full sm:w-auto"
-                    disabled={isSubmitting}
-                    data-testid="button-submit-contact"
-                  >
-                    {isSubmitting ? "Sending..." : "Send Message"}
-                  </Button>
-                </form>
+                <div className="space-y-5">
+                  <p className="text-muted-foreground">Write to us for account support, billing questions, product feedback, partnerships, or data corrections. Include the affected URL and source evidence when reporting a data issue.</p>
+                  <a href="mailto:hello@realtorsdashboard.com?subject=Realtors%20Dashboard%20inquiry">
+                    <Button data-testid="button-email-contact"><Mail className="mr-2 h-4 w-4" />Email hello@realtorsdashboard.com</Button>
+                  </a>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -201,9 +105,9 @@ export default function Contact() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium mb-1">Do you offer refunds?</p>
+                  <p className="text-sm font-medium mb-1">Is there a free trial?</p>
                   <p className="text-sm text-muted-foreground">
-                    Yes, we offer a 14-day money-back guarantee for all subscriptions.
+                    Yes. Pro and Premium start with a 14-day free trial. Cancel during the trial to avoid a charge.
                   </p>
                 </div>
                 <div>

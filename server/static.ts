@@ -27,6 +27,9 @@ export function serveStatic(app: Express) {
 
       const baseUrl = `https://${req.get("host")}`;
       const meta = await getMetaForUrl(req.originalUrl);
+      if (!meta) {
+        return res.status(404).set({ "Content-Type": "text/html", "X-Robots-Tag": "noindex, follow" }).end(html);
+      }
       html = injectMetaTags(html, meta, baseUrl);
 
       res.status(200).set({ "Content-Type": "text/html" }).end(html);

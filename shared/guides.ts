@@ -27,7 +27,7 @@ export interface Guide {
   relatedSlugs: string[];
 }
 
-export const GUIDES: Guide[] = [
+const ALL_GUIDES: Guide[] = [
   {
     slug: "how-to-find-underpriced-condos-nyc",
     title: "How to Find Underpriced NYC Condos Before Anyone Else",
@@ -111,7 +111,7 @@ export const GUIDES: Guide[] = [
     slug: "what-is-an-opportunity-score",
     title: "What Is an Opportunity Score in Real Estate?",
     metaTitle:
-      "What Is an Opportunity Score in Real Estate? (Plain-English Guide) | Realtors Dashboard",
+      "Real Estate Opportunity Score Explained | RD",
     metaDescription:
       "An Opportunity Score is a 0-100 rating of how underpriced a property looks against verified comparable sales. Here is what goes into it, what it does not measure, and how to read the confidence band.",
     keyword: "real estate opportunity score explained",
@@ -186,7 +186,7 @@ export const GUIDES: Guide[] = [
     slug: "nyc-condo-market-2026",
     title: "NYC Condo Market 2026: Prices, Trends, and Where to Buy",
     metaTitle:
-      "NYC Condo Market 2026: Prices, Trends, and Where to Buy | Realtors Dashboard",
+      "NYC Condo Market 2026: Recorded-Sale Trends | RD",
     metaDescription:
       "A 2026 view of the NYC condo market by borough and ZIP: median prices, $/sqft trends, sales velocity, and where buyers are finding the strongest opportunity-score inventory.",
     keyword: "NYC condo market 2026",
@@ -238,7 +238,7 @@ export const GUIDES: Guide[] = [
     slug: "verified-sales-vs-estimates-investors",
     title: "Verified Sales vs Estimated Values: What Real Estate Investors Should Trust",
     metaTitle:
-      "Verified Sales vs Estimates: What Investors Should Trust | Realtors Dashboard",
+      "Verified Sales vs Estimates for Investors | RD",
     metaDescription:
       "Verified sales are recorded transactions. Estimates are model outputs. Here is exactly how each is sourced, when each is useful, and why investors should never blend them.",
     keyword: "verified real estate sales vs estimates",
@@ -363,7 +363,7 @@ export const GUIDES: Guide[] = [
     slug: "nyc-comparable-sales-investor-guide",
     title: "Understanding Real Estate Comparable Sales: The NYC Investor Guide",
     metaTitle:
-      "NYC Real Estate Comparable Sales: The Investor Guide | Realtors Dashboard",
+      "NYC Comparable Sales: Investor Guide | RD",
     metaDescription:
       "A practical guide to NYC comparable sales (comps) for investors and agents: what makes a real comp, how to filter ACRIS data, and how comp quality drives every valuation decision.",
     keyword: "real estate comparable sales NYC",
@@ -487,7 +487,7 @@ export const GUIDES: Guide[] = [
     slug: "price-per-square-foot-nyc",
     title: "Price Per Square Foot in NYC: How to Use It and When It Misleads You",
     metaTitle:
-      "Price Per Square Foot NYC: How to Use It (and When It Misleads) | Realtors Dashboard",
+      "NYC Price Per Square Foot: When It Misleads | RD",
     metaDescription:
       "Price per square foot is the most-used and most-misused metric in NYC real estate. Here is how to use it correctly, when to ignore it, and how to combine it with verified comps.",
     keyword: "price per square foot NYC condo",
@@ -540,6 +540,19 @@ export const GUIDES: Guide[] = [
     ],
   },
 ];
+
+// These drafts describe live inventory, unverified markets, or API behavior
+// that is not part of the current published dataset. Keep the editorial source
+// in version control, but do not route, link, or index it until revalidated.
+const QUARANTINED_GUIDE_SLUGS = new Set([
+  "how-to-find-underpriced-condos-nyc",
+  "real-estate-api-for-developers",
+  "up-and-coming-zip-codes-nj-ct",
+]);
+
+export const GUIDES: Guide[] = ALL_GUIDES.filter(
+  (guide) => !QUARANTINED_GUIDE_SLUGS.has(guide.slug),
+);
 
 export const GUIDES_BY_SLUG: Record<string, Guide> = Object.fromEntries(
   GUIDES.map((g) => [g.slug, g]),

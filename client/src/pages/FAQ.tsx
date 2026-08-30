@@ -17,7 +17,7 @@ export default function FAQ() {
   const generalFAQs = [
     {
       question: "What is Realtors Dashboard?",
-      answer: "Realtors Dashboard is an AI-powered real estate market intelligence platform that helps buyers, investors, and agents find undervalued properties and make data-driven decisions. We aggregate public data, apply rigorous analysis, and present actionable insights."
+      answer: "Realtors Dashboard is a source-backed NYC recorded-sales research platform. It publishes reproducible market snapshots, comparable-sale context, and deterministic opportunity scores with explicit coverage and freshness."
     },
     {
       question: "Which areas do you cover?",
@@ -25,11 +25,11 @@ export default function FAQ() {
     },
     {
       question: "How accurate is your data?",
-      answer: "Our data comes from authoritative public sources including NYC Open Data (PLUTO, rolling sales, ACRIS transactions), Zillow Research, and county records. All data is validated regularly and processed through our quality pipeline to ensure accuracy."
+      answer: "Current public detail data comes from named official NYC sources, including PLUTO, Department of Finance rolling sales, ACRIS transactions, and condo-unit identity records. A record is public only after source, geography, price, completeness, and quarantine checks pass."
     },
     {
       question: "How often is the data updated?",
-      answer: "Our data is updated regularly as new records become available from our sources. Market aggregates and pricing trends are refreshed to reflect the latest transactions and valuations."
+      answer: "Updates are manually triggered. New source data is imported into a candidate dataset, audited, and then atomically published. Failed quality gates leave the previous publication active. Each data page shows its effective period and publication freshness."
     },
   ];
 
@@ -40,11 +40,11 @@ export default function FAQ() {
     },
     {
       question: "How does the AI analysis work?",
-      answer: "Our AI assistant analyzes properties using real data and market context. It provides pricing analysis, market comparisons, risk factors, and investment recommendations—all backed by citations from our data sources. No hallucinations, just evidence-based insights."
+      answer: "Optional AI summaries use the facts already displayed on a property page. They can be incomplete or wrong and are not appraisals or investment recommendations; users should verify every material fact against the cited public record."
     },
     {
       question: "Can I save and track properties?",
-      answer: "Yes! With a free account, you can create watchlists to save properties you're interested in. You'll receive alerts when there are updates to properties matching your criteria."
+      answer: "Accounts can save published properties and searches. Because the dataset refresh is manual rather than real time, saved items are not a live-listing alert service."
     },
     {
       question: "Can I export my data?",
@@ -58,8 +58,8 @@ export default function FAQ() {
       answer: "We offer free access to browse properties, view market data, and explore basic features. Premium features like AI analysis, Deal Memos, and advanced exports are available with a subscription."
     },
     {
-      question: "Do you offer refunds?",
-      answer: "Yes, we offer a 14-day money-back guarantee for all subscriptions. If you're not satisfied, contact us within 14 days for a full refund."
+      question: "Is there a free trial?",
+      answer: "Yes. Pro and Premium start with a 14-day free trial. Your payment method is collected at signup, but you are not charged until the trial ends. Cancel during the trial to avoid a charge."
     },
     {
       question: "Can I cancel my subscription anytime?",

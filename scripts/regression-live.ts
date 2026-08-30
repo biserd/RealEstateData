@@ -27,6 +27,12 @@ async function check(url: string, expected: number | number[], bodyMustNotContai
   }
 }
 
+async function checkHeader(url: string, header: string, pattern: RegExp, expectedStatus = 200) {
+  const response = await fetch(url, { headers: { accept: "text/html" }, redirect: "manual" });
+  const value = response.headers.get(header) || "";
+  results.push({ url, expected: `${expectedStatus} ${header} ${pattern}`, actual: response.status, ok: response.status === expectedStatus && pattern.test(value), detail: value });
+}
+
 async function checkEnvelope(url: string) {
   try {
     const response = await fetch(url, { headers: { accept: "application/json" } });
@@ -68,6 +74,16 @@ async function main() {
     check(`${baseUrl}/api/units/resolve/120-east-87-street-unit-e4a-manhattan-015151552`, 200),
     check(`${baseUrl}/unit/definitely-not-a-real-unit`, 404),
     check(`${baseUrl}/properties/definitely-not-a-real-property`, 404),
+    check(`${baseUrl}/definitely-not-a-real-route`, 404),
+    check(`${baseUrl}/guides/definitely-not-a-real-guide`, 404),
+    check(`${baseUrl}/browse/zz`, 404),
+    check(`${baseUrl}/neighborhood/00000?geoType=zip`, 404),
+    check(`${baseUrl}/neighborhood/99999?geoType=zip`, 404),
+  ]);
+  await Promise.all([
+    checkHeader(`${baseUrl}/login`, "x-robots-tag", /noindex/i),
+    checkHeader(`${baseUrl}/api-access`, "x-robots-tag", /noindex/i),
+    checkHeader(`${baseUrl}/og-image.png`, "content-type", /^image\/png/i),
   ]);
   await Promise.all([
     checkEnvelope(`${baseUrl}/api/market/overview?envelope=1`),

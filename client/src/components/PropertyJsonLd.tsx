@@ -8,25 +8,19 @@ interface PropertyJsonLdProps {
 
 export function PropertyJsonLd({ property, compsCount }: PropertyJsonLdProps) {
   useEffect(() => {
-    const formatPrice = (price: number | null) => {
-      if (!price) return undefined;
-      return price;
-    };
+    const normalizedType = (property.propertyType || "").toLowerCase();
+    const schemaType = normalizedType.includes("condo") || normalizedType.includes("coop") || normalizedType.includes("apartment")
+      ? "Apartment"
+      : normalizedType.includes("single") || normalizedType.includes("townhouse")
+        ? "House"
+        : "Residence";
 
     const jsonLd = {
       "@context": "https://schema.org",
-      "@type": "RealEstateListing",
-      name: property.address || "Property Listing",
+      "@type": schemaType,
+      name: property.address || "Property",
       description: `${property.propertyType} in ${property.city}, ${property.state}. ${property.beds || 0} beds, ${property.baths || 0} baths${property.sqft ? `, ${property.sqft.toLocaleString()} sqft` : ""}.`,
       url: typeof window !== "undefined" ? window.location.href : undefined,
-      datePosted: property.createdAt ? new Date(property.createdAt).toISOString() : undefined,
-      
-      offers: property.lastSalePrice ? {
-        "@type": "Offer",
-        price: formatPrice(property.lastSalePrice),
-        priceCurrency: "USD",
-        availability: "https://schema.org/InStock",
-      } : undefined,
 
       address: {
         "@type": "PostalAddress",
@@ -69,6 +63,12 @@ export function PropertyJsonLd({ property, compsCount }: PropertyJsonLdProps) {
           "@type": "PropertyValue",
           name: "opportunityScore",
           value: property.opportunityScore,
+        } : null,
+        property.lastSalePrice ? {
+          "@type": "PropertyValue",
+          name: "Last recorded sale price",
+          value: property.lastSalePrice,
+          unitText: "USD",
         } : null,
         compsCount ? {
           "@type": "PropertyValue",

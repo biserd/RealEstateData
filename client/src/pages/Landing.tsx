@@ -246,15 +246,15 @@ export default function Landing() {
 
   const coverageAreas = [
     { state: "New York", areas: "Verified NYC recorded sales and condo units" },
-    { state: "New Jersey", areas: "Market-level data; parcel revalidation in progress" },
-    { state: "Connecticut", areas: "Market-level data; parcel revalidation in progress" },
+    { state: "Publication", areas: "Manual refresh with quality gates" },
+    { state: "Next", areas: "NJ and CT remain pending validation" },
   ];
 
   return (
     <>
       <SEO 
         title="Realtors Dashboard - Real Estate Market Intelligence"
-        description="Verified NYC real estate intelligence with Tri-State market context. Find underpriced properties, analyze recorded sales, and make data-driven investment decisions."
+        description="Source-backed NYC recorded-sales intelligence with explicit publication dates, reproducible comparisons, and transparent coverage limits."
       />
       <OrganizationJsonLd />
       <WebSiteJsonLd searchUrlTemplate="https://realtorsdashboard.com/market-intelligence?q={search_term_string}" />
@@ -268,10 +268,10 @@ export default function Landing() {
             <div className="mx-auto max-w-3xl text-center">
               <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl" data-testid="text-hero-headline">
                 Transparent Opportunity Scoring{" "}
-                <span className="text-primary">for NYC and Tri-State Real Estate</span>
+                <span className="text-primary">for Published NYC Sales Data</span>
               </h1>
               <p className="mb-4 text-lg text-muted-foreground md:text-xl" data-testid="text-hero-subhead">
-                Verified NYC sales intelligence with Tri-State market context. Every published property page must pass source-provenance and completeness checks—no synthetic listings or blended estimates.
+                Every public detail page is tied to canonical geography, source-backed recorded sales, and the current manually validated publication. Live listings are not included.
               </p>
               <p className="mb-8 text-base text-foreground/80 font-medium" data-testid="text-hero-audience">
                 Opportunity intelligence for investors, agents, analysts, and PropTech teams.
@@ -381,7 +381,20 @@ export default function Landing() {
                 Browse our tools without signing up
               </p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <Link href="/tools">
+                <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-free-tools">
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Sparkles className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Free Data Tools</p>
+                      <p className="text-sm text-muted-foreground">Instant NYC ZIP answers</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
               <Link href="/market-intelligence">
                 <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-market-explorer">
                   <CardContent className="flex items-center gap-4 p-4">
@@ -421,15 +434,15 @@ export default function Landing() {
                   </CardContent>
                 </Card>
               </Link>
-              <Link href="/admin-console">
+              <Link href="/methodology/data-coverage">
                 <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-coverage-data">
                   <CardContent className="flex items-center gap-4 p-4">
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Shield className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="font-semibold">Coverage Data</p>
-                      <p className="text-sm text-muted-foreground">Data availability</p>
+                      <p className="font-semibold">Coverage Methodology</p>
+                      <p className="text-sm text-muted-foreground">Sources, dates, limitations</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -447,12 +460,12 @@ export default function Landing() {
                     <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
                     <Flame className="h-4 w-4 relative" />
                   </span>
-                  Live Top Opportunities
+                  Published Opportunity Candidates
                 </h2>
                 <p className="text-muted-foreground flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Refreshed in real time</span>
+                    <span>Updated on manual dataset publication</span>
                   </span>
                   <span aria-hidden>·</span>
                   <span>Underpriced properties scored 70+</span>
@@ -572,7 +585,7 @@ export default function Landing() {
                   Trending Neighborhoods
                 </h2>
                 <p className="text-muted-foreground">
-                  Up and coming ZIPs ranked by price momentum and sales activity
+                  Published NYC ZIPs ranked by recorded-price momentum, transaction velocity, liquidity, and comp depth
                 </p>
               </div>
               <Link href="/up-and-coming">
@@ -742,8 +755,8 @@ export default function Landing() {
         <section className="border-t bg-background py-16">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-10 text-center">
-              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">Coverage Across the Tri-State</h2>
-              <p className="text-muted-foreground">Comprehensive data across New York, New Jersey, and Connecticut</p>
+              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">Current Publication Coverage</h2>
+              <p className="text-muted-foreground">Verified detail pages are currently limited to published NYC recorded-sale data.</p>
             </div>
             <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
               <div className="contents">
@@ -770,7 +783,7 @@ export default function Landing() {
                 Built on the data investors already try to piece together manually
               </h2>
               <p className="text-muted-foreground">
-                Realtors Dashboard brings together verified sales, property records, permits, violations, complaints, market trends, and neighborhood signals so you can evaluate opportunities with more context in one place.
+                Realtors Dashboard combines official NYC recorded sales, parcel and condo-unit identities, and reproducible market snapshots. Each publication passes source, geography, price, and completeness checks before it becomes public.
               </p>
             </div>
             <p className="mb-6 text-center text-sm font-medium uppercase tracking-wide text-muted-foreground">Powered by data from</p>
@@ -778,12 +791,10 @@ export default function Landing() {
               {[
                 "NYC Open Data",
                 "PLUTO",
-                "DOB Permits",
-                "311 Complaints",
-                "HPD Violations",
-                "CT Open Data (CAMA)",
-                "NJ MOD-IV",
-                "Zillow Research",
+                "NYC Rolling Sales",
+                "ACRIS",
+                "Canonical Geography",
+                "Published Market Snapshots",
               ].map((src) => (
                 <div key={src} className="flex items-center gap-2 text-sm font-medium" data-testid={`source-${src.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
                   <Database className="h-4 w-4" />
@@ -797,34 +808,34 @@ export default function Landing() {
         <section className="border-t py-20">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-12 text-center">
-              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">How teams use Realtors Dashboard</h2>
-              <p className="text-muted-foreground">Three real workflows from across our user base</p>
+              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">How to use the published data</h2>
+              <p className="text-muted-foreground">Repeatable workflows, without unverifiable performance claims.</p>
             </div>
             <div className="grid gap-6 md:grid-cols-3">
               {[
                 {
-                  type: "Investor case study",
-                  quote: "I filter the Opportunity Screener for Bronx and Hudson County multi-family scoring 75+ with verified comps in the last 12 months. Underwrote 6 deals in week one and closed on a 6-unit at $42K under the comp median. Recouped the annual Pro fee in two weeks.",
-                  name: "Jordan M.",
-                  role: "Multi-family Investor",
-                  location: "Northern NJ",
-                  metric: "$42K under comp median",
+                  type: "Screen",
+                  quote: "Use deterministic filters and the Opportunity Score to create a research shortlist from the current published dataset.",
+                  name: "Step 1",
+                  role: "Candidate discovery",
+                  location: "NYC publication",
+                  metric: "Recorded-sales candidates",
                 },
                 {
-                  type: "Buyer-agent workflow",
-                  quote: "Every morning I run a saved screener over my buyer's target ZIPs in Brooklyn and Queens, export the top 20 to CSV, then pull the Neighborhood Report Card for each shortlist. Cuts what used to be a 3-hour comp pull down to 20 minutes per buyer.",
-                  name: "Priya R.",
-                  role: "Buyer's Agent",
-                  location: "NYC",
-                  metric: "3 hrs to 20 min per buyer",
+                  type: "Verify",
+                  quote: "Open the source-backed sale history and comparable records. Check dates, price ranges, geography, and sample depth before relying on a score.",
+                  name: "Step 2",
+                  role: "Evidence review",
+                  location: "Source-backed records",
+                  metric: "Visible provenance",
                 },
                 {
-                  type: "API / developer integration",
-                  quote: "We pull /api/properties and /api/market/stats nightly into our internal valuation model and trace every verified sale back to ACRIS. The 10K req/day Pro quota covers our entire NJ/CT analyst team without a custom enterprise contract.",
-                  name: "Daniel K.",
-                  role: "Head of Data, PropTech startup",
-                  location: "Connecticut",
-                  metric: "10K req/day Pro API",
+                  type: "Underwrite",
+                  quote: "Treat estimates and scores as research inputs—not appraisals, offers, or investment advice—and confirm material facts independently.",
+                  name: "Step 3",
+                  role: "Independent diligence",
+                  location: "User-validated decision",
+                  metric: "No live-listing claim",
                 },
               ].map((t) => (
                 <Card

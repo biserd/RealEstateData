@@ -1,11 +1,12 @@
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
-import { getCachedNarrative, maybeGenerateNarrative } from './narratives';
-import { isDatabaseBackedPagePath } from './entityPagePolicy';
-export { isDatabaseBackedPagePath } from './entityPagePolicy';
+import { getCachedNarrative } from './narratives';
+import { isDatabaseBackedPagePath, isPrivatePagePath } from './entityPagePolicy';
+import { publicPropertyPageSql, publicUnitPageSql } from './publicPageEligibility';
+export { isDatabaseBackedPagePath, isPrivatePagePath } from './entityPagePolicy';
 
-interface PageMeta {
+export interface PageMeta {
   title: string;
   description: string;
   ogType: string;
@@ -13,6 +14,7 @@ interface PageMeta {
   h1?: string;
   bodyHtml?: string;
   jsonLd?: Record<string, any> | Record<string, any>[];
+  robots?: string;
 }
 
 const SITE_NAME = 'Realtors Dashboard';
@@ -30,7 +32,8 @@ const SOFTWARE_APPLICATION_JSONLD: Record<string, any> = {
     'Source-backed real estate market intelligence with verified recorded sales, reproducible comps, and explicit coverage and freshness.',
   offers: [
     { '@type': 'Offer', name: 'Free', price: 0, priceCurrency: 'USD' },
-    { '@type': 'Offer', name: 'Pro', price: 29, priceCurrency: 'USD' },
+    { '@type': 'Offer', name: 'Pro', price: 59, priceCurrency: 'USD' },
+    { '@type': 'Offer', name: 'Premium', price: 149, priceCurrency: 'USD' },
   ],
   aggregateRating: undefined,
 };
@@ -55,7 +58,7 @@ const PRODUCT_PRICING_JSONLD: Record<string, any> = {
     {
       '@type': 'Offer',
       name: 'Pro Monthly',
-      price: 29,
+      price: 59,
       priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
       url: `${SITE_URL}/pricing`,
@@ -63,7 +66,7 @@ const PRODUCT_PRICING_JSONLD: Record<string, any> = {
     {
       '@type': 'Offer',
       name: 'Premium Monthly',
-      price: 99,
+      price: 149,
       priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
       url: `${SITE_URL}/pricing`,
@@ -80,7 +83,7 @@ const FAQ_JSONLD: Record<string, any> = {
       name: 'What is Realtors Dashboard?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Realtors Dashboard is an AI-powered real estate market intelligence platform that helps buyers, investors, and agents find undervalued properties using verified public-record transactions, proprietary opportunity scoring, and AI analysis.',
+        text: 'Realtors Dashboard is a source-backed NYC recorded-sales research platform. It publishes reproducible market snapshots, comparable-sale context, and deterministic opportunity scores with explicit coverage and freshness.',
       },
     },
     {
@@ -120,7 +123,7 @@ const FAQ_JSONLD: Record<string, any> = {
       name: 'Can I cancel anytime?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Subscriptions can be canceled anytime from account settings, and we offer a 14-day money-back guarantee on paid plans.',
+        text: 'Yes. Pro and Premium subscriptions start with a 14-day free trial. Cancel from account settings during the trial to avoid a charge.',
       },
     },
   ],
@@ -134,11 +137,7 @@ const DATASET_JSONLD: Record<string, any> = {
     'Published property records, verified recorded sales, market snapshots, and opportunity scores with explicit coverage, provenance, and freshness. Available via the Realtors Dashboard Developer API.',
   url: `${SITE_URL}/developers`,
   creator: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
-  spatialCoverage: [
-    { '@type': 'Place', name: 'New York' },
-    { '@type': 'Place', name: 'New Jersey' },
-    { '@type': 'Place', name: 'Connecticut' },
-  ],
+  spatialCoverage: [{ '@type': 'City', name: 'New York City' }],
   isAccessibleForFree: false,
   license: `${SITE_URL}/terms`,
   keywords: [
@@ -151,60 +150,21 @@ const DATASET_JSONLD: Record<string, any> = {
 };
 
 const HOMEPAGE_BODY_HTML = `
-  <p><strong>Transparent opportunity scoring for NYC and tri-state real estate.</strong> Realtors Dashboard is verified sales intelligence for New York, New Jersey, and Connecticut. Every Opportunity Score is built from public-record transactions, shows its inputs, and links the verified comps behind it - no black-box AVMs, no blended estimates.</p>
-
-  <p><em>Opportunity intelligence for investors, agents, analysts, and PropTech teams.</em></p>
-
-  <h2>What you can do</h2>
+  <p><strong>Source-backed NYC recorded-sales intelligence.</strong> Public pages are limited to canonical geographies and records that pass the current published dataset's provenance, completeness, price, and quarantine checks.</p>
+  <p>The platform does not represent live listings. New source data is imported, audited, and published manually so a partial refresh cannot silently change public market results.</p>
+  <h2>Research the current publication</h2>
   <ul>
-    <li><strong>Search and screen properties:</strong> Filter 199,500+ properties across NY, NJ, and CT by price, opportunity score, ZIP, property type, and more. <a href="/investment-opportunities">Open the Opportunity Screener</a>.</li>
-    <li><strong>Read the market:</strong> Pre-computed market statistics by state, county, city, ZIP, and neighborhood, including median price, $/sqft, sales volume, and trends. <a href="/market-intelligence">Open Market Intelligence</a>.</li>
-    <li><strong>Spot trends early:</strong> ZIP-level momentum scoring identifies neighborhoods with rising values before they hit mainstream coverage. <a href="/up-and-coming">See up &amp; coming ZIP codes</a>.</li>
-    <li><strong>Run the numbers:</strong> Side-by-side property comparison, neighborhood report cards, and a full investment calculator with cap rate, cash-on-cash, DSCR, and BRRRR scenarios. <a href="/calculator">Open the Investment Calculator</a>.</li>
-    <li><strong>Build on our data:</strong> RESTful Developer API for properties, market stats, comps, and trending ZIPs. <a href="/developers">Read the API docs</a>.</li>
+    <li><a href="/tools">Free NYC data tools</a> turn exact published ZIP snapshots into focused market answers without maps or misleading geographic fallbacks.</li>
+    <li><a href="/market-intelligence">Market Intelligence</a> shows recorded-price statistics, sample sizes, publication freshness, and explicit fallback scope.</li>
+    <li><a href="/investment-opportunities">Opportunity Candidates</a> applies deterministic scoring to source-backed published records.</li>
+    <li><a href="/up-and-coming">Published ZIP rankings</a> use price trend, transaction velocity, liquidity, and comparable-sale depth.</li>
+    <li><a href="/calculator">The Investment Calculator</a> lets users test their own assumptions independently of the data publication.</li>
   </ul>
-
-  <h2>Why people choose us</h2>
-  <ul>
-    <li><strong>Verified data, not blended estimates:</strong> Recorded sale prices are sourced from named public agencies (ACRIS, county records, NYC Open Data) and shown separately from any model-produced estimates.</li>
-    <li><strong>Transparent methodology:</strong> The <a href="/methodology/opportunity-score">Opportunity Score</a> is explained in detail, including inputs, weighting, and confidence bands. Every score links the comps it was built from.</li>
-    <li><strong>No agent funnel:</strong> We are not a brokerage. There is no sell-side conflict of interest in how properties are scored or surfaced. <a href="/comparisons">See how we compare to Zillow, Redfin, and PropStream</a>.</li>
-    <li><strong>Honest, transparent pricing:</strong> Free tier for browsing, Pro at $59/month for AI deal memos and exports, Premium for portfolio tools. <a href="/pricing">See pricing</a>.</li>
-  </ul>
-
-  <h2>Data sources we cite</h2>
-  <ul>
-    <li>NYC Open Data: PLUTO, rolling sales, ACRIS recorded transactions, condo declarations</li>
-    <li>Connecticut Open Data and New Jersey property records</li>
-    <li>Zillow Research ZIP-level housing series</li>
-    <li>FRED MORTGAGE30US for live 30-year mortgage rates</li>
-    <li>NYC Geoclient API for parcel-level geocoding</li>
-  </ul>
-  <p><a href="/methodology/data-coverage">Read the full data coverage page</a> for source details and refresh cadence, or read about <a href="/methodology/verified-vs-estimates">how we separate verified sales from estimates</a>.</p>
-
-  <h2>How teams use Realtors Dashboard</h2>
-  <ul>
-    <li><strong>Investor case study (Multi-family Investor, Northern NJ):</strong> "I filter the Opportunity Screener for Bronx and Hudson County multi-family scoring 75+ with verified comps in the last 12 months. Underwrote 6 deals in week one and closed on a 6-unit at $42K under the comp median. Recouped the annual Pro fee in two weeks."</li>
-    <li><strong>Buyer-agent workflow (Buyer's Agent, NYC):</strong> "Every morning I run a saved screener over my buyer's target ZIPs in Brooklyn and Queens, export the top 20 to CSV, then pull the Neighborhood Report Card for each shortlist. Cuts what used to be a 3-hour comp pull down to 20 minutes per buyer."</li>
-    <li><strong>API integration (Head of Data, PropTech startup, CT):</strong> "We pull /api/properties and /api/market/stats nightly into our internal valuation model and trace every verified sale back to ACRIS. The 10K req/day Pro quota covers our entire NJ/CT analyst team without a custom enterprise contract."</li>
-  </ul>
-
-  <h2>Guides and playbooks</h2>
-  <p>Practical, NYC-focused guides on how to actually use this data:</p>
-  <ul>
-    <li><a href="/guides/how-to-find-underpriced-condos-nyc">How to Find Underpriced NYC Condos Before Anyone Else</a></li>
-    <li><a href="/guides/what-is-an-opportunity-score">What Is an Opportunity Score in Real Estate?</a></li>
-    <li><a href="/guides/nyc-condo-market-2026">NYC Condo Market 2026: Prices, Trends, and Where to Buy</a></li>
-    <li><a href="/guides/verified-sales-vs-estimates-investors">Verified Sales vs Estimated Values: What Investors Should Trust</a></li>
-    <li><a href="/guides/real-estate-api-for-developers">Real Estate API for Developers</a></li>
-    <li><a href="/guides/nyc-comparable-sales-investor-guide">Understanding NYC Comparable Sales</a></li>
-    <li><a href="/guides/up-and-coming-zip-codes-nj-ct">Up-and-Coming ZIP Codes in NJ and CT</a></li>
-    <li><a href="/guides/price-per-square-foot-nyc">Price Per Square Foot in NYC: When It Misleads You</a></li>
-  </ul>
-  <p><a href="/guides">Browse all guides</a>.</p>
-
-  <h2>Get started</h2>
-  <p>Browse the platform free, or <a href="/pricing">start a Pro plan at $59/month</a> for AI deal memos, full comp exports, watchlist alerts, and developer API access. <a href="/faq">Read the FAQ</a> or <a href="/contact">contact us</a> with any questions.</p>
+  <h2>Sources and limitations</h2>
+  <p>Primary sources include NYC rolling sales, ACRIS recorded transactions, PLUTO, and official condo-unit identity data. Recorded sales, estimates, and scores are labeled separately. NJ and CT detail pages remain unpublished until their source adapters and identity checks pass the same quality contract.</p>
+  <p>Every market result should show its source-through date, publication date, methodology version, record count, and limitations. Read <a href="/methodology/data-coverage">data coverage</a> and <a href="/methodology/verified-vs-estimates">verified sales versus estimates</a>.</p>
+  <h2>Use the data responsibly</h2>
+  <p>Scores and estimates are research inputs, not appraisals, offers, or financial advice. Verify material facts with the official record and qualified professionals. To report an issue, <a href="/contact">contact the data editorial team</a>.</p>
 `;
 
 const DEFAULT_META: PageMeta = {
@@ -216,6 +176,8 @@ const DEFAULT_META: PageMeta = {
   bodyHtml: HOMEPAGE_BODY_HTML,
   jsonLd: SOFTWARE_APPLICATION_JSONLD,
 };
+
+export const SEO_CONTENT_LAST_MODIFIED = '2026-08-30';
 
 const GUIDES_INDEX_JSONLD: Record<string, any> = {
   '@context': 'https://schema.org',
@@ -233,12 +195,12 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   '/guides': {
     title: 'Guides - Realtors Dashboard',
     description:
-      'Investor playbooks, concept explainers, market reports, and developer guides for NYC and tri-state real estate. Built on verified sales and the Opportunity Score methodology.',
+      'NYC recorded-sales research guides with named public sources, visible review dates, coverage limits, and Opportunity Score methodology.',
     ogType: 'website',
     canonicalPath: '/guides',
     h1: 'Real estate guides for investors, agents, and developers',
     bodyHtml: `
-      <p>Practical guides built on verified ACRIS sales, the Opportunity Score methodology, and the data we publish across NY, NJ, and CT.</p>
+      <p>Practical guides built on the current manually published NYC recorded-sales dataset. Unsupported market and live-listing drafts are excluded until revalidated.</p>
       <ul>
         ${GUIDES.map(
           (g) =>
@@ -254,11 +216,11 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     ogType: 'website',
     canonicalPath: '/market-intelligence',
     h1: 'Market Intelligence',
-    bodyHtml: '<p>Pre-computed market statistics by state, county, city, ZIP, and neighborhood. Median prices, $/sqft, sales volume, and trend data updated regularly.</p>',
+    bodyHtml: '<p>Pre-computed NYC recorded-sales statistics with sample size, source period, publication date, and methodology version. Updates are manually validated and published.</p>',
   },
   '/investment-opportunities': {
     title: 'Investment Opportunities - Realtors Dashboard',
-    description: 'Find underpriced properties with AI-powered opportunity scoring. Identify deals based on verified sale prices and market comparisons.',
+    description: 'Screen source-backed NYC recorded-sale records with a deterministic Opportunity Score and reproducible comparable-sale context.',
     ogType: 'website',
     canonicalPath: '/investment-opportunities',
     h1: 'Investment Opportunities',
@@ -266,11 +228,63 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/up-and-coming': {
     title: 'Up & Coming ZIP Codes - Realtors Dashboard',
-    description: 'Discover trending neighborhoods with rising property values. Data-driven analysis of emerging real estate markets in the Tri-State area.',
+    description: 'Compare eligible published NYC ZIPs using recorded-price trends, transaction velocity, liquidity, comp depth, and visible confidence.',
     ogType: 'website',
     canonicalPath: '/up-and-coming',
     h1: 'Up & Coming ZIP Codes',
-    bodyHtml: '<p>Trending neighborhoods ranked by a momentum score that combines price appreciation, sales velocity, and new permit activity.</p>',
+    bodyHtml: '<p>Eligible published NYC ZIPs ranked by recorded-price trend, transaction velocity, liquidity, comparable-sale depth, and confidence. Rankings do not use live listings or permit activity.</p>',
+  },
+  '/tools': {
+    title: 'Free NYC Real Estate Data Tools - Realtors Dashboard',
+    description: 'Free text-first tools for NYC ZIP recorded-sale snapshots, price-per-square-foot benchmarks, and neighborhood momentum checks.',
+    ogType: 'website',
+    canonicalPath: '/tools',
+    h1: 'Free NYC real estate data tools',
+    bodyHtml: `
+      <p>Answer focused market questions with the current manually published NYC recorded-sales dataset. These tools use no maps, reject misleading geographic fallbacks, and require no signup.</p>
+      <ul>
+        <li><a href="/tools/nyc-zip-market-snapshot"><strong>NYC ZIP Market Snapshot</strong></a> - recorded pricing, transaction count, price range, trend, and recent verified transfers.</li>
+        <li><a href="/tools/nyc-price-per-square-foot"><strong>NYC Price per Square Foot Benchmark</strong></a> - compare a subject property's calculated price per square foot with an exact-ZIP recorded-sale benchmark.</li>
+        <li><a href="/tools/nyc-neighborhood-momentum"><strong>NYC Neighborhood Momentum Checker</strong></a> - see an eligible ZIP's current rank, score, transaction depth, and momentum classification.</li>
+      </ul>
+    `,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: 'Free NYC Real Estate Data Tools',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'NYC ZIP Market Snapshot', url: `${SITE_URL}/tools/nyc-zip-market-snapshot` },
+        { '@type': 'ListItem', position: 2, name: 'NYC Price per Square Foot Benchmark', url: `${SITE_URL}/tools/nyc-price-per-square-foot` },
+        { '@type': 'ListItem', position: 3, name: 'NYC Neighborhood Momentum Checker', url: `${SITE_URL}/tools/nyc-neighborhood-momentum` },
+      ],
+    },
+  },
+  '/tools/nyc-zip-market-snapshot': {
+    title: 'NYC ZIP Market Snapshot Tool - Realtors Dashboard',
+    description: 'Check exact published NYC ZIP recorded-sale prices, price per square foot, transaction count, range, and data freshness.',
+    ogType: 'website',
+    canonicalPath: '/tools/nyc-zip-market-snapshot',
+    h1: 'NYC ZIP Market Snapshot',
+    bodyHtml: '<p>Enter an NYC ZIP to inspect its exact published recorded-sale benchmark, sample depth, price distribution, trend, and recent verified transfers. The tool never labels a state or broader-market fallback as ZIP-specific.</p>',
+    jsonLd: { '@context': 'https://schema.org', '@type': 'WebApplication', name: 'NYC ZIP Market Snapshot', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: `${SITE_URL}/tools/nyc-zip-market-snapshot`, isAccessibleForFree: true },
+  },
+  '/tools/nyc-price-per-square-foot': {
+    title: 'NYC Price per Square Foot Benchmark - Realtors Dashboard',
+    description: "Calculate a property's price per square foot and compare it with an exact published NYC ZIP recorded-sale benchmark.",
+    ogType: 'website',
+    canonicalPath: '/tools/nyc-price-per-square-foot',
+    h1: 'NYC Price per Square Foot Benchmark',
+    bodyHtml: '<p>Calculate a subject property price per square foot and compare it with the median and interquartile range for an exact eligible ZIP. The result is a recorded-sale research benchmark, not an appraisal or valuation.</p>',
+    jsonLd: { '@context': 'https://schema.org', '@type': 'WebApplication', name: 'NYC Price per Square Foot Benchmark', applicationCategory: 'FinanceApplication', operatingSystem: 'Web', url: `${SITE_URL}/tools/nyc-price-per-square-foot`, isAccessibleForFree: true },
+  },
+  '/tools/nyc-neighborhood-momentum': {
+    title: 'NYC Neighborhood Momentum Checker - Realtors Dashboard',
+    description: "Check an eligible NYC ZIP's current recorded-sale trend score, rank, transaction depth, and momentum classification.",
+    ogType: 'website',
+    canonicalPath: '/tools/nyc-neighborhood-momentum',
+    h1: 'NYC Neighborhood Momentum Checker',
+    bodyHtml: '<p>Check an eligible ZIP against the current published ranking using recorded-price trend, transaction velocity, liquidity, comparable-sale depth, and confidence. Momentum describes the current snapshot and is not a forecast.</p>',
+    jsonLd: { '@context': 'https://schema.org', '@type': 'WebApplication', name: 'NYC Neighborhood Momentum Checker', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: `${SITE_URL}/tools/nyc-neighborhood-momentum`, isAccessibleForFree: true },
   },
   '/pricing': {
     title: 'Pricing - Realtors Dashboard',
@@ -279,7 +293,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     canonicalPath: '/pricing',
     h1: 'Pricing',
     bodyHtml: `
-      <p>Three transparent tiers. Cancel anytime. 14-day money-back guarantee on paid plans.</p>
+      <p>Three transparent tiers. Paid subscriptions start with a 14-day free trial. Cancel anytime.</p>
       <ul>
         <li><strong>Free:</strong> Browse properties, view market data, and run basic searches. Limited daily search volume.</li>
         <li><strong>Pro - $59/month:</strong> Unlimited searches, AI deal memos with citations, full comparable-sales tables, CSV/JSON exports, watchlist alerts, and Developer API access (10K requests/day).</li>
@@ -294,7 +308,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     ogType: 'website',
     canonicalPath: '/about',
     h1: 'About Realtors Dashboard',
-    bodyHtml: '<p>Realtors Dashboard is a real estate intelligence platform that turns public records, MLS-adjacent data, and verified transactions into transparent, actionable insights.</p>',
+    bodyHtml: '<p>Realtors Dashboard is an independent NYC recorded-sales research platform. It turns named public records and manually published analytical snapshots into transparent, reproducible research while labeling estimates and coverage limits.</p>',
   },
   '/faq': {
     title: 'FAQ - Realtors Dashboard',
@@ -305,7 +319,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     bodyHtml: `
       <p>Common questions about Realtors Dashboard, our data sources, the Opportunity Score, AI features, pricing, and billing. Browse the answers below or <a href="/contact">contact us</a>.</p>
       <h2>Coverage and data</h2>
-      <p>We cover New York, New Jersey, and Connecticut today, including 300K+ verified NYC condo unit records. Data comes from named public sources and is refreshed on a regular ETL schedule. <a href="/methodology/data-coverage">See the full coverage page</a>.</p>
+      <p>Current verified detail coverage is NYC recorded sales and exact matched condo units. Data comes from named official sources and changes only after a manual refresh passes quality gates and is published. NJ and CT remain pending validation. <a href="/methodology/data-coverage">See the full coverage page</a>.</p>
       <h2>Opportunity Score</h2>
       <p>The Opportunity Score is a 0-100 rating that estimates how underpriced a property is relative to verified comparable sales. <a href="/methodology/opportunity-score">Read how it is computed</a>.</p>
       <h2>Pricing</h2>
@@ -359,7 +373,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/compare': {
     title: 'Property Comparison Tool - Realtors Dashboard',
-    description: 'Compare up to 4 properties side-by-side. Analyze price, opportunity score, beds, baths, square footage, and more across NY, NJ, and CT listings.',
+    description: 'Compare up to four published NYC property records by recorded price, estimated value, score, beds, baths, and square footage.',
     ogType: 'website',
     canonicalPath: '/compare',
     h1: 'Property Comparison',
@@ -375,7 +389,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/methodology/opportunity-score': {
     title: 'Opportunity Score Explained - How We Rate Properties | Realtors Dashboard',
-    description: 'Inside our 0-100 Opportunity Score: the inputs, weights, comp methodology, and confidence bands we use to flag underpriced properties in NY, NJ, and CT.',
+    description: 'How the deterministic 0-100 Opportunity Score uses recorded sales, comparable-property fit, recency, trends, and confidence.',
     ogType: 'article',
     canonicalPath: '/methodology/opportunity-score',
     h1: 'Opportunity Score Explained',
@@ -404,27 +418,27 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/methodology/data-coverage': {
     title: 'Data Coverage - States, Sources, and Refresh Cadence | Realtors Dashboard',
-    description: 'What we cover, where the data comes from, and how often it refreshes. Verified NYC condo sales and units, plus Tri-State market aggregates.',
+    description: 'Current verified NYC recorded-sale coverage, official sources, manual publication workflow, freshness fields, and known limitations.',
     ogType: 'article',
     canonicalPath: '/methodology/data-coverage',
     h1: 'Data Coverage',
     bodyHtml: `
-      <p>Realtors Dashboard combines verified public records, official open-data feeds, and reference market data to build a transparent view of every covered property.</p>
+      <p>Realtors Dashboard publishes a manually validated snapshot of official NYC property identities and recorded-sale data. Public pages are created only when identity, canonical geography, price, source, and completeness gates pass.</p>
       <h2>Geographic coverage</h2>
       <ul>
-        <li><strong>New York City:</strong> 300K+ official condo-unit identities; only exact recorded-sale matches are published as unit pages.</li>
-        <li><strong>New Jersey:</strong> market-level data remains available while parcel-level provenance is revalidated.</li>
-        <li><strong>Connecticut:</strong> market-level data remains available while CAMA property identities are revalidated.</li>
-        <li><strong>National expansion:</strong> additional states are being onboarded.</li>
+        <li><strong>New York City:</strong> verified recorded sales and official condo-unit identities; only exact source-backed sale matches are indexable.</li>
+        <li><strong>New Jersey and Connecticut:</strong> not part of the current verified public detail publication; validation remains pending.</li>
+        <li><strong>Live listings:</strong> unavailable. Pages describe recorded transactions and published analytical snapshots.</li>
       </ul>
       <h2>Source data</h2>
       <ul>
         <li>NYC Open Data: PLUTO, rolling sales, ACRIS recorded transactions, condo declarations.</li>
-        <li>Connecticut Open Data and New Jersey property records.</li>
-        <li>Zillow Research ZIP-level housing series.</li>
-        <li>FRED MORTGAGE30US for live 30-year mortgage rates.</li>
-        <li>NYC Geoclient API for parcel-level geocoding.</li>
+        <li>NYC Department of Finance rolling sales and ACRIS recorded transactions.</li>
+        <li>NYC Department of City Planning PLUTO and official condo-unit identity records.</li>
+        <li>Canonical geography and quarantine tables produced by the publication quality pipeline.</li>
       </ul>
+      <h2>Refresh policy</h2>
+      <p>Refreshes are manually triggered. Candidate data is audited before publication; failed quality gates leave the prior published snapshot in place. Market pages expose their source period and publication date.</p>
       <p>Related: <a href="/methodology/opportunity-score">Opportunity Score Explained</a>, <a href="/methodology/verified-vs-estimates">Verified Sales vs Estimates</a>.</p>
     `,
     jsonLd: {
@@ -446,7 +460,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     bodyHtml: `
       <p>Most real estate sites blend recorded sale prices and algorithmic estimates into a single number. We do not. Verified sales and estimates serve different purposes, and on every page they are sourced, labeled, and presented separately.</p>
       <h2>What counts as a verified sale</h2>
-      <p>A verified sale is a recorded property transfer drawn from official public records. For NYC that means ACRIS recorded deeds and the rolling sales file. For New Jersey and Connecticut that means county and statewide recorded sales feeds.</p>
+      <p>A verified sale is a recorded property transfer drawn from official public records. In the current publication, that means NYC ACRIS records and Department of Finance rolling-sales data.</p>
       <h2>What counts as an estimate</h2>
       <p>An estimate is a model-produced value when a verified recent sale is not available. Estimates are clearly labeled and only used to provide a price band when verified sales are sparse.</p>
       <h2>Why this matters for scoring</h2>
@@ -474,13 +488,22 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       <h2>Realtors Dashboard vs Zillow</h2>
       <p>Zillow is a consumer search portal with the Zestimate as the headline price. We separate verified recorded sales from automated estimates, publish a proprietary Opportunity Score with confidence bands, and cover NYC at the unit level (300K+ condo units). Both have free consumer search.</p>
       <h2>Realtors Dashboard vs Redfin</h2>
-      <p>Redfin is a brokerage with an in-house agent funnel. We are not a brokerage, so there is no sell-side conflict in how properties are scored. We publish neighborhood report cards (development, safety, transit, amenities, flood, building health) and a developer API.</p>
+      <p>Redfin combines brokerage and listing search. Realtors Dashboard is not a brokerage and currently focuses on published recorded-sale research rather than live-listing discovery.</p>
       <h2>Realtors Dashboard vs PropStream</h2>
-      <p>PropStream focuses on owner skip tracing and direct-mail list pulling for wholesalers. We are a market intelligence and screening platform with transparent self-serve pricing (Free, Pro $59/month, Premium $149/month) and AI deal memos with citations. PropStream is stronger for cold-lead generation; we are stronger for finding and underwriting deals.</p>
+      <p>PropStream focuses on owner-data and lead-generation workflows. Realtors Dashboard focuses on NYC recorded-sale screening, transparent methodology, and reproducible comparisons. Product scope and third-party features change, so verify each vendor's current documentation before purchasing.</p>
       <p><a href="/pricing">See pricing</a> or <a href="/methodology/opportunity-score">read the methodology</a>.</p>
     `,
   },
 };
+
+export function getStaticSitemapEntries(): Array<{ path: string; lastmod: string }> {
+  return ['/', ...Object.keys(STATIC_PAGES), ...GUIDES.map((guide) => `/guides/${guide.slug}`)]
+    .filter((path) => path !== '/api-access')
+    .map((path) => {
+      const guide = path.startsWith('/guides/') ? getGuide(path.slice('/guides/'.length)) : undefined;
+      return { path, lastmod: guide?.updatedDate || SEO_CONTENT_LAST_MODIFIED };
+    });
+}
 
 function titleCase(str: string): string {
   return str
@@ -507,20 +530,11 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
     const unitRes = await db.execute(sql`
       SELECT cu.unit_bbl, cu.base_bbl, cu.unit_designation, cu.unit_display_address,
              cu.building_display_address, cu.borough, cu.zip_code, cu.slug,
-             cu.latitude, cu.longitude, cu.beds, cu.baths, cu.sqft, cu.unit_type_hint
+             cu.latitude, cu.longitude, cu.beds, cu.baths, cu.sqft, cu.unit_type_hint,
+             (SELECT published_at FROM current_published_dataset ORDER BY published_at DESC NULLS LAST LIMIT 1) AS published_at
       FROM condo_units cu
       WHERE (cu.unit_bbl = ${unitBbl} OR cu.slug = ${unitBbl})
-        AND cu.unit_type_hint = 'residential'
-        AND cu.latitude IS NOT NULL
-        AND cu.longitude IS NOT NULL
-        AND NULLIF(BTRIM(cu.building_display_address), '') IS NOT NULL
-        AND NULLIF(BTRIM(cu.unit_designation), '') IS NOT NULL
-        AND EXISTS (
-          SELECT 1 FROM sales verified_sale
-          WHERE verified_sale.unit_bbl = cu.unit_bbl
-            AND verified_sale.sale_price BETWEEN 100000 AND 100000000
-            AND verified_sale.sale_date >= NOW() - INTERVAL '120 months'
-        )
+        AND ${publicUnitPageSql('cu')}
       LIMIT 1
     `);
     if (unitRes.rows.length === 0) return null;
@@ -531,16 +545,18 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       db.execute(sql`
         SELECT sale_price, sale_date FROM sales
         WHERE unit_bbl = ${row.unit_bbl}
+          AND sale_price BETWEEN 100000 AND 100000000
         ORDER BY sale_date DESC LIMIT 8
       `),
       db.execute(sql`
         SELECT s.sale_price, s.sale_date, s.raw_apt_number, s.unit_bbl,
                cu.slug, cu.unit_designation
         FROM sales s
-        LEFT JOIN condo_units cu ON cu.unit_bbl = s.unit_bbl
+        JOIN condo_units cu ON cu.unit_bbl = s.unit_bbl
+          AND ${publicUnitPageSql('cu')}
         WHERE s.base_bbl = ${row.base_bbl}
           AND s.unit_bbl IS DISTINCT FROM ${row.unit_bbl}
-          AND s.sale_price >= 100000
+          AND s.sale_price BETWEEN 100000 AND 100000000
         ORDER BY s.sale_date DESC LIMIT 8
       `),
       db.execute(sql`
@@ -560,12 +576,12 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       `),
       db.execute(sql`
         SELECT
-          COUNT(*) FILTER (WHERE sale_price >= 100000)::int AS sale_count,
+          COUNT(*) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000)::int AS sale_count,
           PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price)
-            FILTER (WHERE sale_price >= 100000) AS median_price,
-          MIN(sale_price) FILTER (WHERE sale_price >= 100000) AS min_price,
-          MAX(sale_price) FILTER (WHERE sale_price >= 100000) AS max_price,
-          MAX(sale_date) FILTER (WHERE sale_price >= 100000) AS last_sale
+            FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS median_price,
+          MIN(sale_price) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS min_price,
+          MAX(sale_price) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS max_price,
+          MAX(sale_date) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS last_sale
         FROM sales
         WHERE base_bbl = ${row.base_bbl}
           AND sale_date >= NOW() - INTERVAL '36 months'
@@ -588,7 +604,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       : `${buildingAddr}${row.unit_designation ? `, ${row.unit_designation}` : ''}`;
 
     const locationParts = [borough, zip].filter(Boolean).join(' ');
-    const title = `${displayAddress}${locationParts ? ` - ${locationParts}` : ''} | Realtors Dashboard`;
+    const title = `${displayAddress}${zip ? ` · ${zip}` : ''} | RD`;
 
     const beds = row.beds ? Number(row.beds) : null;
     const baths = row.baths ? Number(row.baths) : null;
@@ -608,8 +624,8 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
     description += descParts.length
       ? descParts.join(', ') + '. '
       : '';
-    description += 'Verified ACRIS sale history, opportunity score, building comps, and market context.';
-    description = description.slice(0, 300);
+    description += 'Recorded sale history, building comps, and source-backed market context.';
+    description = description.slice(0, 158);
 
     // Build the noscript body — this is what crawlers actually index.
     const factsList = [
@@ -621,6 +637,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       baths ? `<li><strong>Bathrooms:</strong> ${baths}</li>` : '',
       sqftNum ? `<li><strong>Square feet:</strong> ${sqftNum.toLocaleString()}</li>` : '',
       `<li><strong>Unit BBL:</strong> ${escapeHtml(row.unit_bbl)}</li>`,
+      `<li><strong>Dataset publication:</strong> ${row.published_at ? escapeHtml(String(row.published_at).slice(0, 10)) : 'current validated snapshot'}; recorded sales, not a live listing</li>`,
     ].filter(Boolean).join('');
 
     const unitSalesHtml = unitSales.length
@@ -662,7 +679,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
         <li><a href="/building/${escapeHtml(row.base_bbl)}">All units at ${escapeHtml(buildingAddr)}</a></li>
         ${zip ? `<li><a href="/neighborhood/${escapeHtml(zip)}?geoType=zip">Neighborhood report for ${escapeHtml(zip)}</a></li>` : ''}
         ${borough ? `<li><a href="/browse/ny">Browse condos in New York</a></li>` : ''}
-        <li><a href="/screener">Opportunity screener — find underpriced condos</a></li>
+        <li><a href="/investment-opportunities">Opportunity screener — review published candidates</a></li>
         <li><a href="/methodology/opportunity-score">How the opportunity score is calculated</a></li>
       </ul>
     `;
@@ -674,10 +691,8 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       <ul>${factsList}</ul>
     `;
 
-    // AI narrative — render only if a fresh cached version exists. Otherwise
-    // fire-and-forget background generation so the next crawl has it.
+    // Crawls never trigger model spend. Render only a fresh, cached narrative.
     const cachedNarrative = await getCachedNarrative('unit', row.unit_bbl);
-    if (!cachedNarrative?.fresh) maybeGenerateNarrative('unit', row.unit_bbl);
     const narrativeHtml = cachedNarrative?.narrative
       ? `<h2>Property analysis</h2>${cachedNarrative.narrative
           .split(/\n\n+/)
@@ -759,14 +774,6 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
         longitude: Number(row.longitude),
       };
     }
-    if (lastSale && priceNum) {
-      residenceJsonLd.subjectOf = {
-        '@type': 'Event',
-        name: 'Last recorded sale',
-        startDate: String(lastSale.sale_date).slice(0, 10),
-        about: { '@type': 'PriceSpecification', price: priceNum, priceCurrency: 'USD' },
-      };
-    }
 
     const canonicalUnitPath = `/unit/${row.slug || row.unit_bbl}`;
 
@@ -817,39 +824,35 @@ function extractPropertyId(slug: string): string {
   return parts[parts.length - 1];
 }
 
+function propertySlug(row: { id: string; address?: string | null; city?: string | null; zip_code?: string | null }): string {
+  const clean = (value: string, max = 80) => value.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, max);
+  return [row.address ? clean(row.address, 50) : '', row.city ? clean(row.city) : '', row.zip_code || '', row.id]
+    .filter(Boolean)
+    .join('-');
+}
+
+function residenceSchemaType(propertyType: string): 'Apartment' | 'House' | 'Residence' {
+  const type = propertyType.toLowerCase();
+  if (type.includes('condo') || type.includes('coop') || type.includes('co-op') || type.includes('apartment')) return 'Apartment';
+  if (type.includes('single') || type.includes('townhouse')) return 'House';
+  return 'Residence';
+}
+
 async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
   try {
     const propertyId = extractPropertyId(slug);
     const result = await db.execute(sql`
       SELECT id, address, city, state, zip_code, property_type, estimated_value,
              last_sale_price, last_sale_date, sqft, beds, baths, year_built,
-             opportunity_score, latitude, longitude
+             opportunity_score, latitude, longitude,
+             (SELECT published_at FROM current_published_dataset ORDER BY published_at DESC NULLS LAST LIMIT 1) AS published_at
       FROM properties p
       WHERE p.id = ${propertyId}
-        AND NULLIF(BTRIM(p.address), '') IS NOT NULL
-        AND NULLIF(BTRIM(p.city), '') IS NOT NULL
-        AND p.state IN ('NY', 'NJ', 'CT')
-        AND p.zip_code ~ '^[0-9]{5}$'
-        AND p.latitude BETWEEN 38 AND 46
-        AND p.longitude BETWEEN -80 AND -69
-        AND COALESCE(p.estimated_value, p.last_sale_price, 0) BETWEEN 50000 AND 100000000
-        AND (
-          NULLIF(BTRIM(p.bbl), '') IS NOT NULL
-          OR EXISTS (
-            SELECT 1 FROM entity_resolution_map erm
-            WHERE erm.matched_property_id = p.id AND erm.match_confidence >= 0.90
-          )
-          OR EXISTS (
-            SELECT 1 FROM sales verified_sale
-            WHERE verified_sale.property_id = p.id
-              AND verified_sale.sale_price BETWEEN 50000 AND 100000000
-              AND (
-                verified_sale.match_method IS NOT NULL
-                OR verified_sale.raw_block IS NOT NULL
-                OR verified_sale.raw_lot IS NOT NULL
-              )
-          )
-        )
+        AND ${publicPropertyPageSql('p')}
       LIMIT 1
     `);
     if (result.rows.length === 0) return null;
@@ -860,17 +863,17 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       db.execute(sql`
         SELECT sale_price, sale_date FROM sales
         WHERE property_id = ${row.id}
+          AND sale_price BETWEEN 50000 AND 100000000
         ORDER BY sale_date DESC LIMIT 8
       `),
       row.zip_code
         ? db.execute(sql`
-            SELECT id, address, city, last_sale_price, last_sale_date,
+            SELECT id, address, city, zip_code, last_sale_price, last_sale_date,
                    beds, baths, sqft, opportunity_score
             FROM properties
             WHERE zip_code = ${row.zip_code}
               AND id != ${row.id}
-              AND last_sale_price > 0
-              AND latitude IS NOT NULL
+              AND ${publicPropertyPageSql('properties')}
             ORDER BY last_sale_date DESC NULLS LAST
             LIMIT 6
           `)
@@ -884,6 +887,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)
                 FILTER (WHERE estimated_value > 0) AS median_estimate
             FROM properties WHERE zip_code = ${row.zip_code}
+              AND ${publicPropertyPageSql('properties')}
           `)
         : Promise.resolve({ rows: [{}] } as any),
     ]);
@@ -907,7 +911,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
     const score = row.opportunity_score ? Number(row.opportunity_score) : null;
 
     const locationParts = [city, state, zip].filter(Boolean).join(', ');
-    const title = `${address}${locationParts ? `, ${locationParts}` : ''} | Realtors Dashboard`;
+    const title = `${address}${zip ? ` · ${zip}` : ''} | RD`;
 
     const descParts: string[] = [];
     if (type) descParts.push(type);
@@ -918,8 +922,8 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
 
     let description = `${address}${locationParts ? `, ${locationParts}` : ''}`;
     if (descParts.length) description += ` — ${descParts.join(', ')}`;
-    description += '. Verified sale history, comparable sales, neighborhood context, and AI insights.';
-    description = description.slice(0, 300);
+    description += '. Recorded sale history, comparable sales, and source-backed neighborhood context.';
+    description = description.slice(0, 158);
 
     const factsHtml = [
       type ? `<li><strong>Property type:</strong> ${escapeHtml(type)}</li>` : '',
@@ -931,6 +935,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       yearBuilt ? `<li><strong>Year built:</strong> ${yearBuilt}</li>` : '',
       score ? `<li><strong>Opportunity score:</strong> ${score}/100</li>` : '',
       zip ? `<li><strong>ZIP:</strong> <a href="/neighborhood/${escapeHtml(zip)}?geoType=zip">${escapeHtml(zip)}</a></li>` : '',
+      `<li><strong>Dataset publication:</strong> ${row.published_at ? escapeHtml(String(row.published_at).slice(0, 10)) : 'current validated snapshot'}; recorded sales and estimates, not a live listing or appraisal</li>`,
     ].filter(Boolean).join('');
 
     const salesHtml = sales.length
@@ -943,7 +948,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       ? `<h2>Comparable properties in ${escapeHtml(zip)}</h2>
          <ul>${comps.map(c => {
             const label = `${titleCase(c.address || '')}${c.last_sale_price ? ` — ${formatPrice(Number(c.last_sale_price))}` : ''}${c.beds ? `, ${c.beds} bd` : ''}${c.baths ? `/${c.baths} ba` : ''}${c.sqft ? `, ${Number(c.sqft).toLocaleString()} sqft` : ''}`;
-            return `<li><a href="/properties/${escapeHtml(c.id)}">${escapeHtml(label)}</a></li>`;
+            return `<li><a href="/properties/${escapeHtml(propertySlug(c))}">${escapeHtml(label)}</a></li>`;
          }).join('')}</ul>`
       : '';
 
@@ -964,7 +969,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
         ${zip ? `<li><a href="/neighborhood/${escapeHtml(zip)}?geoType=zip">Full neighborhood report for ${escapeHtml(zip)}</a></li>` : ''}
         ${state && city ? `<li><a href="/browse/${escapeHtml(state.toLowerCase())}/${escapeHtml(encodeURIComponent(city.toLowerCase()))}">More properties in ${escapeHtml(city)}, ${escapeHtml(state)}</a></li>` : ''}
         ${state ? `<li><a href="/browse/${escapeHtml(state.toLowerCase())}">Browse all ${escapeHtml(STATE_NAMES[state] || state)} listings</a></li>` : ''}
-        <li><a href="/screener">Opportunity screener — find underpriced properties</a></li>
+        <li><a href="/investment-opportunities">Opportunity screener — review published candidates</a></li>
         <li><a href="/methodology/opportunity-score">How the opportunity score is calculated</a></li>
       </ul>
     `;
@@ -977,7 +982,6 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
     `;
 
     const cachedNarrative = await getCachedNarrative('property', row.id);
-    if (!cachedNarrative?.fresh) maybeGenerateNarrative('property', row.id);
     const narrativeHtml = cachedNarrative?.narrative
       ? `<h2>Property analysis</h2>${cachedNarrative.narrative
           .split(/\n\n+/)
@@ -1035,9 +1039,9 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
 
     const jsonLd: Record<string, any> = {
       '@context': 'https://schema.org',
-      '@type': 'SingleFamilyResidence',
+      '@type': residenceSchemaType(type),
       name: address,
-      url: `${SITE_URL}/properties/${slug}`,
+      url: `${SITE_URL}/properties/${propertySlug(row)}`,
       address: {
         '@type': 'PostalAddress',
         streetAddress: address,
@@ -1057,16 +1061,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
         longitude: Number(row.longitude),
       };
     }
-    if (lastSalePriceNum && row.last_sale_date) {
-      jsonLd.subjectOf = {
-        '@type': 'Event',
-        name: 'Last recorded sale',
-        startDate: String(row.last_sale_date).slice(0, 10),
-        about: { '@type': 'PriceSpecification', price: lastSalePriceNum, priceCurrency: 'USD' },
-      };
-    }
-
-    const canonicalPropertyPath = `/properties/${slug}`;
+    const canonicalPropertyPath = `/properties/${propertySlug(row)}`;
 
     const propBreadcrumb: Record<string, any> = {
       '@context': 'https://schema.org',
@@ -1116,6 +1111,7 @@ async function getBuildingMeta(rawBaseBbl: string): Promise<PageMeta | null> {
         COUNT(*)::int AS total_units
       FROM condo_units
       WHERE base_bbl = ${baseBbl}
+        AND ${publicUnitPageSql('condo_units')}
       GROUP BY base_bbl, building_display_address, borough, zip_code, latitude, longitude
       LIMIT 1
     `);
@@ -1175,62 +1171,49 @@ async function getBuildingMeta(rawBaseBbl: string): Promise<PageMeta | null> {
 
 async function getNeighborhoodMeta(geoId: string, geoType: string): Promise<PageMeta | null> {
   try {
-    if (geoType === 'zip') {
-      const result = await db.execute(sql`
-        SELECT zip_code, COUNT(*)::int AS total,
-          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int AS median,
-          MAX(state) AS state, MAX(city) AS city
-        FROM properties
-        WHERE zip_code = ${geoId} AND estimated_value > 0
-        GROUP BY zip_code
-        LIMIT 1
-      `);
-      if (result.rows.length === 0) return null;
-      const row = result.rows[0] as any;
-      const total = Number(row?.total || 0);
-      const medianNum = row?.median ? Number(row.median) : null;
-      const median = medianNum ? formatPrice(medianNum) : '';
-      const city = row?.city ? titleCase(row.city) : '';
-      const state = row?.state || '';
-
-      const bodyHtml = `
-        <p><strong>ZIP code:</strong> ${escapeHtml(geoId)}${city ? ` (${escapeHtml(city)}${state ? `, ${escapeHtml(state)}` : ''})` : ''}</p>
-        <ul>
-          <li><strong>Total properties:</strong> ${total.toLocaleString()}</li>
-          ${median ? `<li><strong>Median estimated value:</strong> ${escapeHtml(median)}</li>` : ''}
-        </ul>
-        <p>Letter grade plus six neighborhood indicators: development activity, safety, transit access, amenities, flood risk, and building health.</p>
-      `;
-
-      const jsonLd: Record<string, any> = {
-        '@context': 'https://schema.org',
-        '@type': 'Place',
-        name: `${geoId}${city ? ` - ${city}` : ''}`,
-        address: {
-          '@type': 'PostalAddress',
-          postalCode: geoId,
-          addressLocality: city || undefined,
-          addressRegion: state || undefined,
-          addressCountry: 'US',
-        },
-      };
-
-      return {
-        title: `${geoId} ZIP Code Report${city ? ` - ${city}` : ''} | Realtors Dashboard`,
-        description: `Neighborhood report card for ZIP ${geoId}${city ? ` (${city})` : ''}. ${total.toLocaleString()} properties${median ? `, median price ${median}` : ''}. Indicators include development, safety, transit, amenities, flood risk, and building health.`,
-        ogType: 'website',
-        canonicalPath: `/neighborhood/${encodeURIComponent(geoId)}?geoType=zip`,
-        h1: `${geoId} Neighborhood Report${city ? ` - ${city}` : ''}`,
-        bodyHtml,
-        jsonLd,
-      };
-    }
+    if (geoType !== 'zip' || !/^[0-9]{5}$/.test(geoId)) return null;
+    const result = await db.execute(sql`
+      SELECT geography.zip_code, geography.canonical_name, geography.state,
+        snapshot.median_price, snapshot.median_price_per_sqft, snapshot.transaction_count,
+        snapshot.period_start, snapshot.period_end, version.published_at,
+        COUNT(property.id)::int AS public_property_count
+      FROM current_market_snapshots snapshot
+      JOIN canonical_geographies geography ON geography.id = snapshot.geography_id
+      JOIN current_published_dataset version ON version.id = snapshot.dataset_version_id
+      JOIN properties property ON property.geography_id = geography.id
+        AND ${publicPropertyPageSql('property')}
+      WHERE geography.type = 'zip'
+        AND geography.zip_code = ${geoId}
+        AND snapshot.transaction_count >= 5
+      GROUP BY geography.zip_code, geography.canonical_name, geography.state,
+        snapshot.median_price, snapshot.median_price_per_sqft, snapshot.transaction_count,
+        snapshot.period_start, snapshot.period_end, version.published_at
+      LIMIT 1
+    `);
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0] as any;
+    const city = titleCase(row.canonical_name || 'New York');
+    const state = row.state || 'NY';
+    const median = row.median_price ? formatPrice(Number(row.median_price)) : null;
+    const transactions = Number(row.transaction_count || 0);
+    const total = Number(row.public_property_count || 0);
+    const period = row.period_end ? String(row.period_end).slice(0, 10) : 'the current publication';
+    const bodyHtml = `<p><strong>ZIP ${escapeHtml(geoId)}</strong> is the published ${escapeHtml(city)}, ${escapeHtml(state)} market area.</p>
+      <ul><li><strong>Recorded transactions in sample:</strong> ${transactions.toLocaleString()}</li>
+      <li><strong>Public property pages:</strong> ${total.toLocaleString()}</li>
+      ${median ? `<li><strong>Median recorded price:</strong> ${escapeHtml(median)}</li>` : ''}</ul>
+      <p>Data period through ${escapeHtml(period)}. This report is based on recorded transactions, not live listings. Dataset updates are manually validated and published.</p>`;
     return {
-      title: `${geoId} Neighborhood Report | Realtors Dashboard`,
-      description: `Neighborhood report card for ${geoId}. Letter grade, market stats, and six neighborhood indicators including development, safety, transit, amenities, flood risk, and building health.`,
+      title: `${geoId} Real Estate Data · ${city} | RD`,
+      description: `ZIP ${geoId}, ${city}: ${transactions.toLocaleString()} recorded sales${median ? `, median ${median}` : ''}. Published source-backed market data through ${period}.`.slice(0, 158),
       ogType: 'website',
-      canonicalPath: `/neighborhood/${encodeURIComponent(geoId)}?geoType=${encodeURIComponent(geoType)}`,
-      h1: `${geoId} Neighborhood Report`,
+      canonicalPath: `/neighborhood/${encodeURIComponent(geoId)}?geoType=zip`,
+      h1: `ZIP ${geoId} Market Report — ${city}`,
+      bodyHtml,
+      jsonLd: {
+        '@context': 'https://schema.org', '@type': 'Place', name: `ZIP ${geoId} — ${city}`,
+        address: { '@type': 'PostalAddress', postalCode: geoId, addressLocality: city, addressRegion: state, addressCountry: 'US' },
+      },
     };
   } catch {
     return null;
@@ -1244,16 +1227,17 @@ async function getBrowseStateMeta(state: string): Promise<PageMeta | null> {
     const result = await db.execute(sql`
       SELECT COUNT(*)::int as total,
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median
-      FROM properties WHERE state = ${upperState} AND estimated_value > 0
+      FROM properties WHERE state = ${upperState} AND ${publicPropertyPageSql('properties')}
     `);
     const row = result.rows[0] as any;
-    const total = row?.total || 0;
+    const total = Number(row?.total || 0);
+    if (total === 0) return null;
     const medianNum = row?.median ? Number(row.median) : null;
     const median = medianNum ? formatPrice(medianNum) : '';
 
     const bodyHtml = `
       <p>${total.toLocaleString()} properties in ${escapeHtml(stateName)}${median ? `. Median estimated value: ${escapeHtml(median)}` : ''}.</p>
-      <p>Browse by city, ZIP code, property type, and opportunity score. View market trends and trending neighborhoods.</p>
+      <p>Browse published, source-backed records by city, ZIP code, and property type. Live listings are not included.</p>
     `;
 
     const jsonLd: Record<string, any> = {
@@ -1269,7 +1253,7 @@ async function getBrowseStateMeta(state: string): Promise<PageMeta | null> {
 
     return {
       title: `${stateName} Real Estate - ${total.toLocaleString()} Properties | Realtors Dashboard`,
-      description: `Browse ${total.toLocaleString()} properties in ${stateName}. ${median ? `Median price: ${median}. ` : ''}Explore cities, neighborhoods, and find investment opportunities.`,
+      description: `Browse ${total.toLocaleString()} published, source-backed property records in ${stateName}.${median ? ` Median recorded price: ${median}.` : ''}`.slice(0, 158),
       ogType: 'website',
       canonicalPath: `/browse/${state.toLowerCase()}`,
       h1: `${stateName} Real Estate`,
@@ -1288,10 +1272,12 @@ async function getBrowseCityMeta(state: string, city: string): Promise<PageMeta 
     const result = await db.execute(sql`
       SELECT COUNT(*)::int as total,
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median
-      FROM properties WHERE state = ${upperState} AND city = ${city} AND estimated_value > 0
+      FROM properties WHERE state = ${upperState} AND LOWER(city) = LOWER(${city})
+        AND ${publicPropertyPageSql('properties')}
     `);
     const row = result.rows[0] as any;
-    const total = row?.total || 0;
+    const total = Number(row?.total || 0);
+    if (total === 0) return null;
     const medianNum = row?.median ? Number(row.median) : null;
     const median = medianNum ? formatPrice(medianNum) : '';
 
@@ -1314,7 +1300,7 @@ async function getBrowseCityMeta(state: string, city: string): Promise<PageMeta 
 
     return {
       title: `${city}, ${stateName} Real Estate - ${total.toLocaleString()} Properties | Realtors Dashboard`,
-      description: `Browse ${total.toLocaleString()} properties in ${city}, ${stateName}. ${median ? `Median price: ${median}. ` : ''}View ZIP codes, property types, and investment opportunities.`,
+      description: `Browse ${total.toLocaleString()} published, source-backed property records in ${city}, ${stateName}.${median ? ` Median recorded price: ${median}.` : ''}`.slice(0, 158),
       ogType: 'website',
       canonicalPath: `/browse/${state.toLowerCase()}/${encodeURIComponent(city)}`,
       h1: `${city}, ${stateName} Real Estate`,
@@ -1335,14 +1321,29 @@ export async function getDatabaseBackedMetaForUrl(url: string): Promise<PageMeta
   const propertyMatch = path.match(/^\/properties\/(.+)$/);
   if (propertyMatch) return getPropertyMeta(propertyMatch[1]);
 
+  const legacyPropertyMatch = path.match(/^\/property\/(.+)$/);
+  if (legacyPropertyMatch) return getPropertyMeta(legacyPropertyMatch[1]);
+
   const buildingMatch = path.match(/^\/building\/(.+)$/);
   if (buildingMatch) return getBuildingMeta(buildingMatch[1]);
 
   return null;
 }
 
-export async function getMetaForUrl(url: string): Promise<PageMeta> {
+export async function getMetaForUrl(url: string): Promise<PageMeta | null> {
   const path = url.split('?')[0];
+
+  if (path === '/') return DEFAULT_META;
+
+  if (isPrivatePagePath(path)) {
+    return {
+      title: 'Account | Realtors Dashboard',
+      description: 'Secure account and subscription management for Realtors Dashboard.',
+      ogType: 'website',
+      canonicalPath: path,
+      robots: 'noindex, follow',
+    };
+  }
 
   if (STATIC_PAGES[path]) {
     return STATIC_PAGES[path];
@@ -1380,7 +1381,7 @@ export async function getMetaForUrl(url: string): Promise<PageMeta> {
     if (meta) return meta;
   }
 
-  return DEFAULT_META;
+  return null;
 }
 
 function buildGuideBodyHtml(guide: Guide): string {
@@ -1418,12 +1419,15 @@ function buildGuideBodyHtml(guide: Guide): string {
   })();
 
   return `
-    <p><em>${escapeHtml(guide.category)} · ${guide.readingMinutes} min read</em></p>
+    <p><em>${escapeHtml(guide.category)} · ${guide.readingMinutes} min read · By the Realtors Dashboard Data Editorial Team</em></p>
+    <p>Published ${escapeHtml(guide.publishedDate)} · Last reviewed ${escapeHtml(guide.updatedDate)} · Methodology text-first-market-v1.1.0</p>
     <p>${escapeHtml(guide.intro)}</p>
     ${sectionsHtml}
     ${faqsHtml}
     <p><a href="${guide.productLink.href}">${escapeHtml(guide.productLink.label)}</a></p>
     ${relatedHtml}
+    <h2>Sources, scope, and corrections</h2>
+    <p>Current verified detail coverage is NYC recorded sales; live listings are not included. Sources: <a href="https://www.nyc.gov/site/finance/property/property-rolling-sales-update.page">NYC rolling sales</a>, <a href="https://a836-acris.nyc.gov/CP/">ACRIS</a>, and <a href="https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page">PLUTO</a>. This material is educational, not financial, legal, appraisal, or investment advice. <a href="mailto:hello@realtorsdashboard.com?subject=Data%20correction">Request a correction</a>.</p>
   `;
 }
 
@@ -1436,7 +1440,7 @@ function getGuideMeta(slug: string): PageMeta | null {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: guide.title,
-    description: guide.metaDescription,
+    description: guide.metaDescription.slice(0, 158),
     keywords: guide.keyword,
     articleSection: guide.category,
     inLanguage: 'en-US',
@@ -1470,7 +1474,7 @@ function getGuideMeta(slug: string): PageMeta | null {
 
   return {
     title: guide.metaTitle,
-    description: guide.metaDescription,
+    description: guide.metaDescription.slice(0, 158),
     ogType: 'article',
     canonicalPath,
     h1: guide.title,
@@ -1502,6 +1506,26 @@ export function injectMetaTags(html: string, meta: PageMeta, baseUrl: string): s
     `<meta name="description" content="${escapeAttr(meta.description)}" />`,
     'name="description"'
   );
+
+  const socialImageUrl = `${baseUrl}/og-image.png`;
+  html = replaceOrAdd(html,
+    /<meta\s+property="og:image"\s+content="[^"]*"\s*\/?>/,
+    `<meta property="og:image" content="${escapeAttr(socialImageUrl)}" />`,
+    'og:image'
+  );
+  html = replaceOrAdd(html,
+    /<meta\s+name="twitter:image"\s+content="[^"]*"\s*\/?>/,
+    `<meta name="twitter:image" content="${escapeAttr(socialImageUrl)}" />`,
+    'twitter:image'
+  );
+
+  if (meta.robots) {
+    html = replaceOrAdd(html,
+      /<meta\s+name="robots"\s+content="[^"]*"\s*\/?>/,
+      `<meta name="robots" content="${escapeAttr(meta.robots)}" />`,
+      'name="robots"'
+    );
+  }
 
   html = replaceOrAdd(html,
     /<meta\s+property="og:title"\s+content="[^"]*"\s*\/?>/,
@@ -1567,8 +1591,8 @@ export function injectMetaTags(html: string, meta: PageMeta, baseUrl: string): s
 
   if (meta.h1 || meta.bodyHtml) {
     const h1Html = meta.h1 ? `<h1>${escapeHtml(meta.h1)}</h1>` : '';
-    const noscript = `<noscript><main id="seo-content" style="max-width:760px;margin:2rem auto;padding:1rem;font-family:system-ui,sans-serif;line-height:1.5;">${h1Html}${meta.bodyHtml || ''}</main></noscript>`;
-    html = html.replace('<div id="root"></div>', `<div id="root"></div>\n    ${noscript}`);
+    const initialContent = `<main id="seo-content" style="max-width:760px;margin:2rem auto;padding:1rem;font-family:system-ui,sans-serif;line-height:1.5;">${h1Html}${meta.bodyHtml || ''}</main>`;
+    html = html.replace('<div id="root"></div>', `<div id="root">${initialContent}</div>`);
   }
 
   return html;

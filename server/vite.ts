@@ -53,6 +53,7 @@ export async function setupVite(server: Server, app: Express) {
       try {
         const baseUrl = `${req.protocol}://${req.get("host")}`;
         const meta = await getMetaForUrl(url);
+        if (!meta) return res.status(404).set({ "Content-Type": "text/html", "X-Robots-Tag": "noindex, follow" }).end(page);
         page = injectMetaTags(page, meta, baseUrl);
       } catch (seoErr) {
         // SEO injection is best-effort in dev; log and serve the un-augmented page.

@@ -13,7 +13,7 @@ export function Footer() {
     { href: "/calculator", label: "Investment Calculator" },
     { href: "/saved-properties", label: "Watchlists" },
     { href: "/pricing", label: "Pricing" },
-    { href: "/api-access", label: "API Access" },
+    { href: "/developers", label: "Developer API" },
   ];
 
   const companyLinks = [
@@ -25,6 +25,10 @@ export function Footer() {
   ];
 
   const resourceLinks = [
+    { href: "/tools", label: "Free NYC Data Tools" },
+    { href: "/tools/nyc-zip-market-snapshot", label: "ZIP Market Snapshot" },
+    { href: "/tools/nyc-price-per-square-foot", label: "Price per Sq Ft Benchmark" },
+    { href: "/tools/nyc-neighborhood-momentum", label: "Momentum Checker" },
     { href: "/guides", label: "Guides" },
     { href: "/methodology/opportunity-score", label: "Opportunity Score Explained" },
     { href: "/methodology/data-coverage", label: "Data Coverage" },
@@ -33,10 +37,10 @@ export function Footer() {
   ];
 
   const browseLinks = [
-    { href: "/browse/ny", label: "New York" },
-    { href: "/browse/nj", label: "New Jersey" },
-    { href: "/browse/ct", label: "Connecticut" },
-    { href: "/neighborhood/10001", label: "Neighborhood Reports" },
+    { href: "/browse/ny", label: "Published New York" },
+    { href: "/up-and-coming", label: "Eligible NYC ZIPs" },
+    { href: "/methodology/data-coverage", label: "Coverage Status" },
+    { href: "/market-intelligence", label: "Recorded-Sale Markets" },
   ];
 
   const legalLinks = [
@@ -137,7 +141,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="font-semibold mb-4">Browse by State</h3>
+            <h3 className="font-semibold mb-4">Published Data</h3>
             <ul className="space-y-3">
               {browseLinks.map((link) => (
                 <li key={link.href}>
@@ -162,9 +166,9 @@ export function Footer() {
             &copy; {currentYear} Realtors Dashboard. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Verified detail coverage: NYC • Other regions publish only after source validation</span>
+            <span>Verified detail coverage: NYC recorded sales • No live listings</span>
             <span className="hidden md:inline">|</span>
-            <span className="hidden md:inline">Data updated daily</span>
+            <span className="hidden md:inline">Updates are manually validated and published</span>
           </div>
         </div>
       </div>

@@ -21,6 +21,10 @@ export function SEO({
   noIndex = false,
 }: SEOProps) {
   useEffect(() => {
+    const privateRoute = /^\/(?:login|register|activate|forgot-password|reset-password|checkout\/success|saved-properties|admin-console|settings|portfolio|api-access)(?:\/|$)/.test(window.location.pathname);
+    const effectiveNoIndex = noIndex || privateRoute;
+    const effectiveCanonical = canonicalUrl || `${window.location.origin}${window.location.pathname}`;
+    const absoluteOgImage = new URL(ogImage, window.location.origin).toString();
     const fullTitle = title.includes("Realtors Dashboard") 
       ? title 
       : `${title} | Realtors Dashboard`;
@@ -60,18 +64,18 @@ export function SEO({
     setMeta("og:description", description, true);
     setMeta("og:type", ogType, true);
     if (ogImage) {
-      setMeta("og:image", ogImage, true);
+      setMeta("og:image", absoluteOgImage, true);
     }
     
     setMeta("twitter:card", "summary_large_image");
     setMeta("twitter:title", fullTitle);
     setMeta("twitter:description", description);
     if (ogImage) {
-      setMeta("twitter:image", ogImage);
+      setMeta("twitter:image", absoluteOgImage);
     }
 
-    if (noIndex) {
-      setMeta("robots", "noindex, nofollow");
+    if (effectiveNoIndex) {
+      setMeta("robots", "noindex, follow");
     } else {
       const robotsMeta = document.querySelector('meta[name="robots"]');
       if (robotsMeta) {
@@ -80,7 +84,7 @@ export function SEO({
     }
 
     let prevCanonical: string | null = null;
-    if (canonicalUrl) {
+    if (effectiveCanonical) {
       const canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
       prevCanonical = canonical?.href || null;
       
@@ -90,7 +94,7 @@ export function SEO({
         canonicalLink.rel = "canonical";
         document.head.appendChild(canonicalLink);
       }
-      canonicalLink.href = canonicalUrl;
+      canonicalLink.href = effectiveCanonical;
     }
 
     return () => {

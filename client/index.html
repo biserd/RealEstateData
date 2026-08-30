@@ -10,44 +10,34 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://realtorsdashboard.com/" />
     <meta property="og:site_name" content="Realtors Dashboard" />
+    <meta property="og:image" content="https://realtorsdashboard.com/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Realtors Dashboard - Real Estate Market Intelligence" />
     <meta name="twitter:description" content="Source-backed recorded-sales and market intelligence with transparent coverage and freshness." />
+    <meta name="twitter:image" content="https://realtorsdashboard.com/og-image.png" />
     <link rel="canonical" href="https://realtorsdashboard.com/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Realtors Dashboard","url":"https://realtorsdashboard.com/","logo":"https://realtorsdashboard.com/favicon.png","description":"Source-backed real estate market intelligence with verified recorded sales, reproducible comps, and explicit coverage and freshness."}</script>
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Realtors Dashboard","url":"https://realtorsdashboard.com/","potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://realtorsdashboard.com/market-intelligence?q={search_term_string}"},"query-input":"required name=search_term_string"}}</script>
 
-    <!-- Preconnect to font origins so the DNS + TLS handshake is done before the CSS arrives -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-
-    <!--
-      Load ONLY the two font families actually used by the app (Inter + JetBrains Mono).
-      Using rel="preload" + onload swap so this never blocks the first paint.
-      The noscript fallback handles crawlers / JS-disabled browsers.
-    -->
-    <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
-      onload="this.onload=null;this.rel='stylesheet'"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
-      />
-    </noscript>
-
-    <!-- Google Analytics — main script is already async; defer the inline init so it
-         never blocks the critical rendering path. type="module" defers automatically. -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-G9255VEH07"></script>
-    <script type="module">
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-G9255VEH07');
+    <!-- Analytics loads after the page is interactive; consent tooling can set
+         window.analyticsConsentGranted=false before this callback to suppress it. -->
+    <script>
+      window.addEventListener('load', () => {
+        const startAnalytics = () => {
+          if (window.analyticsConsentGranted === false) return;
+          const script = document.createElement('script');
+          script.async = true;
+          script.src = 'https://www.googletagmanager.com/gtag/js?id=G-G9255VEH07';
+          document.head.appendChild(script);
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = function(){ window.dataLayer.push(arguments); };
+          window.gtag('js', new Date());
+          window.gtag('config', 'G-G9255VEH07');
+        };
+        if ('requestIdleCallback' in window) window.requestIdleCallback(startAnalytics, { timeout: 4000 });
+        else window.setTimeout(startAnalytics, 2500);
+      }, { once: true });
     </script>
   </head>
   <body>

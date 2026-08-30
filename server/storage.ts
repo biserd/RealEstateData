@@ -60,39 +60,14 @@ import {
   type InsertBuilding,
 } from "@shared/schema";
 import { inferTriStateFromZip } from "@shared/triStateGeography";
+import { publicPropertyPageSql, publicUnitPageSql } from "./publicPageEligibility";
 
 // A property is public only when it has enough real, traceable source data to
 // support a detail page. This intentionally excludes the legacy randomly
 // generated NJ/CT demo rows (no parcel key, no matched source record, and no
 // source-backed sale) without deleting anything from the database.
 function publicPropertyPredicate() {
-  return sql`
-    NULLIF(BTRIM(${properties.address}), '') IS NOT NULL
-    AND NULLIF(BTRIM(${properties.city}), '') IS NOT NULL
-    AND ${properties.state} IN ('NY', 'NJ', 'CT')
-    AND ${properties.zipCode} ~ '^[0-9]{5}$'
-    AND ${properties.latitude} BETWEEN 38 AND 46
-    AND ${properties.longitude} BETWEEN -80 AND -69
-    AND COALESCE(${properties.estimatedValue}, ${properties.lastSalePrice}, 0) BETWEEN 50000 AND 100000000
-    AND (
-      NULLIF(BTRIM(${properties.bbl}), '') IS NOT NULL
-      OR EXISTS (
-        SELECT 1 FROM entity_resolution_map erm
-        WHERE erm.matched_property_id = ${properties.id}
-          AND erm.match_confidence >= 0.90
-      )
-      OR EXISTS (
-        SELECT 1 FROM sales verified_sale
-        WHERE verified_sale.property_id = ${properties.id}
-          AND verified_sale.sale_price BETWEEN 50000 AND 100000000
-          AND (
-            verified_sale.match_method IS NOT NULL
-            OR verified_sale.raw_block IS NOT NULL
-            OR verified_sale.raw_lot IS NOT NULL
-          )
-      )
-    )
-  `;
+  return publicPropertyPageSql("properties");
 }
 
 function publicOpportunityPropertyPredicate() {
@@ -254,21 +229,7 @@ async function publishedUpAndComing(state: string | undefined, limit: number): P
 // the building is useful context, but is not enough to publish thousands of
 // otherwise-empty unit URLs.
 function publicCondoUnitPredicate() {
-  return sql`
-    ${condoUnits.unitTypeHint} = 'residential'
-    AND ${condoUnits.unitBbl} ~ '^[1-5][0-9]{9}$'
-    AND ${condoUnits.baseBbl} ~ '^[1-5][0-9]{9}$'
-    AND NULLIF(BTRIM(${condoUnits.buildingDisplayAddress}), '') IS NOT NULL
-    AND NULLIF(BTRIM(${condoUnits.unitDesignation}), '') IS NOT NULL
-    AND ${condoUnits.latitude} IS NOT NULL
-    AND ${condoUnits.longitude} IS NOT NULL
-    AND EXISTS (
-      SELECT 1 FROM sales verified_unit_sale
-      WHERE verified_unit_sale.unit_bbl = ${condoUnits.unitBbl}
-        AND verified_unit_sale.sale_price BETWEEN 100000 AND 100000000
-        AND verified_unit_sale.sale_date >= NOW() - INTERVAL '120 months'
-    )
-  `;
+  return publicUnitPageSql("condo_units");
 }
 
 export interface IStorage {
@@ -987,36 +948,7 @@ export class DatabaseStorage implements IStorage {
     const result: any = await db.execute(sql`
       SELECT COUNT(*)::int AS count
       FROM properties p
-      WHERE p.latitude IS NOT NULL
-        AND p.longitude IS NOT NULL
-        AND NULLIF(BTRIM(p.address), '') IS NOT NULL
-        AND NULLIF(BTRIM(p.city), '') IS NOT NULL
-        AND p.state IN ('NY', 'NJ', 'CT')
-        AND p.zip_code ~ '^[0-9]{5}$'
-        AND p.latitude BETWEEN 38 AND 46
-        AND p.longitude BETWEEN -80 AND -69
-        AND (
-          (p.estimated_value IS NOT NULL AND p.estimated_value > 0)
-          OR (p.last_sale_price IS NOT NULL AND p.last_sale_price > 0)
-        )
-        AND COALESCE(p.estimated_value, p.last_sale_price, 0) BETWEEN 50000 AND 100000000
-        AND (
-          NULLIF(BTRIM(p.bbl), '') IS NOT NULL
-          OR EXISTS (
-            SELECT 1 FROM entity_resolution_map erm
-            WHERE erm.matched_property_id = p.id AND erm.match_confidence >= 0.90
-          )
-          OR EXISTS (
-            SELECT 1 FROM sales verified_sale
-            WHERE verified_sale.property_id = p.id
-              AND verified_sale.sale_price BETWEEN 50000 AND 100000000
-              AND (
-                verified_sale.match_method IS NOT NULL
-                OR verified_sale.raw_block IS NOT NULL
-                OR verified_sale.raw_lot IS NOT NULL
-              )
-          )
-        )
+      WHERE ${publicPropertyPageSql("p")}
     `);
     return Number(result.rows?.[0]?.count || 0);
   }
@@ -1025,36 +957,7 @@ export class DatabaseStorage implements IStorage {
     const result: any = await db.execute(sql`
       SELECT p.id, p.address, p.city, p.zip_code, p.last_sale_date, p.updated_at
       FROM properties p
-      WHERE p.latitude IS NOT NULL
-        AND p.longitude IS NOT NULL
-        AND NULLIF(BTRIM(p.address), '') IS NOT NULL
-        AND NULLIF(BTRIM(p.city), '') IS NOT NULL
-        AND p.state IN ('NY', 'NJ', 'CT')
-        AND p.zip_code ~ '^[0-9]{5}$'
-        AND p.latitude BETWEEN 38 AND 46
-        AND p.longitude BETWEEN -80 AND -69
-        AND (
-          (p.estimated_value IS NOT NULL AND p.estimated_value > 0)
-          OR (p.last_sale_price IS NOT NULL AND p.last_sale_price > 0)
-        )
-        AND COALESCE(p.estimated_value, p.last_sale_price, 0) BETWEEN 50000 AND 100000000
-        AND (
-          NULLIF(BTRIM(p.bbl), '') IS NOT NULL
-          OR EXISTS (
-            SELECT 1 FROM entity_resolution_map erm
-            WHERE erm.matched_property_id = p.id AND erm.match_confidence >= 0.90
-          )
-          OR EXISTS (
-            SELECT 1 FROM sales verified_sale
-            WHERE verified_sale.property_id = p.id
-              AND verified_sale.sale_price BETWEEN 50000 AND 100000000
-              AND (
-                verified_sale.match_method IS NOT NULL
-                OR verified_sale.raw_block IS NOT NULL
-                OR verified_sale.raw_lot IS NOT NULL
-              )
-          )
-        )
+      WHERE ${publicPropertyPageSql("p")}
       ORDER BY p.id
       LIMIT ${limit} OFFSET ${offset}
     `);
@@ -1201,7 +1104,8 @@ export class DatabaseStorage implements IStorage {
       results = await db.select().from(properties)
         .where(and(
           eq(properties.zipCode, zipCode),
-          sql`${properties.id} != ${propertyId}`
+          sql`${properties.id} != ${propertyId}`,
+          publicPropertyPredicate(),
         ))
         .orderBy(desc(properties.opportunityScore))
         .limit(limit);
@@ -3266,17 +3170,7 @@ export class DatabaseStorage implements IStorage {
     const result: any = await db.execute(sql`
       SELECT COUNT(*)::int AS count
       FROM condo_units cu
-      WHERE cu.unit_type_hint = 'residential'
-        AND cu.latitude IS NOT NULL
-        AND cu.longitude IS NOT NULL
-        AND NULLIF(BTRIM(cu.building_display_address), '') IS NOT NULL
-        AND NULLIF(BTRIM(cu.unit_designation), '') IS NOT NULL
-        AND EXISTS (
-          SELECT 1 FROM sales s
-          WHERE s.unit_bbl = cu.unit_bbl
-            AND s.sale_price >= 100000
-            AND s.sale_date >= NOW() - INTERVAL '120 months'
-        )
+      WHERE ${publicUnitPageSql("cu")}
     `);
     return Number(result.rows?.[0]?.count || 0);
   }
@@ -3295,20 +3189,10 @@ export class DatabaseStorage implements IStorage {
              (
                SELECT MAX(s.sale_date) FROM sales s
                WHERE s.unit_bbl = cu.unit_bbl
-                 AND s.sale_price >= 100000
+                 AND s.sale_price BETWEEN 100000 AND 100000000
              ) AS last_sale_date
       FROM condo_units cu
-      WHERE cu.unit_type_hint = 'residential'
-        AND cu.latitude IS NOT NULL
-        AND cu.longitude IS NOT NULL
-        AND NULLIF(BTRIM(cu.building_display_address), '') IS NOT NULL
-        AND NULLIF(BTRIM(cu.unit_designation), '') IS NOT NULL
-        AND EXISTS (
-          SELECT 1 FROM sales s
-          WHERE s.unit_bbl = cu.unit_bbl
-            AND s.sale_price >= 100000
-            AND s.sale_date >= NOW() - INTERVAL '120 months'
-        )
+      WHERE ${publicUnitPageSql("cu")}
       ORDER BY cu.unit_bbl
       LIMIT ${limit} OFFSET ${offset}
     `);

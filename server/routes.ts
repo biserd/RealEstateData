@@ -20,6 +20,8 @@ import { processDailyDigest, processInstantAlerts, recordPropertyChange } from "
 import { consumeQuota, type SubscriptionTier } from "./quota";
 import { requireTurnstile, turnstileConfig } from "./turnstile";
 import { dataEnvelope, getPublishedFreshness } from "./dataEnvelope";
+import { getStaticSitemapEntries, SEO_CONTENT_LAST_MODIFIED } from "./seoMetaTags";
+import { publicPropertyPageSql } from "./publicPageEligibility";
 
 const FREE_TIER_LIMITS = {
   search: { daily: 30 },
@@ -344,11 +346,17 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   // SEO: Sitemap index (main sitemap.xml)
   const ITEMS_PER_SITEMAP = 40000;
+
+  async function publishedSitemapDate(): Promise<string> {
+    const result = await db.execute(sql`SELECT published_at FROM current_published_dataset ORDER BY published_at DESC NULLS LAST LIMIT 1`);
+    const value = (result.rows[0] as any)?.published_at;
+    return value ? new Date(value).toISOString().slice(0, 10) : SEO_CONTENT_LAST_MODIFIED;
+  }
   
   app.get("/sitemap.xml", async (req, res) => {
     try {
       const baseUrl = `https://${req.get("host")}`;
-      const today = new Date().toISOString().split("T")[0];
+      const datasetLastmod = await publishedSitemapDate();
       
       const propertyCount = await storage.getPropertyCountForSitemapEligible();
       const propertySitemapCount = Math.ceil(propertyCount / ITEMS_PER_SITEMAP);
@@ -360,14 +368,14 @@ Sitemap: ${baseUrl}/sitemap.xml
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>${baseUrl}/sitemap-static.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${SEO_CONTENT_LAST_MODIFIED}</lastmod>
   </sitemap>
 `;
       
       for (let i = 1; i <= propertySitemapCount; i++) {
         xml += `  <sitemap>
     <loc>${baseUrl}/sitemap-properties-${i}.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${datasetLastmod}</lastmod>
   </sitemap>
 `;
       }
@@ -375,20 +383,20 @@ Sitemap: ${baseUrl}/sitemap.xml
       for (let i = 1; i <= unitSitemapCount; i++) {
         xml += `  <sitemap>
     <loc>${baseUrl}/sitemap-units-${i}.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${datasetLastmod}</lastmod>
   </sitemap>
 `;
       }
 
       xml += `  <sitemap>
     <loc>${baseUrl}/sitemap-browse.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${datasetLastmod}</lastmod>
   </sitemap>
 `;
 
       xml += `  <sitemap>
     <loc>${baseUrl}/sitemap-neighborhoods.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${datasetLastmod}</lastmod>
   </sitemap>
 `;
       
@@ -411,43 +419,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   // SEO: Static pages sitemap
   app.get("/sitemap-static.xml", (req, res) => {
     const baseUrl = `https://${req.get("host")}`;
-    const today = new Date().toISOString().split("T")[0];
-    
-    // SEO: Public, indexable pages only.
-    // - Removed /login and /register (gated auth pages, no SEO value).
-    // - Fixed legacy paths: /market-explorer -> /market-intelligence,
-    //   /up-and-coming-areas -> /up-and-coming, removed nonexistent /coverage-matrix.
-    // - Added methodology hubs and /comparisons.
-    const staticPages = [
-      { url: "/", priority: "1.0", changefreq: "daily" },
-      { url: "/market-intelligence", priority: "0.9", changefreq: "daily" },
-      { url: "/investment-opportunities", priority: "0.9", changefreq: "daily" },
-      { url: "/up-and-coming", priority: "0.8", changefreq: "weekly" },
-      { url: "/pricing", priority: "0.8", changefreq: "weekly" },
-      { url: "/compare", priority: "0.7", changefreq: "monthly" },
-      { url: "/calculator", priority: "0.7", changefreq: "monthly" },
-      { url: "/comparisons", priority: "0.7", changefreq: "monthly" },
-      { url: "/methodology/opportunity-score", priority: "0.7", changefreq: "monthly" },
-      { url: "/methodology/data-coverage", priority: "0.7", changefreq: "monthly" },
-      { url: "/methodology/verified-vs-estimates", priority: "0.7", changefreq: "monthly" },
-      { url: "/guides", priority: "0.7", changefreq: "weekly" },
-      { url: "/guides/how-to-find-underpriced-condos-nyc", priority: "0.7", changefreq: "monthly" },
-      { url: "/guides/what-is-an-opportunity-score", priority: "0.7", changefreq: "monthly" },
-      { url: "/guides/nyc-condo-market-2026", priority: "0.7", changefreq: "monthly" },
-      { url: "/guides/verified-sales-vs-estimates-investors", priority: "0.7", changefreq: "monthly" },
-      { url: "/guides/real-estate-api-for-developers", priority: "0.7", changefreq: "monthly" },
-      { url: "/guides/nyc-comparable-sales-investor-guide", priority: "0.7", changefreq: "monthly" },
-      { url: "/guides/up-and-coming-zip-codes-nj-ct", priority: "0.7", changefreq: "monthly" },
-      { url: "/guides/price-per-square-foot-nyc", priority: "0.7", changefreq: "monthly" },
-      { url: "/api-access", priority: "0.7", changefreq: "monthly" },
-      { url: "/developers", priority: "0.7", changefreq: "monthly" },
-      { url: "/about", priority: "0.6", changefreq: "monthly" },
-      { url: "/faq", priority: "0.6", changefreq: "monthly" },
-      { url: "/contact", priority: "0.5", changefreq: "monthly" },
-      { url: "/release-notes", priority: "0.5", changefreq: "monthly" },
-      { url: "/terms", priority: "0.3", changefreq: "yearly" },
-      { url: "/privacy", priority: "0.3", changefreq: "yearly" },
-    ];
+    const staticPages = getStaticSitemapEntries();
     
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -455,10 +427,8 @@ Sitemap: ${baseUrl}/sitemap.xml
     
     for (const page of staticPages) {
       xml += `  <url>
-    <loc>${baseUrl}${page.url}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>${page.changefreq}</changefreq>
-    <priority>${page.priority}</priority>
+    <loc>${baseUrl}${page.path}</loc>
+    <lastmod>${page.lastmod}</lastmod>
   </url>
 `;
     }
@@ -478,7 +448,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.get("/sitemap-browse.xml", async (req, res) => {
     try {
       const baseUrl = `https://${req.get("host")}`;
-      const today = new Date().toISOString().split("T")[0];
+      const datasetLastmod = await publishedSitemapDate();
       const data = await storage.getStateCityList();
       
       let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -489,17 +459,13 @@ Sitemap: ${baseUrl}/sitemap.xml
         const stateSlug = stateData.state.toLowerCase();
         xml += `  <url>
     <loc>${baseUrl}/browse/${stateSlug}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <lastmod>${datasetLastmod}</lastmod>
   </url>
 `;
         for (const city of stateData.cities) {
           xml += `  <url>
     <loc>${baseUrl}/browse/${stateSlug}/${encodeURIComponent(city)}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>${datasetLastmod}</lastmod>
   </url>
 `;
         }
@@ -523,14 +489,21 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.get("/sitemap-neighborhoods.xml", async (req, res) => {
     try {
       const baseUrl = `https://${req.get("host")}`;
-      const today = new Date().toISOString().split("T")[0];
+      const datasetLastmod = await publishedSitemapDate();
       const result = await db.execute(sql`
-        SELECT DISTINCT geo_id AS zip
-        FROM market_aggregates
-        WHERE geo_type = 'zip'
-          AND geo_id ~ '^[0-9]{5}$'
-          AND transaction_count > 0
-        ORDER BY zip
+        SELECT geography.zip_code AS zip
+        FROM current_market_snapshots snapshot
+        JOIN canonical_geographies geography ON geography.id = snapshot.geography_id
+        WHERE geography.type = 'zip'
+          AND geography.zip_code ~ '^[0-9]{5}$'
+          AND snapshot.transaction_count >= 5
+          AND EXISTS (
+            SELECT 1 FROM properties public_property
+            WHERE public_property.geography_id = geography.id
+              AND ${publicPropertyPageSql('public_property')}
+          )
+        GROUP BY geography.zip_code
+        ORDER BY geography.zip_code
         LIMIT 50000
       `);
 
@@ -543,9 +516,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         if (!zip) continue;
         xml += `  <url>
     <loc>${baseUrl}/neighborhood/${encodeURIComponent(zip)}?geoType=zip</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>${datasetLastmod}</lastmod>
   </url>
 `;
       }
@@ -600,8 +571,15 @@ Sitemap: ${baseUrl}/sitemap.xml
       const geoId = req.params.geoId;
       const result = await db.execute(sql`
         SELECT 1
-        FROM market_aggregates
-        WHERE geo_type = 'zip' AND geo_id = ${geoId}
+        FROM current_market_snapshots snapshot
+        JOIN canonical_geographies geography ON geography.id = snapshot.geography_id
+        WHERE geography.type = 'zip' AND geography.zip_code = ${geoId}
+          AND snapshot.transaction_count >= 5
+          AND EXISTS (
+            SELECT 1 FROM properties public_property
+            WHERE public_property.geography_id = geography.id
+              AND ${publicPropertyPageSql('public_property')}
+          )
         LIMIT 1
       `);
       if (result.rows.length === 0) return res.status(404).send("Neighborhood not found");
@@ -622,7 +600,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       }
       
       const baseUrl = `https://${req.get("host")}`;
-      const today = new Date().toISOString().split("T")[0];
+      const datasetLastmod = await publishedSitemapDate();
       
       const offset = (page - 1) * ITEMS_PER_SITEMAP;
       const properties = await storage.getPropertiesForSitemapEligible(ITEMS_PER_SITEMAP, offset);
@@ -640,12 +618,10 @@ Sitemap: ${baseUrl}/sitemap.xml
         const mod = property.lastSaleDate || property.updatedAt;
         const lastmod = mod
           ? new Date(mod).toISOString().split("T")[0]
-          : today;
+          : datasetLastmod;
         xml += `  <url>
     <loc>${baseUrl}/properties/${slug}</loc>
     <lastmod>${lastmod}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
   </url>
 `;
       }
@@ -674,7 +650,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       }
       
       const baseUrl = `https://${req.get("host")}`;
-      const today = new Date().toISOString().split("T")[0];
+      const datasetLastmod = await publishedSitemapDate();
       
       const offset = (page - 1) * ITEMS_PER_SITEMAP;
       const units = await storage.getUnitsForSitemapEligible(ITEMS_PER_SITEMAP, offset);
@@ -691,12 +667,10 @@ Sitemap: ${baseUrl}/sitemap.xml
         const slug = unit.slug || generateUnitSlug(unit);
         const lastmod = unit.lastSaleDate
           ? new Date(unit.lastSaleDate).toISOString().split("T")[0]
-          : today;
+          : datasetLastmod;
         xml += `  <url>
     <loc>${baseUrl}/unit/${slug}</loc>
     <lastmod>${lastmod}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
   </url>
 `;
       }

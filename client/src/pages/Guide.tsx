@@ -69,7 +69,7 @@ export default function Guide() {
     <MarketingLayout showBackButton={false}>
       <SEO
         title={guide.metaTitle}
-        description={guide.metaDescription}
+        description={guide.metaDescription.slice(0, 158)}
         canonicalUrl={canonical}
         ogType="article"
       />
@@ -109,7 +109,24 @@ export default function Guide() {
           >
             {guide.intro}
           </p>
+          <div className="mt-5 text-sm text-muted-foreground">
+            <p>By the Realtors Dashboard Data Editorial Team</p>
+            <p>Published {guide.publishedDate} · Last reviewed {guide.updatedDate} · Methodology text-first-market-v1.1.0</p>
+          </div>
         </div>
+
+        <Card className="mt-8">
+          <CardHeader><CardTitle>Sources, scope, and corrections</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>This guide uses the latest manually validated Realtors Dashboard publication. Current verified detail coverage is NYC recorded sales; it does not include live listings. Market information is educational and is not financial, legal, appraisal, or investment advice.</p>
+            <p>
+              Official sources: <a className="underline" href="https://www.nyc.gov/site/finance/property/property-rolling-sales-update.page" rel="noreferrer" target="_blank">NYC rolling sales</a>{" · "}
+              <a className="underline" href="https://a836-acris.nyc.gov/CP/" rel="noreferrer" target="_blank">ACRIS</a>{" · "}
+              <a className="underline" href="https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page" rel="noreferrer" target="_blank">NYC PLUTO</a>.
+            </p>
+            <p>Found a data issue? <a className="underline" href="mailto:hello@realtorsdashboard.com?subject=Data%20correction">Request a correction</a>.</p>
+          </CardContent>
+        </Card>
 
         <div className="space-y-6">
           {guide.sections.map((section, idx) => (

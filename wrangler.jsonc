@@ -10,17 +10,10 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": [
-      "/api/*",
-      "/robots.txt",
-      "/sitemap*",
-      "/properties/*",
-      "/property/*",
-      "/building/*",
-      "/unit/*",
-      "/neighborhood/*",
-      "/methodology/*",
-      "/guides/*",
-      "/browse/*"
+      "/*",
+      "!/assets/*",
+      "!/favicon.png",
+      "!/og-image.png"
     ]
   },
   "send_email": [

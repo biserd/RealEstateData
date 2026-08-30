@@ -238,7 +238,17 @@ export default function Methodology() {
             {content.title}
           </h1>
           <p className="text-lg text-muted-foreground">{content.intro}</p>
+          <p className="mt-4 text-sm text-muted-foreground">By the Realtors Dashboard Data Editorial Team · Last reviewed 2026-08-30 · Methodology text-first-market-v1.1.0</p>
         </div>
+
+        <Card className="mt-8">
+          <CardHeader><CardTitle>Official sources and corrections</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>Current verified detail coverage uses NYC recorded-sale and property-identity sources. Updates are manually triggered, quality-gated, and atomically published.</p>
+            <p><a className="underline" href="https://www.nyc.gov/site/finance/property/property-rolling-sales-update.page" target="_blank" rel="noreferrer">NYC rolling sales</a>{" · "}<a className="underline" href="https://a836-acris.nyc.gov/CP/" target="_blank" rel="noreferrer">ACRIS</a>{" · "}<a className="underline" href="https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page" target="_blank" rel="noreferrer">PLUTO</a></p>
+            <p>Scores and estimates are research inputs, not appraisals or investment advice. <a className="underline" href="mailto:hello@realtorsdashboard.com?subject=Methodology%20correction">Report a correction</a>.</p>
+          </CardContent>
+        </Card>
 
         <div className="space-y-6">
           {content.sections.map((section, idx) => (

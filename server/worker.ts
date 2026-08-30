@@ -201,31 +201,42 @@ function isDocumentRequest(request: Request): boolean {
 }
 
 async function serveDocument(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+    const normalized = new URL(request.url);
+    normalized.pathname = normalized.pathname.replace(/\/+$/, "");
+    return Response.redirect(normalized.toString(), 301);
+  }
+
   const assetResponse = await bindings.ASSETS.fetch(request);
   if (!assetResponse.ok || !databaseConfigured) return assetResponse;
 
   try {
     const html = await assetResponse.clone().text();
-    const url = new URL(request.url);
     const entityPage = seo.isDatabaseBackedPagePath(url.pathname);
     const metadata = entityPage
       ? await seo.getDatabaseBackedMetaForUrl(`${url.pathname}${url.search}`)
       : await seo.getMetaForUrl(`${url.pathname}${url.search}`);
     const headers = new Headers(assetResponse.headers);
     headers.set("content-type", "text/html; charset=utf-8");
-    if (!metadata && entityPage) {
+    if (!metadata) {
       headers.set("cache-control", "no-store");
-      headers.set("x-robots-tag", "noindex, nofollow, noarchive");
+      headers.set("x-robots-tag", "noindex, follow, noarchive");
+      headers.set("vary", "Accept");
       return new Response(html, { status: 404, headers });
     }
-    if (!metadata) return assetResponse;
 
-    if (entityPage && metadata.canonicalPath !== url.pathname) {
+    const canonicalPathname = metadata.canonicalPath.split("?")[0];
+    if (canonicalPathname !== url.pathname) {
       const canonicalUrl = new URL(metadata.canonicalPath, url.origin);
       return Response.redirect(canonicalUrl.toString(), 301);
     }
 
     headers.set("cache-control", "public, max-age=60, stale-while-revalidate=300");
+    headers.set("vary", "Accept");
+    headers.set("x-content-type-options", "nosniff");
+    headers.set("referrer-policy", "strict-origin-when-cross-origin");
+    if (metadata.robots) headers.set("x-robots-tag", metadata.robots);
     return new Response(seo.injectMetaTags(html, metadata, url.origin), {
       status: assetResponse.status,
       headers,

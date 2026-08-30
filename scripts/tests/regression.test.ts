@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { canonicalRedirectTarget, isDatabaseBackedPagePath } from "../../server/entityPagePolicy";
+import { canonicalRedirectTarget, isDatabaseBackedPagePath, isPrivatePagePath } from "../../server/entityPagePolicy";
 import { inferTriStateFromZip, normalizeZipCode } from "../../shared/triStateGeography";
 import { assertDatabaseWriteAllowed } from "../lib/database-safety";
 import {
@@ -27,9 +27,73 @@ import { buildings, condoUnits, marketAggregates, properties, sales } from "../.
 test("database-backed URL policy recognizes only supported entity pages", () => {
   assert.equal(isDatabaseBackedPagePath("/unit/example-123"), true);
   assert.equal(isDatabaseBackedPagePath("/properties/abc"), true);
+  assert.equal(isDatabaseBackedPagePath("/property/legacy-id"), true);
   assert.equal(isDatabaseBackedPagePath("/building/1012345678"), true);
   assert.equal(isDatabaseBackedPagePath("/unit/"), false);
   assert.equal(isDatabaseBackedPagePath("/guides/example"), false);
+});
+
+test("account and API-key routes are explicitly private", () => {
+  for (const path of ["/login", "/register", "/forgot-password", "/reset-password", "/checkout/success", "/saved-properties", "/admin-console", "/settings", "/portfolio", "/api-access"]) {
+    assert.equal(isPrivatePagePath(path), true, path);
+  }
+  assert.equal(isPrivatePagePath("/developers"), false);
+});
+
+test("SEO routing, sitemaps, and social assets enforce the indexability contract", () => {
+  const worker = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
+  const wrangler = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");
+  const routes = readFileSync(new URL("../../server/routes.ts", import.meta.url), "utf8");
+  const seo = readFileSync(new URL("../../server/seoMetaTags.ts", import.meta.url), "utf8");
+  const tools = readFileSync(new URL("../../client/src/pages/Tools.tsx", import.meta.url), "utf8");
+  const image = readFileSync(new URL("../../client/public/og-image.png", import.meta.url));
+  assert.match(wrangler, /"\/\*"[\s\S]*"!\/assets\/\*"/);
+  assert.match(worker, /status: 404/);
+  assert.match(worker, /x-robots-tag/);
+  assert.match(routes, /current_market_snapshots/);
+  assert.doesNotMatch(routes, /<changefreq>|<priority>/);
+  assert.doesNotMatch(routes, /\{ url: "\/api-access"/);
+  assert.match(seo, /return null;/);
+  assert.doesNotMatch(seo, /SingleFamilyResidence/);
+  for (const route of ["/tools", "/tools/nyc-zip-market-snapshot", "/tools/nyc-price-per-square-foot", "/tools/nyc-neighborhood-momentum"]) {
+    assert.match(seo, new RegExp(route.replaceAll("/", "\\/")), route);
+  }
+  assert.match(tools, /matchMode === "exact"/);
+  assert.match(tools, /will not substitute state-wide or unrelated data/);
+  assert.doesNotMatch(tools, /google\.maps|maps\.googleapis|MapContainer/i);
+  assert.equal(image.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+});
+
+test("free tool landing pages have indexable server metadata and sitemap entries", async () => {
+  process.env.DATABASE_URL ||= "postgresql://test:test@127.0.0.1:5432/test";
+  const { getMetaForUrl, getStaticSitemapEntries } = await import("../../server/seoMetaTags");
+  const paths = [
+    "/tools",
+    "/tools/nyc-zip-market-snapshot",
+    "/tools/nyc-price-per-square-foot",
+    "/tools/nyc-neighborhood-momentum",
+  ];
+  const sitemapPaths = new Set(getStaticSitemapEntries().map((entry) => entry.path));
+  for (const path of paths) {
+    const meta = await getMetaForUrl(`${path}?zip=10001`);
+    assert.equal(meta?.canonicalPath, path, path);
+    assert.match(meta?.bodyHtml || "", /recorded|tools/i, path);
+    assert.equal(sitemapPaths.has(path), true, path);
+  }
+});
+
+test("public page predicates use one published, canonical, non-quarantined contract", () => {
+  const eligibility = readFileSync(new URL("../../server/publicPageEligibility.ts", import.meta.url), "utf8");
+  const storage = readFileSync(new URL("../../server/storage.ts", import.meta.url), "utf8");
+  const seo = readFileSync(new URL("../../server/seoMetaTags.ts", import.meta.url), "utf8");
+  assert.match(eligibility, /current_market_snapshots/);
+  assert.match(eligibility, /canonical_geographies/);
+  assert.match(eligibility, /data_quality_quarantine/);
+  assert.match(eligibility, /BETWEEN 100000 AND 100000000/);
+  assert.match(storage, /publicPropertyPageSql/);
+  assert.match(storage, /publicUnitPageSql/);
+  assert.match(seo, /publicPropertyPageSql/);
+  assert.match(seo, /publicUnitPageSql/);
 });
 
 test("legacy entity URLs redirect only when the canonical path differs", () => {

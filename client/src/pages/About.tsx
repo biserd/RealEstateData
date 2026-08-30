@@ -46,8 +46,7 @@ export default function About() {
             About Realtors Dashboard
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            We're building the market intelligence platform we wished existed when we started investing 
-            in real estate. Clear data, transparent scoring, and AI that actually helps you make decisions.
+            We publish source-backed NYC recorded-sales research with clear coverage, freshness, scoring rules, and limitations. Optional AI summaries never replace the underlying record.
           </p>
         </div>
       </section>
@@ -60,12 +59,10 @@ export default function About() {
               <p className="text-muted-foreground leading-relaxed mb-4">
                 Real estate is the largest asset class in the world, yet most buyers and investors 
                 operate with incomplete information. Institutional players have access to sophisticated 
-                analytics while everyone else relies on intuition and outdated listings.
+                analytics while public records remain fragmented and difficult to compare.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                Realtors Dashboard levels the playing field. We aggregate public data, apply rigorous 
-                analysis, and present insights in a way that's actually useful. No jargon, no hidden 
-                algorithms—just clear, actionable intelligence.
+                Realtors Dashboard combines named public data, reproducible analysis, and manually validated publication gates. Scores remain research inputs—not appraisals or investment recommendations.
               </p>
             </div>
             <div className="flex items-center justify-center">
@@ -100,8 +97,7 @@ export default function About() {
         <div className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
           <h2 className="text-2xl font-bold tracking-tight mb-8">Coverage Area</h2>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            Verified detail coverage currently focuses on NYC; other regions publish only after source and quality validation—with more sources
-            coming soon as we expand nationwide.
+            Verified detail coverage is currently limited to published NYC recorded-sale data. Other regions remain unavailable unless their source, identity, rights, freshness, and quality checks pass.
           </p>
           <div className="grid gap-6 md:grid-cols-3">
             {coverage.map((item) => (
@@ -132,15 +128,15 @@ export default function About() {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary font-bold">•</span>
-              <span><strong>Zillow Research:</strong> Home value indices and market trends across all three states</span>
+              <span><strong>NYC Department of Finance:</strong> Rolling sales and ACRIS recorded transactions</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary font-bold">•</span>
-              <span><strong>County Records:</strong> Property assessments and tax information</span>
+              <span><strong>NYC Department of City Planning:</strong> PLUTO parcel attributes and canonical property context</span>
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed mt-4">
-            All data is updated regularly and processed through our validation pipeline to ensure accuracy.
+            Data changes only after a manually triggered candidate import passes source, geography, price, duplication, freshness, and completeness checks. Failed runs leave the prior publication active.
           </p>
         </div>
       </section>
