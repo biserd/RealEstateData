@@ -525,11 +525,9 @@ Sitemap: ${baseUrl}/sitemap.xml
       const result = await db.execute(sql`
         SELECT DISTINCT geo_id AS zip
         FROM market_aggregates
-        WHERE geo_type = 'zip' AND geo_id IS NOT NULL AND geo_id <> ''
-        UNION
-        SELECT DISTINCT zip_code AS zip
-        FROM properties
-        WHERE zip_code IS NOT NULL AND zip_code <> ''
+        WHERE geo_type = 'zip'
+          AND geo_id ~ '^[0-9]{5}$'
+          AND transaction_count > 0
         ORDER BY zip
         LIMIT 50000
       `);
@@ -561,7 +559,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   app.get("/api/og/property/:id.png", async (req, res) => {
     try {
-      const property = await storage.getProperty(req.params.id);
+      const property = await storage.getPropertyByIdOrSlug(req.params.id);
       if (!property) {
         return res.status(404).send("Property not found");
       }
@@ -1682,7 +1680,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   // Similar properties for a given property
   app.get("/api/properties/:id/similar", async (req, res) => {
     try {
-      const property = await storage.getProperty(req.params.id);
+      const property = await storage.getPropertyByIdOrSlug(req.params.id);
       if (!property) {
         return res.status(404).json({ message: "Property not found" });
       }
@@ -1721,7 +1719,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   app.get("/api/properties/:id", async (req, res) => {
     try {
-      const property = await storage.getProperty(req.params.id);
+      const property = await storage.getPropertyByIdOrSlug(req.params.id);
       if (!property) {
         // Return 410 Gone to tell search engines this resource was removed
         // and should be de-indexed faster than a 404
@@ -3961,7 +3959,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   app.get("/api/external/properties/:id", externalApiMiddleware, async (req: any, res: any) => {
     try {
-      const property = await storage.getProperty(req.params.id);
+      const property = await storage.getPropertyByIdOrSlug(req.params.id);
       if (!property) {
         return res.status(404).json({ error: "Not Found", message: "Property not found" });
       }

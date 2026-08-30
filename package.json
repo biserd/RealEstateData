@@ -16,7 +16,12 @@
     "deploy:dry-run": "npm run build && wrangler deploy --dry-run",
     "cf:types": "wrangler types",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "test:regression": "tsx --test scripts/tests/regression.test.ts",
+    "regression:live": "tsx scripts/regression-live.ts",
+    "data:audit": "tsx scripts/data-quality-audit.ts",
+    "data:cleanup": "tsx scripts/cleanup-shadow-data.ts",
+    "data:refresh": "tsx scripts/refresh-live-data.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

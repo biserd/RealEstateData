@@ -88,17 +88,17 @@ const TOPICS: Record<TopicKey, TopicContent> = {
     metaTitle:
       "Data Coverage - States, Sources, and Refresh Cadence | Realtors Dashboard",
     metaDescription:
-      "What we cover, where the data comes from, and how often it refreshes. Verified NYC condo sales, statewide property records for NY, NJ, and CT, and ZIP-level market aggregates.",
+      "What we cover, where the data comes from, and how often it refreshes. Verified NYC condo sales and units, plus Tri-State market aggregates.",
     intro:
       "Realtors Dashboard combines verified public records, official open-data feeds, and reference market data to build a transparent view of every covered property. Here is what is in the platform today and how we keep it current.",
     sections: [
       {
         heading: "Geographic coverage",
-        body: "We currently cover three states with full property records and market aggregates, plus deep unit-level coverage in New York City.",
+        body: "Verified parcel and unit detail pages currently focus on NYC. New Jersey and Connecticut remain available at market level while parcel provenance is revalidated.",
         bullets: [
-          "New York: NYC plus statewide coverage, including 300K+ verified condo unit records from NYC Open Data.",
-          "New Jersey: statewide property records with city, ZIP, and county aggregates.",
-          "Connecticut: statewide property records with city, ZIP, and county aggregates.",
+          "New York City: 300K+ official condo-unit identities from NYC Open Data; only units with an exact recorded-sale match are published as detail pages.",
+          "New Jersey: market aggregates remain available; property-level rows stay unpublished until they have stable parcel identifiers and source-backed sales.",
+          "Connecticut: market aggregates remain available; property-level rows stay unpublished until their CAMA identity and provenance pass validation.",
           "National expansion: additional states are being onboarded; nationwide rollout is in progress.",
         ],
       },

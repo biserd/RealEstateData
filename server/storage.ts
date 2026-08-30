@@ -60,6 +60,61 @@ import {
   type InsertBuilding,
 } from "@shared/schema";
 
+// A property is public only when it has enough real, traceable source data to
+// support a detail page. This intentionally excludes the legacy randomly
+// generated NJ/CT demo rows (no parcel key, no matched source record, and no
+// source-backed sale) without deleting anything from the database.
+function publicPropertyPredicate() {
+  return sql`
+    NULLIF(BTRIM(${properties.address}), '') IS NOT NULL
+    AND NULLIF(BTRIM(${properties.city}), '') IS NOT NULL
+    AND ${properties.state} IN ('NY', 'NJ', 'CT')
+    AND ${properties.zipCode} ~ '^[0-9]{5}$'
+    AND ${properties.latitude} BETWEEN 38 AND 46
+    AND ${properties.longitude} BETWEEN -80 AND -69
+    AND COALESCE(${properties.estimatedValue}, ${properties.lastSalePrice}, 0) BETWEEN 50000 AND 100000000
+    AND (
+      NULLIF(BTRIM(${properties.bbl}), '') IS NOT NULL
+      OR EXISTS (
+        SELECT 1 FROM entity_resolution_map erm
+        WHERE erm.matched_property_id = ${properties.id}
+          AND erm.match_confidence >= 0.90
+      )
+      OR EXISTS (
+        SELECT 1 FROM sales verified_sale
+        WHERE verified_sale.property_id = ${properties.id}
+          AND verified_sale.sale_price BETWEEN 50000 AND 100000000
+          AND (
+            verified_sale.match_method IS NOT NULL
+            OR verified_sale.raw_block IS NOT NULL
+            OR verified_sale.raw_lot IS NOT NULL
+          )
+      )
+    )
+  `;
+}
+
+// Unit pages need a transaction matched to the exact unit. A sale elsewhere in
+// the building is useful context, but is not enough to publish thousands of
+// otherwise-empty unit URLs.
+function publicCondoUnitPredicate() {
+  return sql`
+    ${condoUnits.unitTypeHint} = 'residential'
+    AND ${condoUnits.unitBbl} ~ '^[1-5][0-9]{9}$'
+    AND ${condoUnits.baseBbl} ~ '^[1-5][0-9]{9}$'
+    AND NULLIF(BTRIM(${condoUnits.buildingDisplayAddress}), '') IS NOT NULL
+    AND NULLIF(BTRIM(${condoUnits.unitDesignation}), '') IS NOT NULL
+    AND ${condoUnits.latitude} IS NOT NULL
+    AND ${condoUnits.longitude} IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM sales verified_unit_sale
+      WHERE verified_unit_sale.unit_bbl = ${condoUnits.unitBbl}
+        AND verified_unit_sale.sale_price BETWEEN 100000 AND 100000000
+        AND verified_unit_sale.sale_date >= NOW() - INTERVAL '120 months'
+    )
+  `;
+}
+
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
@@ -566,12 +621,12 @@ export class DatabaseStorage implements IStorage {
     const [property] = await db
       .select()
       .from(properties)
-      .where(eq(properties.id, idOrSlug));
+      .where(and(eq(properties.id, idOrSlug), publicPropertyPredicate()));
     return property;
   }
 
   async getProperties(filters: ScreenerFilters, limit = 50, offset = 0): Promise<Property[]> {
-    const conditions = [];
+    const conditions: any[] = [publicPropertyPredicate()];
     
     // Always filter out properties with invalid sqft data to prevent unrealistic price/sqft
     // Properties must have valid sqft (>= 100) and reasonable pricePerSqft (>= 50 $/sqft for Tri-State area)
@@ -766,7 +821,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(properties)
-      .where(and(condition, isNotNull(properties.latitude), isNotNull(properties.longitude)))
+      .where(and(condition, publicPropertyPredicate()))
       .orderBy(desc(properties.opportunityScore))
       .limit(limit);
   }
@@ -775,7 +830,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(properties)
-      .where(gte(properties.opportunityScore, 70))
+      .where(and(gte(properties.opportunityScore, 70), publicPropertyPredicate()))
       .orderBy(desc(properties.opportunityScore))
       .limit(limit);
   }
@@ -819,9 +874,33 @@ export class DatabaseStorage implements IStorage {
       FROM properties p
       WHERE p.latitude IS NOT NULL
         AND p.longitude IS NOT NULL
+        AND NULLIF(BTRIM(p.address), '') IS NOT NULL
+        AND NULLIF(BTRIM(p.city), '') IS NOT NULL
+        AND p.state IN ('NY', 'NJ', 'CT')
+        AND p.zip_code ~ '^[0-9]{5}$'
+        AND p.latitude BETWEEN 38 AND 46
+        AND p.longitude BETWEEN -80 AND -69
         AND (
           (p.estimated_value IS NOT NULL AND p.estimated_value > 0)
           OR (p.last_sale_price IS NOT NULL AND p.last_sale_price > 0)
+        )
+        AND COALESCE(p.estimated_value, p.last_sale_price, 0) BETWEEN 50000 AND 100000000
+        AND (
+          NULLIF(BTRIM(p.bbl), '') IS NOT NULL
+          OR EXISTS (
+            SELECT 1 FROM entity_resolution_map erm
+            WHERE erm.matched_property_id = p.id AND erm.match_confidence >= 0.90
+          )
+          OR EXISTS (
+            SELECT 1 FROM sales verified_sale
+            WHERE verified_sale.property_id = p.id
+              AND verified_sale.sale_price BETWEEN 50000 AND 100000000
+              AND (
+                verified_sale.match_method IS NOT NULL
+                OR verified_sale.raw_block IS NOT NULL
+                OR verified_sale.raw_lot IS NOT NULL
+              )
+          )
         )
     `);
     return Number(result.rows?.[0]?.count || 0);
@@ -833,9 +912,33 @@ export class DatabaseStorage implements IStorage {
       FROM properties p
       WHERE p.latitude IS NOT NULL
         AND p.longitude IS NOT NULL
+        AND NULLIF(BTRIM(p.address), '') IS NOT NULL
+        AND NULLIF(BTRIM(p.city), '') IS NOT NULL
+        AND p.state IN ('NY', 'NJ', 'CT')
+        AND p.zip_code ~ '^[0-9]{5}$'
+        AND p.latitude BETWEEN 38 AND 46
+        AND p.longitude BETWEEN -80 AND -69
         AND (
           (p.estimated_value IS NOT NULL AND p.estimated_value > 0)
           OR (p.last_sale_price IS NOT NULL AND p.last_sale_price > 0)
+        )
+        AND COALESCE(p.estimated_value, p.last_sale_price, 0) BETWEEN 50000 AND 100000000
+        AND (
+          NULLIF(BTRIM(p.bbl), '') IS NOT NULL
+          OR EXISTS (
+            SELECT 1 FROM entity_resolution_map erm
+            WHERE erm.matched_property_id = p.id AND erm.match_confidence >= 0.90
+          )
+          OR EXISTS (
+            SELECT 1 FROM sales verified_sale
+            WHERE verified_sale.property_id = p.id
+              AND verified_sale.sale_price BETWEEN 50000 AND 100000000
+              AND (
+                verified_sale.match_method IS NOT NULL
+                OR verified_sale.raw_block IS NOT NULL
+                OR verified_sale.raw_lot IS NOT NULL
+              )
+          )
         )
       ORDER BY p.id
       LIMIT ${limit} OFFSET ${offset}
@@ -866,19 +969,23 @@ export class DatabaseStorage implements IStorage {
 
   async getStateStats(state: string) {
     const upperState = state.toUpperCase();
-    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(eq(properties.state, upperState));
-    const [medianResult] = await db.select({ median: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int` }).from(properties).where(and(eq(properties.state, upperState), gte(properties.estimatedValue, 1)));
+    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, upperState), publicPropertyPredicate()));
+    const [medianResult] = await db.select({ median: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int` }).from(properties).where(and(eq(properties.state, upperState), gte(properties.estimatedValue, 1), publicPropertyPredicate()));
     
     const cityRows = await db.execute(sql`
       SELECT city, COUNT(*)::int as count, 
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median_price
-      FROM properties WHERE state = ${upperState} AND city IS NOT NULL AND estimated_value > 0
+      FROM properties
+      WHERE state = ${upperState} AND city IS NOT NULL AND estimated_value > 0
+        AND ${publicPropertyPredicate()}
       GROUP BY city ORDER BY count DESC LIMIT 50
     `);
     
     const typeRows = await db.execute(sql`
       SELECT property_type as type, COUNT(*)::int as count
-      FROM properties WHERE state = ${upperState} AND property_type IS NOT NULL
+      FROM properties
+      WHERE state = ${upperState} AND property_type IS NOT NULL
+        AND ${publicPropertyPredicate()}
       GROUP BY property_type ORDER BY count DESC
     `);
     
@@ -892,19 +999,23 @@ export class DatabaseStorage implements IStorage {
 
   async getCityStats(state: string, city: string) {
     const upperState = state.toUpperCase();
-    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city)));
-    const [medianResult] = await db.select({ median: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city), gte(properties.estimatedValue, 1)));
+    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city), publicPropertyPredicate()));
+    const [medianResult] = await db.select({ median: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city), gte(properties.estimatedValue, 1), publicPropertyPredicate()));
     
     const zipRows = await db.execute(sql`
       SELECT zip_code, COUNT(*)::int as count,
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median_price
-      FROM properties WHERE state = ${upperState} AND city = ${city} AND zip_code IS NOT NULL AND estimated_value > 0
+      FROM properties
+      WHERE state = ${upperState} AND city = ${city} AND zip_code IS NOT NULL AND estimated_value > 0
+        AND ${publicPropertyPredicate()}
       GROUP BY zip_code ORDER BY count DESC
     `);
     
     const typeRows = await db.execute(sql`
       SELECT property_type as type, COUNT(*)::int as count
-      FROM properties WHERE state = ${upperState} AND city = ${city} AND property_type IS NOT NULL
+      FROM properties
+      WHERE state = ${upperState} AND city = ${city} AND property_type IS NOT NULL
+        AND ${publicPropertyPredicate()}
       GROUP BY property_type ORDER BY count DESC
     `);
     
@@ -918,35 +1029,35 @@ export class DatabaseStorage implements IStorage {
 
   async getPropertiesByState(state: string, limit: number, offset: number): Promise<Property[]> {
     return await db.select().from(properties)
-      .where(eq(properties.state, state.toUpperCase()))
+      .where(and(eq(properties.state, state.toUpperCase()), publicPropertyPredicate()))
       .orderBy(desc(properties.opportunityScore))
       .limit(limit).offset(offset);
   }
 
   async getPropertiesByCity(state: string, city: string, limit: number, offset: number): Promise<Property[]> {
     return await db.select().from(properties)
-      .where(and(eq(properties.state, state.toUpperCase()), eq(properties.city, city)))
+      .where(and(eq(properties.state, state.toUpperCase()), eq(properties.city, city), publicPropertyPredicate()))
       .orderBy(desc(properties.opportunityScore))
       .limit(limit).offset(offset);
   }
 
   async getPropertyCountByState(state: string): Promise<number> {
-    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(eq(properties.state, state.toUpperCase()));
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, state.toUpperCase()), publicPropertyPredicate()));
     return result?.count || 0;
   }
 
   async getPropertyCountByCity(state: string, city: string): Promise<number> {
-    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, state.toUpperCase()), eq(properties.city, city)));
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, state.toUpperCase()), eq(properties.city, city), publicPropertyPredicate()));
     return result?.count || 0;
   }
 
   async getDistinctCities(state: string): Promise<string[]> {
-    const rows = await db.execute(sql`SELECT DISTINCT city FROM properties WHERE state = ${state.toUpperCase()} AND city IS NOT NULL ORDER BY city`);
+    const rows = await db.execute(sql`SELECT DISTINCT city FROM properties WHERE state = ${state.toUpperCase()} AND city IS NOT NULL AND ${publicPropertyPredicate()} ORDER BY city`);
     return (rows.rows as any[]).map(r => r.city);
   }
 
   async getDistinctStates(): Promise<string[]> {
-    const rows = await db.execute(sql`SELECT DISTINCT state FROM properties WHERE state IS NOT NULL ORDER BY state`);
+    const rows = await db.execute(sql`SELECT DISTINCT state FROM properties WHERE state IS NOT NULL AND ${publicPropertyPredicate()} ORDER BY state`);
     return (rows.rows as any[]).map(r => r.state);
   }
 
@@ -954,6 +1065,7 @@ export class DatabaseStorage implements IStorage {
     const conditions = [
       eq(properties.zipCode, zipCode),
       sql`${properties.id} != ${propertyId}`,
+      publicPropertyPredicate(),
     ];
     if (propertyType) {
       conditions.push(eq(properties.propertyType, propertyType));
@@ -986,7 +1098,9 @@ export class DatabaseStorage implements IStorage {
   async getStateCityList(): Promise<{ state: string; cities: string[] }[]> {
     const rows = await db.execute(sql`
       SELECT state, array_agg(DISTINCT city ORDER BY city) as cities
-      FROM properties WHERE state IS NOT NULL AND city IS NOT NULL
+      FROM properties
+      WHERE state IS NOT NULL AND city IS NOT NULL
+        AND ${publicPropertyPredicate()}
       GROUP BY state ORDER BY state
     `);
     return (rows.rows as any[]).map(r => ({ state: r.state, cities: r.cities }));
@@ -1419,6 +1533,7 @@ export class DatabaseStorage implements IStorage {
           .from(condoUnits)
           .where(
             and(
+              publicCondoUnitPredicate(),
               inArray(condoUnits.baseBbl, buildingBbls),
               or(
                 ilike(condoUnits.unitDesignation, `%${unitDesignation}%`),
@@ -1440,10 +1555,13 @@ export class DatabaseStorage implements IStorage {
           })
           .from(condoUnits)
           .where(
-            or(
-              ilike(condoUnits.unitDisplayAddress, searchQuery),
-              ilike(condoUnits.unitDesignation, `%${query}%`),
-              ilike(condoUnits.unitBbl, `%${query.replace(/[-\s]/g, "")}%`)
+            and(
+              publicCondoUnitPredicate(),
+              or(
+                ilike(condoUnits.unitDisplayAddress, searchQuery),
+                ilike(condoUnits.unitDesignation, `%${query}%`),
+                ilike(condoUnits.unitBbl, `%${query.replace(/[-\s]/g, "")}%`)
+              )
             )
           )
           .limit(10);
@@ -2118,7 +2236,7 @@ export class DatabaseStorage implements IStorage {
   }>> {
     const { borough, zipCode, baseBbl, query, unitTypes, limit = 50 } = params;
     
-    const conditions: any[] = [];
+    const conditions: any[] = [publicCondoUnitPredicate()];
     
     if (borough) {
       conditions.push(eq(condoUnits.borough, borough));
@@ -2400,7 +2518,7 @@ export class DatabaseStorage implements IStorage {
         sqft: condoUnits.sqft,
       })
       .from(condoUnits)
-      .where(eq(condoUnits.unitBbl, unitBbl));
+      .where(and(eq(condoUnits.unitBbl, unitBbl), publicCondoUnitPredicate()));
     return unit;
   }
 
@@ -2416,7 +2534,7 @@ export class DatabaseStorage implements IStorage {
   }>> {
     const { unitTypes, limit = 50, offset = 0 } = params || {};
     
-    const conditions = [eq(condoUnits.baseBbl, baseBbl)];
+    const conditions = [eq(condoUnits.baseBbl, baseBbl), publicCondoUnitPredicate()];
     
     if (unitTypes && unitTypes.length > 0) {
       conditions.push(inArray(condoUnits.unitTypeHint, unitTypes));
@@ -2808,7 +2926,7 @@ export class DatabaseStorage implements IStorage {
         longitude: condoUnits.longitude,
       })
       .from(condoUnits)
-      .where(eq(condoUnits.slug, slug))
+      .where(and(eq(condoUnits.slug, slug), publicCondoUnitPredicate()))
       .limit(1);
     return unit;
   }
@@ -2842,7 +2960,7 @@ export class DatabaseStorage implements IStorage {
         longitude: condoUnits.longitude,
       })
       .from(condoUnits)
-      .where(sql`RIGHT(${condoUnits.unitBbl}, 6) = ${suffix}`)
+      .where(and(sql`RIGHT(${condoUnits.unitBbl}, 6) = ${suffix}`, publicCondoUnitPredicate()))
       .limit(1);
     return unit;
   }
@@ -2881,7 +2999,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           sql`RIGHT(${condoUnits.unitBbl}, 6) = ${suffix}`,
-          sql`LOWER(REPLACE(${condoUnits.borough}, ' ', '')) = ${boroughNormalized}`
+          sql`LOWER(REPLACE(${condoUnits.borough}, ' ', '')) = ${boroughNormalized}`,
+          publicCondoUnitPredicate(),
         )
       )
       .limit(1);
@@ -2922,7 +3041,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           sql`RIGHT(${condoUnits.unitBbl}, 9) = ${suffix}`,
-          sql`LOWER(REPLACE(${condoUnits.borough}, ' ', '')) = ${boroughNormalized}`
+          sql`LOWER(REPLACE(${condoUnits.borough}, ' ', '')) = ${boroughNormalized}`,
+          publicCondoUnitPredicate(),
         )
       )
       .limit(1);
@@ -2937,9 +3057,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Unit sitemap operations
-  // SEO: only include units that are worth indexing — residential + has lat/lng
-  // + has at least one sale recorded for the unit or its building. Pages without
-  // these are essentially empty templates and trigger soft-404s in Google.
+  // Publish only units with an exact unit-level sale. A building-level sale is
+  // useful context but does not make every unit in that building index-worthy.
   async getUnitCountForSitemapEligible(): Promise<number> {
     const result: any = await db.execute(sql`
       SELECT COUNT(*)::int AS count
@@ -2947,11 +3066,13 @@ export class DatabaseStorage implements IStorage {
       WHERE cu.unit_type_hint = 'residential'
         AND cu.latitude IS NOT NULL
         AND cu.longitude IS NOT NULL
+        AND NULLIF(BTRIM(cu.building_display_address), '') IS NOT NULL
+        AND NULLIF(BTRIM(cu.unit_designation), '') IS NOT NULL
         AND EXISTS (
           SELECT 1 FROM sales s
-          WHERE (s.unit_bbl = cu.unit_bbl OR s.base_bbl = cu.base_bbl)
+          WHERE s.unit_bbl = cu.unit_bbl
             AND s.sale_price >= 100000
-            AND s.sale_date >= NOW() - INTERVAL '60 months'
+            AND s.sale_date >= NOW() - INTERVAL '120 months'
         )
     `);
     return Number(result.rows?.[0]?.count || 0);
@@ -2970,18 +3091,20 @@ export class DatabaseStorage implements IStorage {
              cu.building_display_address, cu.borough,
              (
                SELECT MAX(s.sale_date) FROM sales s
-               WHERE (s.unit_bbl = cu.unit_bbl OR s.base_bbl = cu.base_bbl)
+               WHERE s.unit_bbl = cu.unit_bbl
                  AND s.sale_price >= 100000
              ) AS last_sale_date
       FROM condo_units cu
       WHERE cu.unit_type_hint = 'residential'
         AND cu.latitude IS NOT NULL
         AND cu.longitude IS NOT NULL
+        AND NULLIF(BTRIM(cu.building_display_address), '') IS NOT NULL
+        AND NULLIF(BTRIM(cu.unit_designation), '') IS NOT NULL
         AND EXISTS (
           SELECT 1 FROM sales s
-          WHERE (s.unit_bbl = cu.unit_bbl OR s.base_bbl = cu.base_bbl)
+          WHERE s.unit_bbl = cu.unit_bbl
             AND s.sale_price >= 100000
-            AND s.sale_date >= NOW() - INTERVAL '60 months'
+            AND s.sale_date >= NOW() - INTERVAL '120 months'
         )
       ORDER BY cu.unit_bbl
       LIMIT ${limit} OFFSET ${offset}

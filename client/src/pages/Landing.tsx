@@ -247,16 +247,16 @@ export default function Landing() {
   ] : [];
 
   const coverageAreas = [
-    { state: "New York", areas: "NYC, Long Island, Hudson Valley, Upstate" },
-    { state: "New Jersey", areas: "Statewide coverage" },
-    { state: "Connecticut", areas: "Statewide coverage" },
+    { state: "New York", areas: "Verified NYC recorded sales and condo units" },
+    { state: "New Jersey", areas: "Market-level data; parcel revalidation in progress" },
+    { state: "Connecticut", areas: "Market-level data; parcel revalidation in progress" },
   ];
 
   return (
     <>
       <SEO 
         title="Realtors Dashboard - Real Estate Market Intelligence"
-        description="AI-powered real estate intelligence for NY, NJ, and CT. Find underpriced properties, analyze market trends, and make data-driven investment decisions."
+        description="Verified NYC real estate intelligence with Tri-State market context. Find underpriced properties, analyze recorded sales, and make data-driven investment decisions."
       />
       <OrganizationJsonLd />
       <WebSiteJsonLd searchUrlTemplate="https://realtorsdashboard.com/market-intelligence?q={search_term_string}" />
@@ -273,7 +273,7 @@ export default function Landing() {
                 <span className="text-primary">for NYC and Tri-State Real Estate</span>
               </h1>
               <p className="mb-4 text-lg text-muted-foreground md:text-xl" data-testid="text-hero-subhead">
-                Verified sales intelligence across NY, NJ, and CT. Every Opportunity Score is built from public-record transactions, shows its inputs, and links the verified comps behind it - no black-box AVMs, no blended estimates.
+                Verified NYC sales intelligence with Tri-State market context. Every published property page must pass source-provenance and completeness checks—no synthetic listings or blended estimates.
               </p>
               <p className="mb-8 text-base text-foreground/80 font-medium" data-testid="text-hero-audience">
                 Opportunity intelligence for investors, agents, analysts, and PropTech teams.
@@ -304,7 +304,7 @@ export default function Landing() {
                 Free for 14 days, then $59/mo · No charge during trial · Cancel anytime
               </p>
               <p className="mx-auto mb-8 max-w-3xl text-sm font-medium text-foreground/80" data-testid="text-hero-credibility">
-                300K+ verified NYC condo sales analyzed · NY, NJ, CT coverage · Transparent Opportunity Score · 14-day free trial, no charge today
+                300K+ official NYC condo-unit identities · Recorded-sale pages only · Transparent Opportunity Score · 14-day free trial, no charge today
               </p>
 
               <SmartAddressSearch 

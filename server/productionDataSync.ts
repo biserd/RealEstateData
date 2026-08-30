@@ -530,6 +530,12 @@ export async function refreshAggregates() {
     LEFT JOIN properties  p  ON p.id        = s.property_id
     WHERE s.sale_price > 50000
       AND s.sale_date IS NOT NULL
+      AND (
+        s.match_method IS NOT NULL
+        OR s.raw_block IS NOT NULL
+        OR s.raw_lot IS NOT NULL
+        OR s.unit_bbl IS NOT NULL
+      )
       AND s.sale_date >= NOW() - INTERVAL '24 months'
       AND COALESCE(cu.zip_code, p.zip_code) IS NOT NULL;
     CREATE INDEX ON tmp_sales_geo (zip_code);
@@ -721,6 +727,9 @@ async function updateDataSources() {
 }
 
 export async function checkAndSyncProductionData() {
+  console.warn("[DataSync] Automatic in-process refresh is disabled. Use scripts/refresh-live-data.ts so source validation and dry-run review happen before writes.");
+  return;
+  /* Legacy implementation retained temporarily for migration reference only.
   try {
     const result = await db.execute(sql`
       SELECT 
@@ -790,4 +799,5 @@ export async function checkAndSyncProductionData() {
   } catch (error) {
     console.error("[DataSync] Error during data sync:", error);
   }
+  */
 }

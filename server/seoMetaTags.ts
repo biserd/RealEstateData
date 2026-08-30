@@ -2,6 +2,8 @@ import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
 import { getCachedNarrative, maybeGenerateNarrative } from './narratives';
+import { isDatabaseBackedPagePath } from './entityPagePolicy';
+export { isDatabaseBackedPagePath } from './entityPagePolicy';
 
 interface PageMeta {
   title: string;
@@ -402,7 +404,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/methodology/data-coverage': {
     title: 'Data Coverage - States, Sources, and Refresh Cadence | Realtors Dashboard',
-    description: 'What we cover, where the data comes from, and how often it refreshes. Verified NYC condo sales, statewide property records for NY, NJ, and CT, and ZIP-level market aggregates.',
+    description: 'What we cover, where the data comes from, and how often it refreshes. Verified NYC condo sales and units, plus Tri-State market aggregates.',
     ogType: 'article',
     canonicalPath: '/methodology/data-coverage',
     h1: 'Data Coverage',
@@ -410,9 +412,9 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       <p>Realtors Dashboard combines verified public records, official open-data feeds, and reference market data to build a transparent view of every covered property.</p>
       <h2>Geographic coverage</h2>
       <ul>
-        <li><strong>New York:</strong> NYC plus statewide coverage, including 300K+ verified condo unit records.</li>
-        <li><strong>New Jersey:</strong> statewide property records with city, ZIP, and county aggregates.</li>
-        <li><strong>Connecticut:</strong> statewide property records with city, ZIP, and county aggregates.</li>
+        <li><strong>New York City:</strong> 300K+ official condo-unit identities; only exact recorded-sale matches are published as unit pages.</li>
+        <li><strong>New Jersey:</strong> market-level data remains available while parcel-level provenance is revalidated.</li>
+        <li><strong>Connecticut:</strong> market-level data remains available while CAMA property identities are revalidated.</li>
         <li><strong>National expansion:</strong> additional states are being onboarded.</li>
       </ul>
       <h2>Source data</h2>
@@ -507,7 +509,18 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
              cu.building_display_address, cu.borough, cu.zip_code, cu.slug,
              cu.latitude, cu.longitude, cu.beds, cu.baths, cu.sqft, cu.unit_type_hint
       FROM condo_units cu
-      WHERE cu.unit_bbl = ${unitBbl} OR cu.slug = ${unitBbl}
+      WHERE (cu.unit_bbl = ${unitBbl} OR cu.slug = ${unitBbl})
+        AND cu.unit_type_hint = 'residential'
+        AND cu.latitude IS NOT NULL
+        AND cu.longitude IS NOT NULL
+        AND NULLIF(BTRIM(cu.building_display_address), '') IS NOT NULL
+        AND NULLIF(BTRIM(cu.unit_designation), '') IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM sales verified_sale
+          WHERE verified_sale.unit_bbl = cu.unit_bbl
+            AND verified_sale.sale_price BETWEEN 100000 AND 100000000
+            AND verified_sale.sale_date >= NOW() - INTERVAL '120 months'
+        )
       LIMIT 1
     `);
     if (unitRes.rows.length === 0) return null;
@@ -536,6 +549,12 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
         WHERE cu.base_bbl = ${row.base_bbl}
           AND cu.unit_bbl != ${row.unit_bbl}
           AND cu.unit_type_hint = 'residential'
+          AND EXISTS (
+            SELECT 1 FROM sales sibling_sale
+            WHERE sibling_sale.unit_bbl = cu.unit_bbl
+              AND sibling_sale.sale_price BETWEEN 100000 AND 100000000
+              AND sibling_sale.sale_date >= NOW() - INTERVAL '120 months'
+          )
         ORDER BY cu.unit_designation NULLS LAST
         LIMIT 6
       `),
@@ -810,7 +829,33 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       SELECT id, address, city, state, zip_code, property_type, estimated_value,
              last_sale_price, last_sale_date, sqft, beds, baths, year_built,
              opportunity_score, latitude, longitude
-      FROM properties WHERE id = ${propertyId} LIMIT 1
+      FROM properties p
+      WHERE p.id = ${propertyId}
+        AND NULLIF(BTRIM(p.address), '') IS NOT NULL
+        AND NULLIF(BTRIM(p.city), '') IS NOT NULL
+        AND p.state IN ('NY', 'NJ', 'CT')
+        AND p.zip_code ~ '^[0-9]{5}$'
+        AND p.latitude BETWEEN 38 AND 46
+        AND p.longitude BETWEEN -80 AND -69
+        AND COALESCE(p.estimated_value, p.last_sale_price, 0) BETWEEN 50000 AND 100000000
+        AND (
+          NULLIF(BTRIM(p.bbl), '') IS NOT NULL
+          OR EXISTS (
+            SELECT 1 FROM entity_resolution_map erm
+            WHERE erm.matched_property_id = p.id AND erm.match_confidence >= 0.90
+          )
+          OR EXISTS (
+            SELECT 1 FROM sales verified_sale
+            WHERE verified_sale.property_id = p.id
+              AND verified_sale.sale_price BETWEEN 50000 AND 100000000
+              AND (
+                verified_sale.match_method IS NOT NULL
+                OR verified_sale.raw_block IS NOT NULL
+                OR verified_sale.raw_lot IS NOT NULL
+              )
+          )
+        )
+      LIMIT 1
     `);
     if (result.rows.length === 0) return null;
     const row = result.rows[0] as any;
@@ -1290,6 +1335,21 @@ async function getBrowseCityMeta(state: string, city: string): Promise<PageMeta 
   }
 }
 
+export async function getDatabaseBackedMetaForUrl(url: string): Promise<PageMeta | null> {
+  const path = url.split('?')[0];
+
+  const unitMatch = path.match(/^\/unit\/(.+)$/);
+  if (unitMatch) return getUnitMeta(unitMatch[1]);
+
+  const propertyMatch = path.match(/^\/properties\/(.+)$/);
+  if (propertyMatch) return getPropertyMeta(propertyMatch[1]);
+
+  const buildingMatch = path.match(/^\/building\/(.+)$/);
+  if (buildingMatch) return getBuildingMeta(buildingMatch[1]);
+
+  return null;
+}
+
 export async function getMetaForUrl(url: string): Promise<PageMeta> {
   const path = url.split('?')[0];
 
@@ -1309,21 +1369,8 @@ export async function getMetaForUrl(url: string): Promise<PageMeta> {
     if (meta) return meta;
   }
 
-  const unitMatch = path.match(/^\/unit\/(.+)$/);
-  if (unitMatch) {
-    const meta = await getUnitMeta(unitMatch[1]);
-    if (meta) return meta;
-  }
-
-  const propertyMatch = path.match(/^\/properties\/(.+)$/);
-  if (propertyMatch) {
-    const meta = await getPropertyMeta(propertyMatch[1]);
-    if (meta) return meta;
-  }
-
-  const buildingMatch = path.match(/^\/building\/(.+)$/);
-  if (buildingMatch) {
-    const meta = await getBuildingMeta(buildingMatch[1]);
+  if (isDatabaseBackedPagePath(path)) {
+    const meta = await getDatabaseBackedMetaForUrl(url);
     if (meta) return meta;
   }
 

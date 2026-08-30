@@ -603,12 +603,22 @@ export default function UnitDetail() {
     queryKey: ["/api/units/resolve", idOrSlug],
     queryFn: async () => {
       const res = await fetch(`/api/units/resolve/${encodeURIComponent(idOrSlug || "")}`);
-      if (!res.ok) throw new Error("Failed to fetch unit");
+      if (!res.ok) {
+        const requestError = new Error(
+          res.status === 404 ? "Unit not found" : "Unable to load unit",
+        ) as Error & { status: number };
+        requestError.status = res.status;
+        throw requestError;
+      }
       const data = await res.json();
       // The resolve endpoint returns { unitBbl, slug, unit: {...} }
       return data.unit || data;
     },
     enabled: !!idOrSlug,
+    retry: (failureCount, requestError) => {
+      const status = (requestError as Error & { status?: number }).status;
+      return status !== 404 && status !== 403 && failureCount < 2;
+    },
   });
 
   // Use the resolved unitBbl for subsequent queries
@@ -658,13 +668,20 @@ export default function UnitDetail() {
   }
 
   if (error || !unit) {
+    const status = (error as Error & { status?: number } | null)?.status;
+    const missing = status === 404;
+    const rateLimited = status === 429;
     return (
       <AppLayout>
         <div className="container max-w-6xl mx-auto px-4 py-6">
           <EmptyState
             icon={<Home className="h-12 w-12" />}
-            title="Unit not found"
-            description="We couldn't find this condo unit in our database."
+            title={missing ? "Unit not found" : rateLimited ? "Too many requests" : "Unable to load unit"}
+            description={missing
+              ? "We couldn't find a verified condo unit at this URL."
+              : rateLimited
+                ? "Please wait a minute and try again."
+                : "The unit could not be loaded right now. Please refresh and try again."}
           />
         </div>
       </AppLayout>

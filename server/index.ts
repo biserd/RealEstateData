@@ -1,5 +1,4 @@
 import { createApp, log } from "./app";
-import { checkAndSyncProductionData } from "./productionDataSync";
 import { serveStatic } from "./static";
 
 async function main() {
@@ -15,9 +14,6 @@ async function main() {
   const port = Number.parseInt(process.env.PORT || "5000", 10);
   httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
     log(`serving on port ${port}`);
-    void checkAndSyncProductionData().catch((error: unknown) => {
-      console.error("[DataSync] Background sync error:", error);
-    });
   });
 }
 

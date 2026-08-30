@@ -26,6 +26,7 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
+const PUBLIC_CACHE_REVISION = "2026-08-30-entity-integrity-v1";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
@@ -77,6 +78,7 @@ function cacheKeyFor(request: Request): Request {
   const url = new URL(request.url);
   url.hash = "";
   const sorted = new URLSearchParams(Array.from(url.searchParams.entries()).sort(([a], [b]) => a.localeCompare(b)));
+  sorted.set("__rd_cache_revision", PUBLIC_CACHE_REVISION);
   url.search = sorted.toString();
   return new Request(url.toString(), { method: "GET" });
 }
@@ -123,9 +125,24 @@ async function serveDocument(request: Request): Promise<Response> {
   try {
     const html = await assetResponse.clone().text();
     const url = new URL(request.url);
-    const metadata = await seo.getMetaForUrl(`${url.pathname}${url.search}`);
+    const entityPage = seo.isDatabaseBackedPagePath(url.pathname);
+    const metadata = entityPage
+      ? await seo.getDatabaseBackedMetaForUrl(`${url.pathname}${url.search}`)
+      : await seo.getMetaForUrl(`${url.pathname}${url.search}`);
     const headers = new Headers(assetResponse.headers);
     headers.set("content-type", "text/html; charset=utf-8");
+    if (!metadata && entityPage) {
+      headers.set("cache-control", "no-store");
+      headers.set("x-robots-tag", "noindex, nofollow, noarchive");
+      return new Response(html, { status: 404, headers });
+    }
+    if (!metadata) return assetResponse;
+
+    if (entityPage && metadata.canonicalPath !== url.pathname) {
+      const canonicalUrl = new URL(metadata.canonicalPath, url.origin);
+      return Response.redirect(canonicalUrl.toString(), 301);
+    }
+
     headers.set("cache-control", "public, max-age=60, stale-while-revalidate=300");
     return new Response(seo.injectMetaTags(html, metadata, url.origin), {
       status: assetResponse.status,
