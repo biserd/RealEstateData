@@ -2946,11 +2946,11 @@ export class DatabaseStorage implements IStorage {
       buildingSalesCount: number;
     }> = [];
 
-    for (const unit of unitsWithSales) {
+    const evaluateUnit = async (unit: typeof unitsWithSales[number]) => {
       const oppData = await this.getUnitOpportunityData(unit.unitBbl);
       if (oppData && oppData.opportunityScore !== null && oppData.opportunityScore !== undefined) {
         if (opportunityScoreMin && oppData.opportunityScore < opportunityScoreMin) {
-          continue;
+          return null;
         }
         const scoreDrivers: Array<{ label: string; value: string; impact: "positive" | "neutral" | "negative" }> = [];
         
@@ -2997,7 +2997,7 @@ export class DatabaseStorage implements IStorage {
           }
         }
         
-        results.push({
+        return {
           unitBbl: unit.unitBbl,
           baseBbl: unit.baseBbl,
           slug: unit.slug,
@@ -3014,12 +3014,25 @@ export class DatabaseStorage implements IStorage {
           scoreDrivers,
           buildingMedianPrice: oppData.buildingMedianPrice,
           buildingSalesCount,
-        });
+        };
       }
-      if (results.length >= limit) break;
+      return null;
+    };
+
+    // A unit score currently needs three related reads. Evaluate a small batch
+    // concurrently so the Worker does not serialize dozens of Neon round trips,
+    // while keeping concurrency bounded to protect the database.
+    const batchSize = 6;
+    for (let index = 0; index < unitsWithSales.length && results.length < limit; index += batchSize) {
+      const batch = unitsWithSales.slice(index, index + batchSize);
+      const evaluated = await Promise.all(batch.map(evaluateUnit));
+      for (const opportunity of evaluated) {
+        if (opportunity) results.push(opportunity);
+        if (results.length >= limit) break;
+      }
     }
 
-    return results.sort((a, b) => b.opportunityScore - a.opportunityScore);
+    return results.sort((a, b) => b.opportunityScore - a.opportunityScore).slice(0, limit);
   }
 
   // Unit slug operations

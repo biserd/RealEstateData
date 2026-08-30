@@ -90,7 +90,7 @@ export default function MarketExplorer() {
   const [yearBuiltBand, setYearBuiltBand] = useState<string>("all");
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: marketOverviewResponse, isLoading: loadingOverview, isError: overviewError } = useQuery<DataEnvelope<MarketAggregate>>({
+  const { data: marketOverviewResponse, isLoading: loadingOverview, isError: overviewError, refetch: refetchOverview } = useQuery<DataEnvelope<MarketAggregate>>({
     queryKey: ["/api/market/overview"],
     queryFn: async () => {
       const response = await fetch("/api/market/overview?envelope=1", { credentials: "include", cache: "no-store" });
@@ -101,7 +101,7 @@ export default function MarketExplorer() {
   });
   const marketOverview = marketOverviewResponse?.records;
 
-  const { data: marketDataResponse, isLoading, isError: marketError } = useQuery<DataEnvelope<MarketAggregate>>({
+  const { data: marketDataResponse, isLoading, isError: marketError, refetch: refetchMarket } = useQuery<DataEnvelope<MarketAggregate>>({
     queryKey: ["/api/market/aggregates", selectedGeo?.type, selectedGeo?.id, propertyType, bedsBand, yearBuiltBand],
     queryFn: async () => {
       if (!selectedGeo) throw new Error("A geography must be selected");
@@ -125,7 +125,7 @@ export default function MarketExplorer() {
   });
   const marketData = marketDataResponse?.records;
 
-  const { data: areaProperties, isError: propertiesError } = useQuery<Property[]>({
+  const { data: areaProperties, isError: propertiesError, refetch: refetchProperties } = useQuery<Property[]>({
     queryKey: ["/api/properties/area", selectedGeo?.type, selectedGeo?.id],
     queryFn: async () => {
       if (!selectedGeo) return [];
@@ -172,7 +172,7 @@ export default function MarketExplorer() {
     }
   }, [autoSelectFromUrl, searchResults, selectedGeo]);
 
-  const { data: recentSalesResponse, isLoading: loadingSales, isError: salesError } = useQuery<DataEnvelope<Sale & { property: Property }>>({
+  const { data: recentSalesResponse, isLoading: loadingSales, isError: salesError, refetch: refetchSales } = useQuery<DataEnvelope<Sale & { property: Property }>>({
     queryKey: ["/api/market/recent-sales", selectedGeo?.type, selectedGeo?.id],
     queryFn: async () => {
       if (!selectedGeo) throw new Error("A geography must be selected");
@@ -576,9 +576,10 @@ export default function MarketExplorer() {
                   <Card className="mb-6 border-destructive/50">
                     <CardContent className="flex gap-3 p-4">
                       <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
-                      <div>
+                      <div className="space-y-3">
                         <p className="font-medium">Some market data could not be loaded</p>
                         <p className="text-sm text-muted-foreground">The page is showing the verified information that remains available. Retry or choose a broader geography for the full dataset.</p>
+                        <Button variant="outline" size="sm" onClick={() => { void Promise.all([refetchMarket(), refetchProperties()]); }}>Retry market data</Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -699,9 +700,10 @@ export default function MarketExplorer() {
                             ) : salesError ? (
                               <div className="flex gap-3 rounded-md border border-destructive/40 p-4">
                                 <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
-                                <div>
+                                <div className="space-y-3">
                                   <p className="font-medium">Recent sales are temporarily unavailable</p>
                                   <p className="text-sm text-muted-foreground">This is a data-load error, not a zero-sales result.</p>
+                                  <Button variant="outline" size="sm" onClick={() => { void refetchSales(); }}>Retry recent sales</Button>
                                 </div>
                               </div>
                             ) : recentSales && recentSales.length > 0 ? (
@@ -903,9 +905,10 @@ export default function MarketExplorer() {
               <Card className="border-destructive/50">
                 <CardContent className="flex gap-3 p-5">
                   <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
-                  <div>
+                  <div className="space-y-3">
                     <h2 className="font-semibold">Market overview could not be loaded</h2>
                     <p className="text-sm text-muted-foreground">This is a service error, not an empty market. Search for a location or reload the page to retry.</p>
+                    <Button variant="outline" size="sm" onClick={() => { void refetchOverview(); }}>Retry overview</Button>
                   </div>
                 </CardContent>
               </Card>

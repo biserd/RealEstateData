@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/LoadingState";
+import { throwIfResNotOk } from "@/lib/queryClient";
 
 interface NeighborhoodReport {
   geoId: string;
@@ -137,7 +138,7 @@ export default function NeighborhoodReport() {
   const geoType = params.get("geoType") || "zip";
   const [, navigate] = useLocation();
 
-  const { data: priceTrends } = useQuery<{
+  const { data: priceTrends, isError: priceTrendsError, refetch: refetchPriceTrends } = useQuery<{
     geoId: string;
     geoType: string;
     years: Array<{
@@ -166,45 +167,56 @@ export default function NeighborhoodReport() {
     queryKey: ["/api/neighborhood", geoId, "price-trends", geoType],
     queryFn: async () => {
       if (!geoId) return { geoId: "", geoType, years: [], summary: null };
-      const res = await fetch(`/api/neighborhood/${encodeURIComponent(geoId)}/price-trends?geoType=${encodeURIComponent(geoType)}`);
-      if (!res.ok) return { geoId, geoType, years: [], summary: null };
+      const res = await fetch(`/api/neighborhood/${encodeURIComponent(geoId)}/price-trends?geoType=${encodeURIComponent(geoType)}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      await throwIfResNotOk(res);
       return res.json();
     },
     enabled: !!geoId && geoType === "zip",
   });
 
-  const { data: areaProperties = [] } = useQuery<Property[]>({
+  const { data: areaProperties = [], isError: areaPropertiesError, refetch: refetchAreaProperties } = useQuery<Property[]>({
     queryKey: ["/api/properties/area", { geoType, geoId, limit: 100 }],
     queryFn: async () => {
       if (!geoId) return [];
-      const res = await fetch(`/api/properties/area?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=100`);
-      if (!res.ok) return [];
+      const res = await fetch(`/api/properties/area?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=100`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      await throwIfResNotOk(res);
       return res.json();
     },
     enabled: !!geoId,
   });
 
-  const { data: recentSales = [] } = useQuery<Sale[]>({
+  const { data: recentSales = [], isError: recentSalesError, refetch: refetchRecentSales } = useQuery<Sale[]>({
     queryKey: ["/api/market/recent-sales", geoType, geoId],
     queryFn: async () => {
       if (!geoId) return [];
-      const res = await fetch(`/api/market/recent-sales?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=8`);
-      if (!res.ok) return [];
+      const res = await fetch(`/api/market/recent-sales?geoType=${encodeURIComponent(geoType)}&geoId=${encodeURIComponent(geoId)}&limit=8`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      await throwIfResNotOk(res);
       return res.json();
     },
     enabled: !!geoId,
   });
 
-  const { data, isLoading, error } = useQuery<NeighborhoodReport>({
+  const { data, isLoading, isError, isFetching, refetch } = useQuery<NeighborhoodReport>({
     queryKey: ["/api/neighborhood", geoId, "report", geoType],
     queryFn: async () => {
       const res = await fetch(`/api/neighborhood/${encodeURIComponent(geoId!)}/report?geoType=${encodeURIComponent(geoType)}`, {
         credentials: "include",
+        cache: "no-store",
       });
-      if (!res.ok) throw new Error("Failed to load report");
+      await throwIfResNotOk(res);
       return res.json();
     },
     enabled: !!geoId,
+    refetchOnMount: "always",
   });
 
   if (isLoading) {
@@ -217,13 +229,17 @@ export default function NeighborhoodReport() {
     );
   }
 
-  if (error || !data) {
+  if (isError || !data) {
     return (
       <AppLayout>
         <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-          <p className="text-muted-foreground" data-testid="text-error">Failed to load neighborhood report.</p>
+          <p className="font-medium" data-testid="text-error">The neighborhood report is temporarily unavailable.</p>
+          <p className="mt-2 text-sm text-muted-foreground">The data request failed after multiple attempts. This is not an empty-market result.</p>
+          <Button className="mt-4" onClick={() => { void refetch(); }} data-testid="button-retry-report">
+            Retry report
+          </Button>
           <Link href="/market-intelligence">
-            <Button variant="outline" className="mt-4" data-testid="button-back-market">
+            <Button variant="outline" className="ml-2 mt-4" data-testid="button-back-market">
               <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
               Back to Market Explorer
             </Button>
@@ -282,10 +298,25 @@ export default function NeighborhoodReport() {
                   <MapPin className="mr-1 h-3 w-3" />
                   {data.geoType === "zip" ? "ZIP Code" : "Neighborhood"}
                 </Badge>
+                {isFetching ? <Badge variant="outline">Refreshing…</Badge> : null}
               </div>
             </div>
           </div>
         </div>
+
+        {(priceTrendsError || areaPropertiesError || recentSalesError) ? (
+          <Card className="mb-8 border-amber-300" data-testid="supporting-data-warning">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p className="font-medium">Some supporting sections could not refresh</p>
+                <p className="text-sm text-muted-foreground">The main report is available; retry the sales, trends, and property detail feeds.</p>
+              </div>
+              <Button variant="outline" onClick={() => {
+                void Promise.all([refetchPriceTrends(), refetchAreaProperties(), refetchRecentSales()]);
+              }}>Retry supporting data</Button>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {data.market && (
           <div className="mb-8 grid grid-cols-2 gap-3 md:gap-4 md:grid-cols-4">

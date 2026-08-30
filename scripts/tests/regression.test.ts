@@ -217,6 +217,49 @@ test("homepage feeds distinguish loading, error, and empty states", () => {
   assert.match(pageSource, /displayedTrend = area\.trend6m/);
 });
 
+test("shared data queries recover from transient edge and database failures", () => {
+  const queryClient = readFileSync(new URL("../../client/src/lib/queryClient.ts", import.meta.url), "utf8");
+  assert.match(queryClient, /staleTime: 60 \* 1000/);
+  assert.match(queryClient, /refetchOnWindowFocus: true/);
+  assert.match(queryClient, /refetchOnReconnect: true/);
+  assert.match(queryClient, /error\.status === 429/);
+  assert.match(queryClient, /error\.status >= 500/);
+  assert.doesNotMatch(queryClient, /staleTime: Infinity/);
+  assert.doesNotMatch(queryClient, /queries:[\s\S]{0,300}retry: false/);
+});
+
+test("critical research screens never present a service failure as zero data", () => {
+  const screener = readFileSync(new URL("../../client/src/pages/OpportunityScreener.tsx", import.meta.url), "utf8");
+  const neighborhood = readFileSync(new URL("../../client/src/pages/NeighborhoodReport.tsx", import.meta.url), "utf8");
+  const tools = readFileSync(new URL("../../client/src/pages/Tools.tsx", import.meta.url), "utf8");
+  assert.match(screener, /Unit opportunities are temporarily unavailable/);
+  assert.match(screener, /Property results are temporarily unavailable/);
+  assert.match(screener, /void refetchUnits\(\)/);
+  assert.match(screener, /void refetchProperties\(\)/);
+  assert.match(neighborhood, /This is not an empty-market result/);
+  assert.match(neighborhood, /Retry report/);
+  assert.match(neighborhood, /throwIfResNotOk/);
+  assert.match(tools, /Retry snapshot/);
+  assert.match(tools, /Retry benchmark/);
+  assert.match(tools, /Retry ranking/);
+});
+
+test("password reset failures reach a safe recovery screen", () => {
+  const resetPage = readFileSync(new URL("../../client/src/pages/ResetPassword.tsx", import.meta.url), "utf8");
+  const routes = readFileSync(new URL("../../server/routes.ts", import.meta.url), "utf8");
+  assert.match(resetPage, /error instanceof ApiError/);
+  assert.match(resetPage, /Link no longer active/);
+  assert.doesNotMatch(resetPage, /if \(!response\.ok\)/);
+  assert.match(routes, /await sendPasswordResetEmail\(user\.email, token\)/);
+});
+
+test("unit opportunity scoring uses bounded concurrency for Neon reads", () => {
+  const storage = readFileSync(new URL("../../server/storage.ts", import.meta.url), "utf8");
+  assert.match(storage, /const batchSize = 6/);
+  assert.match(storage, /Promise\.all\(batch\.map\(evaluateUnit\)\)/);
+  assert.match(storage, /results\.length < limit/);
+});
+
 test("deployed legacy table models remain safe before the additive migration", () => {
   for (const [tableName, table] of Object.entries({ properties, sales, marketAggregates, condoUnits, buildings })) {
     assert.equal("geographyId" in table, false, `${tableName} must not select migration-only columns before 0001 is applied`);

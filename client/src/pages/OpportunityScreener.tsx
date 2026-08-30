@@ -135,7 +135,13 @@ export default function OpportunityScreener() {
     fallbackReason?: string | null;
   }
 
-  const { data: screenerData, isLoading } = useQuery<ScreenerResponse>({
+  const {
+    data: screenerData,
+    isLoading,
+    isError: propertiesError,
+    isFetching: propertiesFetching,
+    refetch: refetchProperties,
+  } = useQuery<ScreenerResponse>({
     queryKey: [
       "/api/properties/screener", 
       filters.state || "", 
@@ -179,6 +185,7 @@ export default function OpportunityScreener() {
       return res.json();
     },
     enabled: urlInitialized,
+    refetchOnMount: "always",
   });
 
   const properties = screenerData?.properties;
@@ -194,7 +201,13 @@ export default function OpportunityScreener() {
     return "the Tri-State area";
   };
 
-  const { data: unitsData, isLoading: unitsLoading } = useQuery<{
+  const {
+    data: unitsData,
+    isLoading: unitsLoading,
+    isError: unitsError,
+    isFetching: unitsFetching,
+    refetch: refetchUnits,
+  } = useQuery<{
     units: UnitOpportunity[];
     count: number;
   }>({
@@ -218,6 +231,7 @@ export default function OpportunityScreener() {
       return res.json();
     },
     enabled: entityType === "units",
+    refetchOnMount: "always",
   });
 
   const handleResetFilters = () => {
@@ -312,16 +326,18 @@ export default function OpportunityScreener() {
                 <p className="text-sm text-muted-foreground">
                   {entityType === "properties" ? (
                     <>
-                      {properties?.length || 0} properties found
-                      {isLimited && (
+                      {propertiesError ? "Property results unavailable" : `${properties?.length || 0} properties found`}
+                      {!propertiesError && isLimited && (
                         <span className="ml-2 text-amber-600 dark:text-amber-400">
                           (showing {visibleCount} of {properties?.length || 0})
                         </span>
                       )}
                     </>
                   ) : (
-                    <>{unitsData?.count || 0} unit opportunities found</>
+                    <>{unitsError ? "Unit results unavailable" : `${unitsData?.count || 0} unit opportunities found`}</>
                   )}
+                  {entityType === "properties" && propertiesFetching && !isLoading ? <span className="ml-2">Refreshing…</span> : null}
+                  {entityType === "units" && unitsFetching && !unitsLoading ? <span className="ml-2">Refreshing…</span> : null}
                 </p>
               </div>
 
@@ -537,6 +553,13 @@ export default function OpportunityScreener() {
             {entityType === "units" ? (
               unitsLoading ? (
                 <LoadingState type="skeleton-cards" count={6} />
+              ) : unitsError ? (
+                <EmptyState
+                  icon={<Home className="h-8 w-8" />}
+                  title="Unit opportunities are temporarily unavailable"
+                  description="The verified-sales feed did not respond after multiple attempts. This is not a zero-results answer."
+                  action={{ label: "Retry unit results", onClick: () => { void refetchUnits(); } }}
+                />
               ) : unitsData?.units && unitsData.units.length > 0 ? (
                 <div
                   className={
@@ -562,6 +585,13 @@ export default function OpportunityScreener() {
               )
             ) : isLoading ? (
               <LoadingState type="skeleton-cards" count={6} />
+            ) : propertiesError ? (
+              <EmptyState
+                icon={<Building2 className="h-8 w-8" />}
+                title="Property results are temporarily unavailable"
+                description="The published-property feed did not respond after multiple attempts. Your filters have been preserved."
+                action={{ label: "Retry property results", onClick: () => { void refetchProperties(); } }}
+              />
             ) : properties && properties.length > 0 ? (
                 <>
                   <div

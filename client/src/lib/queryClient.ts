@@ -1,10 +1,39 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-async function throwIfResNotOk(res: Response) {
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly payload?: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+export async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let payload: unknown;
+    try {
+      payload = text ? JSON.parse(text) : undefined;
+    } catch {
+      payload = text;
+    }
+    const message = payload && typeof payload === "object" && "message" in payload
+      ? String((payload as { message?: unknown }).message || res.statusText)
+      : text || res.statusText;
+    throw new ApiError(res.status, message, payload);
   }
+}
+
+function shouldRetryQuery(failureCount: number, error: unknown): boolean {
+  if (failureCount >= 2) return false;
+  if (!(error instanceof ApiError)) return true;
+  return error.status === 408
+    || error.status === 425
+    || error.status === 429
+    || error.status >= 500;
 }
 
 export async function apiRequest(
@@ -52,9 +81,11 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      staleTime: 60 * 1000,
+      retry: shouldRetryQuery,
+      retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
     },
     mutations: {
       retry: false,

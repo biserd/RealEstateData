@@ -811,9 +811,10 @@ Sitemap: ${baseUrl}/sitemap.xml
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
         await storage.setResetToken(user.id, tokenHash, expiresAt);
-        sendPasswordResetEmail(user.email, token).catch((err) => {
-          console.error("[ForgotPassword] Failed to send reset email:", err);
-        });
+        const emailSent = await sendPasswordResetEmail(user.email, token);
+        if (!emailSent) {
+          console.error("[ForgotPassword] Password reset email provider did not accept the message");
+        }
       }
 
       res.json({ message: "If an account with that email exists, we've sent a password reset link." });

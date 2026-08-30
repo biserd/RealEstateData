@@ -52,6 +52,17 @@ async function checkEnvelope(url: string) {
   }
 }
 
+async function checkJsonData(url: string, validate: (body: any) => boolean, expected: string) {
+  try {
+    const response = await fetch(url, { headers: { accept: "application/json", origin: baseUrl, referer: `${baseUrl}/` } });
+    const body = await response.json();
+    const ok = response.ok && validate(body);
+    results.push({ url, expected, actual: response.status, ok, detail: ok ? undefined : "response was successful but contained no usable published data" });
+  } catch (error) {
+    results.push({ url, expected, actual: 0, ok: false, detail: error instanceof Error ? error.message : String(error) });
+  }
+}
+
 function extractLocs(xml: string): string[] {
   return Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), (match) => match[1].replace(/&amp;/g, "&"));
 }
@@ -90,6 +101,11 @@ async function main() {
     checkEnvelope(`${baseUrl}/api/market/trending-zips?limit=5&envelope=1`),
     checkEnvelope(`${baseUrl}/api/market/aggregates?geoType=zip&geoId=10977&envelope=1`),
     checkEnvelope(`${baseUrl}/api/market/recent-sales?geoType=zip&geoId=10977&limit=5&envelope=1`),
+  ]);
+  await Promise.all([
+    checkJsonData(`${baseUrl}/api/neighborhood/10025/report?geoType=zip`, (body) => body?.geoId === "10025" && body?.market, "200 usable ZIP report"),
+    checkJsonData(`${baseUrl}/api/properties/screener?zipCodes=10025`, (body) => Array.isArray(body?.properties) && body.properties.length > 0, "200 non-empty exact ZIP screener"),
+    checkJsonData(`${baseUrl}/api/units/top-opportunities?limit=12`, (body) => Array.isArray(body?.units) && body.units.length > 0 && body.count === body.units.length, "200 non-empty unit opportunities"),
   ]);
 
   const indexResponse = await fetch(`${baseUrl}/sitemap.xml`);

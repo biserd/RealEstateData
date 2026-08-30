@@ -280,7 +280,7 @@ function ZipSnapshot() {
         <ToolIntro icon={BarChart3} title="NYC ZIP Market Snapshot" description="Enter a ZIP to see the exact published recorded-sale benchmark, sample depth, price distribution, trend, and recent transfers." />
         <ZipForm initialZip={initialZip} buttonLabel="Get snapshot" onSubmit={run} />
         {aggregateQuery.isLoading && zip ? <p className="mt-8 text-muted-foreground">Loading the current published snapshot…</p> : null}
-        {aggregateQuery.isError && zip ? <Alert variant="destructive" className="mt-8"><AlertTitle>Snapshot temporarily unavailable</AlertTitle><AlertDescription>The market snapshot request failed after multiple attempts. Please try again.</AlertDescription></Alert> : null}
+        {aggregateQuery.isError && zip ? <Alert variant="destructive" className="mt-8"><AlertTitle>Snapshot temporarily unavailable</AlertTitle><AlertDescription><p>The market snapshot request failed after multiple attempts. This is not an empty result.</p><Button variant="outline" className="mt-3" onClick={() => { void aggregateQuery.refetch(); }}>Retry snapshot</Button></AlertDescription></Alert> : null}
         {aggregateQuery.data && !exact ? <CoverageGap zip={zip} reason={aggregateQuery.data.fallbackReason} /> : null}
         {exact && aggregateQuery.data && aggregate ? (
           <section className="mt-8 space-y-6" aria-live="polite">
@@ -299,7 +299,7 @@ function ZipSnapshot() {
             <Card>
               <CardHeader><CardTitle>Recent verified transfers</CardTitle><CardDescription>Up to five exact-ZIP records from the same publication.</CardDescription></CardHeader>
               <CardContent>
-                {salesQuery.isLoading ? <p className="text-muted-foreground">Loading recent transfers…</p> : salesQuery.isError ? <p className="text-muted-foreground">The recent-transfer sample is temporarily unavailable. The market snapshot above is still valid.</p> : salesQuery.data?.matchMode === "exact" && salesQuery.data.records.length ? (
+                {salesQuery.isLoading ? <p className="text-muted-foreground">Loading recent transfers…</p> : salesQuery.isError ? <div className="space-y-3"><p className="text-muted-foreground">The recent-transfer sample is temporarily unavailable. The market snapshot above is still valid.</p><Button variant="outline" onClick={() => { void salesQuery.refetch(); }}>Retry transfers</Button></div> : salesQuery.data?.matchMode === "exact" && salesQuery.data.records.length ? (
                   <div className="divide-y">
                     {salesQuery.data.records.map((sale) => (
                       <div key={sale.id} className="grid gap-1 py-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:gap-6">
@@ -369,7 +369,7 @@ function PpsfBenchmark() {
           {inputError ? <p className="mt-3 text-sm text-destructive">{inputError}</p> : null}
         </ZipForm>
         {query.isLoading ? <p className="mt-8 text-muted-foreground">Loading the exact ZIP benchmark…</p> : null}
-        {query.isError ? <Alert variant="destructive" className="mt-8"><AlertTitle>Benchmark temporarily unavailable</AlertTitle><AlertDescription>Please try again.</AlertDescription></Alert> : null}
+        {query.isError ? <Alert variant="destructive" className="mt-8"><AlertTitle>Benchmark temporarily unavailable</AlertTitle><AlertDescription><p>The benchmark request failed after multiple attempts. This is not an empty result.</p><Button variant="outline" className="mt-3" onClick={() => { void query.refetch(); }}>Retry benchmark</Button></AlertDescription></Alert> : null}
         {query.data && !exact ? <CoverageGap zip={zip} reason={query.data.fallbackReason} /> : null}
         {exact && query.data && aggregate && submitted && subjectPpsf ? (
           <section className="mt-8 space-y-6" aria-live="polite">
@@ -408,7 +408,7 @@ function MomentumChecker() {
         <ToolIntro icon={Gauge} title="NYC Neighborhood Momentum Checker" description="Check whether an eligible ZIP is accelerating, steady, or decelerating in the current published ranking—and see the underlying recorded-sale signals." />
         <ZipForm initialZip={initialZip} buttonLabel="Check momentum" onSubmit={run} />
         {query.isLoading ? <p className="mt-8 text-muted-foreground">Loading the current published ranking…</p> : null}
-        {query.isError ? <Alert variant="destructive" className="mt-8"><AlertTitle>Ranking temporarily unavailable</AlertTitle><AlertDescription>Please try again.</AlertDescription></Alert> : null}
+        {query.isError ? <Alert variant="destructive" className="mt-8"><AlertTitle>Ranking temporarily unavailable</AlertTitle><AlertDescription><p>The ranking request failed after multiple attempts. This is not an empty result.</p><Button variant="outline" className="mt-3" onClick={() => { void query.refetch(); }}>Retry ranking</Button></AlertDescription></Alert> : null}
         {zip && query.data && !result ? (
           <Alert className="mt-8"><Database className="h-4 w-4" /><AlertTitle>ZIP {zip} is not in the eligible ranking</AlertTitle><AlertDescription><p className="mb-3">The current publication does not contain a qualified momentum result for that ZIP. No substitute geography has been shown.</p>{suggestions.length ? <div className="flex flex-wrap gap-2">{suggestions.map((item) => <Button key={item.zipCode} variant="outline" size="sm" onClick={() => run(item.zipCode)}>Try {item.zipCode}</Button>)}</div> : null}</AlertDescription></Alert>
         ) : null}

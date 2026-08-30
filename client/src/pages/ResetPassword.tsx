@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
-import { apiRequest } from "@/lib/queryClient";
+import { ApiError, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, CheckCircle, AlertCircle, KeyRound } from "lucide-react";
 
@@ -31,7 +31,7 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [expired, setExpired] = useState(false);
+  const [linkError, setLinkError] = useState<"invalid" | "expired" | null>(null);
 
   const searchParams = new URLSearchParams(window.location.search);
   const token = searchParams.get("token");
@@ -47,26 +47,25 @@ export default function ResetPassword() {
         token,
         password: data.password,
       });
-      if (!response.ok) {
-        const err = await response.json();
-        if (err.expired) {
-          setExpired(true);
-        }
-        throw new Error(err.message || "Reset failed");
-      }
       return response.json();
     },
     onSuccess: () => {
       setSuccess(true);
     },
     onError: (error: Error) => {
-      if (!expired) {
-        toast({
-          title: "Reset failed",
-          description: error.message,
-          variant: "destructive",
-        });
+      if (error instanceof ApiError && error.status === 410) {
+        setLinkError("expired");
+        return;
       }
+      if (error instanceof ApiError && error.status === 400 && /invalid|expired/i.test(error.message)) {
+        setLinkError("invalid");
+        return;
+      }
+      toast({
+        title: "Reset failed",
+        description: error.message || "The password could not be reset. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -111,7 +110,7 @@ export default function ResetPassword() {
     );
   }
 
-  if (expired) {
+  if (linkError) {
     return (
       <>
         <SEO title="Reset Password" description="Reset your Realtors Dashboard password." />
@@ -123,9 +122,11 @@ export default function ResetPassword() {
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
                   <AlertCircle className="h-6 w-6" />
                 </div>
-                <CardTitle className="text-2xl">Link expired</CardTitle>
+                <CardTitle className="text-2xl">{linkError === "expired" ? "Link expired" : "Link no longer active"}</CardTitle>
                 <CardDescription>
-                  This password reset link has expired. Please request a new one.
+                  {linkError === "expired"
+                    ? "This password reset link has expired. Please request a new one."
+                    : "This link was already used, replaced by a newer request, or is no longer valid. Please request one new link and use the newest email."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
