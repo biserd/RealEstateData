@@ -105,6 +105,14 @@ function lastKnownGoodKey(request: Request): Request {
   return new Request(key.toString(), { method: "GET" });
 }
 
+function clientApiHeaders(source: Headers): Headers {
+  const headers = new Headers(source);
+  // Keep dynamic JSON out of browser caches. Edge reuse is handled explicitly
+  // through Cache API entries below and is unaffected by this client policy.
+  headers.set("cache-control", "private, no-store, max-age=0, must-revalidate");
+  return headers;
+}
+
 async function fetchBackendWithCache(
   request: Request,
   env: Env,
@@ -119,7 +127,7 @@ async function fetchBackendWithCache(
   if (key) {
     const cached = await cache.match(key);
     if (cached) {
-      const headers = new Headers(cached.headers);
+      const headers = clientApiHeaders(cached.headers);
       headers.set("x-rd-cache", "HIT");
       return new Response(cached.body, { status: cached.status, headers });
     }
@@ -133,7 +141,7 @@ async function fetchBackendWithCache(
     if (snapshotKey) {
       const snapshot = await cache.match(snapshotKey);
       if (snapshot) {
-        const headers = new Headers(snapshot.headers);
+        const headers = clientApiHeaders(snapshot.headers);
         headers.set("x-rd-cache", "STALE-SNAPSHOT");
         headers.set("x-rd-match-mode", "stale_snapshot");
         headers.set("warning", '110 - "Serving last known good published snapshot"');
@@ -153,7 +161,7 @@ async function fetchBackendWithCache(
   if ((!response.ok || response.status >= 500) && snapshotKey) {
     const snapshot = await cache.match(snapshotKey);
     if (snapshot) {
-      const headers = new Headers(snapshot.headers);
+      const headers = clientApiHeaders(snapshot.headers);
       headers.set("x-rd-cache", "STALE-SNAPSHOT");
       headers.set("x-rd-match-mode", "stale_snapshot");
       headers.set("warning", '110 - "Serving last known good published snapshot"');
@@ -182,7 +190,10 @@ async function fetchBackendWithCache(
     snapshotHeaders.set("cache-control", "public, max-age=604800");
     ctx.waitUntil(cache.put(snapshotKey, new Response(cacheable.clone().body, { status: cacheable.status, headers: snapshotHeaders })));
   }
-  return cacheable;
+  return new Response(cacheable.body, {
+    status: cacheable.status,
+    headers: clientApiHeaders(cacheable.headers),
+  });
 }
 
 function isDocumentRequest(request: Request): boolean {

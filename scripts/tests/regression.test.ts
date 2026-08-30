@@ -121,6 +121,7 @@ test("manual dataset publication cannot leave a day-old browser API response", (
   const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
   assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v2"/);
   assert.match(workerSource, /max-age=0, must-revalidate, s-maxage=\$\{ttl\}/);
+  assert.match(workerSource, /private, no-store, max-age=0, must-revalidate/);
   assert.doesNotMatch(workerSource, /trending-zips"\) return 900/);
 });
 
