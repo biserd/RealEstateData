@@ -30,7 +30,7 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
-const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v3";
+const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v4";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
@@ -57,6 +57,8 @@ function isBlockedApiCrawler(request: Request, pathname: string): boolean {
 
 function publicCacheTtl(pathname: string): number | null {
   if (pathname === "/api/stats/platform") return 600;
+  if (pathname === "/api/units/top-opportunities") return 300;
+  if (pathname === "/api/products") return 600;
   if (pathname.startsWith("/api/market/") || pathname.startsWith("/api/browse/")) return 300;
   if (pathname.startsWith("/api/seo/narrative/")) return 3600;
   if (pathname === "/robots.txt" || pathname.startsWith("/sitemap")) return 3600;

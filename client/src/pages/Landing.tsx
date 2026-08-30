@@ -63,12 +63,12 @@ interface TrendingArea {
   city: string;
   state: string;
   trendScore: number;
-  trend12m: number;
-  trend6m: number;
-  trend3m: number;
-  medianPrice: number;
-  transactionCount: number;
-  avgOpportunityScore: number;
+  trend12m: number | null;
+  trend6m: number | null;
+  trend3m: number | null;
+  medianPrice: number | null;
+  transactionCount: number | null;
+  avgOpportunityScore: number | null;
   momentum: "accelerating" | "steady" | "decelerating";
   latitude: number;
   longitude: number;
@@ -81,11 +81,11 @@ export default function Landing() {
     queryKey: ["/api/stats/platform"],
   });
 
-  const { data: topOpportunities, isLoading: opportunitiesLoading } = useQuery<TopOpportunity[]>({
+  const { data: topOpportunities, isLoading: opportunitiesLoading, isError: opportunitiesError, isFetching: opportunitiesFetching, refetch: refetchOpportunities } = useQuery<TopOpportunity[]>({
     queryKey: ["/api/units/top-opportunities", { borough: "Manhattan", limit: 9 }],
     queryFn: async () => {
-      const res = await fetch("/api/units/top-opportunities?borough=Manhattan&limit=9");
-      if (!res.ok) throw new Error("Failed to fetch");
+      const res = await fetch("/api/units/top-opportunities?borough=Manhattan&limit=9", { cache: "no-store" });
+      if (!res.ok) throw new Error(`${res.status}: Failed to fetch published opportunity candidates`);
       const data: {
         units: Array<{
           unitBbl: string;
@@ -118,15 +118,19 @@ export default function Landing() {
         longitude: u.longitude,
       }));
     },
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
 
-  const { data: trendingAreas, isLoading: trendingLoading } = useQuery<TrendingArea[]>({
+  const { data: trendingAreas, isLoading: trendingLoading, isError: trendingError, isFetching: trendingFetching, refetch: refetchTrending } = useQuery<TrendingArea[]>({
     queryKey: ["/api/market/trending-zips", { limit: 6 }],
     queryFn: async () => {
-      const res = await fetch("/api/market/trending-zips?limit=6");
-      if (!res.ok) throw new Error("Failed to fetch trending areas");
+      const res = await fetch("/api/market/trending-zips?limit=6", { cache: "no-store" });
+      if (!res.ok) throw new Error(`${res.status}: Failed to fetch trending areas`);
       return res.json();
     },
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
 
   const { data: productsData, isLoading: isProductsLoading } = useQuery<{ data: Product[] }>({
@@ -191,12 +195,12 @@ export default function Landing() {
     {
       icon: <TrendingUp className="h-6 w-6" />,
       title: "Up and Coming ZIPs",
-      description: "Identify trending neighborhoods with our algorithm analyzing price appreciation and momentum.",
+      description: "Compare eligible ZIPs using current recorded-price trend, transaction velocity, liquidity, comp depth, and confidence.",
     },
     {
       icon: <Shield className="h-6 w-6" />,
       title: "Grounded AI",
-      description: "AI insights backed by real data with citations. No hallucinations, just evidence-based analysis.",
+      description: "Optional AI summaries use displayed source-backed facts and citations. Verify every material statement before relying on it.",
     },
     {
       icon: <Heart className="h-6 w-6" />,
@@ -469,6 +473,7 @@ export default function Landing() {
                   </span>
                   <span aria-hidden>·</span>
                   <span>Underpriced properties scored 70+</span>
+                  {opportunitiesFetching && !opportunitiesLoading ? <><span aria-hidden>·</span><span>Refreshing…</span></> : null}
                 </p>
               </div>
               <Link href="/investment-opportunities">
@@ -491,6 +496,14 @@ export default function Landing() {
                   </Card>
                 ))}
               </div>
+            ) : opportunitiesError ? (
+              <Card data-testid="homepage-opportunities-error">
+                <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+                  <p className="font-medium">Opportunity candidates are temporarily unavailable</p>
+                  <p className="text-sm text-muted-foreground">The published feed did not respond after multiple attempts. The rest of the site remains available.</p>
+                  <Button variant="outline" onClick={() => { void refetchOpportunities(); }}>Retry candidates</Button>
+                </CardContent>
+              </Card>
             ) : topOpportunities && topOpportunities.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {topOpportunities.map((opp) => {
@@ -534,7 +547,8 @@ export default function Landing() {
             ) : (
               <Card>
                 <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground">Loading opportunities...</p>
+                  <p className="font-medium">No opportunity candidates currently pass publication rules</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Browse the full screener or return after the next manually validated dataset publication.</p>
                 </CardContent>
               </Card>
             )}
@@ -544,13 +558,13 @@ export default function Landing() {
                 {
                   icon: <TrendingUp className="h-5 w-5" />,
                   title: "For investors",
-                  body: "Shortlist underpriced condo opportunities faster by comparing each listing against verified sales, building-level pricing, and local market signals.",
+                  body: "Shortlist published condo candidates by comparing recorded transactions with verified sales, building-level context, and local market signals.",
                   testId: "audience-investors",
                 },
                 {
                   icon: <Target className="h-5 w-5" />,
                   title: "For buyer's agents",
-                  body: "Walk clients through pricing with clearer comps, opportunity explanations, and market context before making an offer.",
+                  body: "Walk clients through recorded pricing with clearer comps, score explanations, and market context before independent diligence.",
                   testId: "audience-agents",
                 },
                 {
@@ -586,6 +600,7 @@ export default function Landing() {
                 </h2>
                 <p className="text-muted-foreground">
                   Published NYC ZIPs ranked by recorded-price momentum, transaction velocity, liquidity, and comp depth
+                  {trendingFetching && !trendingLoading ? " · Refreshing…" : ""}
                 </p>
               </div>
               <Link href="/up-and-coming">
@@ -607,11 +622,19 @@ export default function Landing() {
                   </Card>
                 ))}
               </div>
+            ) : trendingError ? (
+              <Card data-testid="homepage-trending-error">
+                <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+                  <p className="font-medium">Published ZIP rankings are temporarily unavailable</p>
+                  <p className="text-sm text-muted-foreground">The ranking feed did not respond after multiple attempts.</p>
+                  <Button variant="outline" onClick={() => { void refetchTrending(); }}>Retry rankings</Button>
+                </CardContent>
+              </Card>
             ) : trendingAreas && trendingAreas.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {trendingAreas.map((area) => {
-                  const trend12mPct = (area.trend12m * 100).toFixed(1);
-                  const isUp = area.trend12m >= 0;
+                  const displayedTrend = area.trend6m;
+                  const isUp = (displayedTrend ?? 0) >= 0;
                   const momentumColor =
                     area.momentum === "accelerating"
                       ? "bg-emerald-500 text-white"
@@ -636,14 +659,14 @@ export default function Landing() {
                                 isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                               }`}
                             >
-                              {isUp && "+"}{trend12mPct}%
-                              <ArrowUpRight className={`h-3 w-3 ${isUp ? "" : "rotate-90"}`} />
+                              {displayedTrend === null ? "Not reported" : `${isUp ? "+" : ""}${displayedTrend.toFixed(1)}%`}
+                              {displayedTrend !== null ? <ArrowUpRight className={`h-3 w-3 ${isUp ? "" : "rotate-90"}`} /> : null}
                             </span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-xs">
                             <div>
                               <p className="text-muted-foreground">Sales</p>
-                              <p className="font-semibold">{area.transactionCount.toLocaleString()}</p>
+                              <p className="font-semibold">{area.transactionCount?.toLocaleString() ?? "—"}</p>
                             </div>
                             <div>
                               <p className="text-muted-foreground">Trend Score</p>
@@ -651,7 +674,7 @@ export default function Landing() {
                             </div>
                             <div>
                               <p className="text-muted-foreground">Avg Score</p>
-                              <p className="font-semibold">{area.avgOpportunityScore}</p>
+                              <p className="font-semibold">{area.avgOpportunityScore ?? "—"}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -663,7 +686,8 @@ export default function Landing() {
             ) : (
               <Card>
                 <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground">No trending areas yet.</p>
+                  <p className="font-medium">No ZIP currently passes the ranking publication rules</p>
+                  <p className="mt-2 text-sm text-muted-foreground">The prior snapshot remains unchanged until a manually validated replacement is published.</p>
                 </CardContent>
               </Card>
             )}
