@@ -30,7 +30,7 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
-const PUBLIC_CACHE_REVISION = "2026-08-30-entity-integrity-v1";
+const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v2";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
@@ -56,7 +56,6 @@ function isBlockedApiCrawler(request: Request, pathname: string): boolean {
 }
 
 function publicCacheTtl(pathname: string): number | null {
-  if (pathname === "/api/market/up-and-coming" || pathname === "/api/market/trending-zips") return 900;
   if (pathname === "/api/stats/platform") return 600;
   if (pathname.startsWith("/api/market/") || pathname.startsWith("/api/browse/")) return 300;
   if (pathname.startsWith("/api/seo/narrative/")) return 3600;
@@ -172,7 +171,9 @@ async function fetchBackendWithCache(
   if (!key || !ttl || !response.ok || response.headers.has("set-cookie")) return response;
 
   const headers = new Headers(response.headers);
-  headers.set("cache-control", `public, max-age=60, s-maxage=${ttl}, stale-while-revalidate=${ttl * 2}`);
+  // Browser clients must revalidate after a manual dataset publication. The
+  // Worker cache still absorbs repeated requests at the edge for `ttl` seconds.
+  headers.set("cache-control", `public, max-age=0, must-revalidate, s-maxage=${ttl}, stale-while-revalidate=${ttl * 2}`);
   headers.set("x-rd-cache", "MISS");
   const cacheable = new Response(response.body, { status: response.status, headers });
   ctx.waitUntil(cache.put(key, cacheable.clone()));

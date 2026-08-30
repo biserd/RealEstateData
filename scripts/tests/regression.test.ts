@@ -117,6 +117,13 @@ test("the application shell provides shared tooltip context and a visible crash 
   assert.match(appSource, /This page could not load/);
 });
 
+test("manual dataset publication cannot leave a day-old browser API response", () => {
+  const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
+  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v2"/);
+  assert.match(workerSource, /max-age=0, must-revalidate, s-maxage=\$\{ttl\}/);
+  assert.doesNotMatch(workerSource, /trending-zips"\) return 900/);
+});
+
 test("deployed legacy table models remain safe before the additive migration", () => {
   for (const [tableName, table] of Object.entries({ properties, sales, marketAggregates, condoUnits, buildings })) {
     assert.equal("geographyId" in table, false, `${tableName} must not select migration-only columns before 0001 is applied`);
