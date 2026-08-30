@@ -199,6 +199,14 @@ test("manual dataset publication cannot leave a day-old browser API response", (
   for (const pageSource of criticalPages) assert.match(pageSource, /cache: "no-store"/);
 });
 
+test("HTML documents prevent zone-level JavaScript detection injection", () => {
+  const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
+  assert.match(workerSource, /function protectDocumentResponse/);
+  assert.match(workerSource, /cache-control[^\n]+no-transform/);
+  assert.match(workerSource, /no-store, no-transform/);
+  assert.match(workerSource, /public, max-age=60, stale-while-revalidate=300, no-transform/);
+});
+
 test("published ranking retries transient failures without reloading the application", () => {
   const pageSource = readFileSync(new URL("../../client/src/pages/UpAndComingZips.tsx", import.meta.url), "utf8");
   assert.match(pageSource, /retry: 2/);

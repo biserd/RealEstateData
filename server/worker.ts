@@ -202,6 +202,22 @@ function isDocumentRequest(request: Request): boolean {
   return request.method === "GET" && (request.headers.get("accept") || "").includes("text/html");
 }
 
+function protectDocumentResponse(response: Response, cacheControl: string): Response {
+  const headers = new Headers(response.headers);
+  // The public zone previously injected Cloudflare JavaScript Detections into
+  // HTML documents. Some legitimate browsers then received bot challenges for
+  // the page's same-origin JSON requests, while the direct workers.dev hostname
+  // remained healthy. `no-transform` keeps edge services from rewriting the
+  // application shell; API, asset, DDoS, and Worker rate-limit behavior is
+  // unchanged.
+  headers.set("cache-control", `${cacheControl}, no-transform`);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 async function serveDocument(request: Request): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
@@ -211,7 +227,9 @@ async function serveDocument(request: Request): Promise<Response> {
   }
 
   const assetResponse = await bindings.ASSETS.fetch(request);
-  if (!assetResponse.ok || !databaseConfigured) return assetResponse;
+  if (!assetResponse.ok || !databaseConfigured) {
+    return protectDocumentResponse(assetResponse, "public, max-age=0, must-revalidate");
+  }
 
   try {
     const html = await assetResponse.clone().text();
@@ -222,7 +240,7 @@ async function serveDocument(request: Request): Promise<Response> {
     const headers = new Headers(assetResponse.headers);
     headers.set("content-type", "text/html; charset=utf-8");
     if (!metadata) {
-      headers.set("cache-control", "no-store");
+      headers.set("cache-control", "no-store, no-transform");
       headers.set("x-robots-tag", "noindex, follow, noarchive");
       headers.set("vary", "Accept");
       return new Response(html, { status: 404, headers });
@@ -234,7 +252,7 @@ async function serveDocument(request: Request): Promise<Response> {
       return Response.redirect(canonicalUrl.toString(), 301);
     }
 
-    headers.set("cache-control", "public, max-age=60, stale-while-revalidate=300");
+    headers.set("cache-control", "public, max-age=60, stale-while-revalidate=300, no-transform");
     headers.set("vary", "Accept");
     headers.set("x-content-type-options", "nosniff");
     headers.set("referrer-policy", "strict-origin-when-cross-origin");
@@ -245,7 +263,7 @@ async function serveDocument(request: Request): Promise<Response> {
     });
   } catch (error) {
     console.error(JSON.stringify({ level: "error", source: "seo", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() }));
-    return assetResponse;
+    return protectDocumentResponse(assetResponse, "public, max-age=0, must-revalidate");
   }
 }
 
