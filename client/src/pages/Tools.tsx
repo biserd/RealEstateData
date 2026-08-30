@@ -258,11 +258,15 @@ function ZipSnapshot() {
     queryKey: ["tool", "zip-snapshot", zip, "aggregate"],
     queryFn: () => fetchEnvelope(`/api/market/aggregates?geoType=zip&geoId=${encodeURIComponent(zip)}&envelope=1`),
     enabled: Boolean(zip),
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
   const salesQuery = useQuery<DataEnvelope<Sale & { property: Property }>>({
     queryKey: ["tool", "zip-snapshot", zip, "sales"],
     queryFn: () => fetchEnvelope(`/api/market/recent-sales?geoType=zip&geoId=${encodeURIComponent(zip)}&limit=5&envelope=1`),
     enabled: Boolean(zip),
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
   const aggregate = aggregateQuery.data ? preferredAggregate(aggregateQuery.data.records) : undefined;
   const exact = aggregateQuery.data?.matchMode === "exact" && Boolean(aggregate);
@@ -275,8 +279,8 @@ function ZipSnapshot() {
       <div className="mx-auto max-w-5xl px-4 py-12 md:px-6 md:py-16">
         <ToolIntro icon={BarChart3} title="NYC ZIP Market Snapshot" description="Enter a ZIP to see the exact published recorded-sale benchmark, sample depth, price distribution, trend, and recent transfers." />
         <ZipForm initialZip={initialZip} buttonLabel="Get snapshot" onSubmit={run} />
-        {(aggregateQuery.isLoading || salesQuery.isLoading) && zip ? <p className="mt-8 text-muted-foreground">Loading the current published snapshot…</p> : null}
-        {(aggregateQuery.isError || salesQuery.isError) && zip ? <Alert variant="destructive" className="mt-8"><AlertTitle>Snapshot temporarily unavailable</AlertTitle><AlertDescription>The data service did not return a complete response. Please try again.</AlertDescription></Alert> : null}
+        {aggregateQuery.isLoading && zip ? <p className="mt-8 text-muted-foreground">Loading the current published snapshot…</p> : null}
+        {aggregateQuery.isError && zip ? <Alert variant="destructive" className="mt-8"><AlertTitle>Snapshot temporarily unavailable</AlertTitle><AlertDescription>The market snapshot request failed after multiple attempts. Please try again.</AlertDescription></Alert> : null}
         {aggregateQuery.data && !exact ? <CoverageGap zip={zip} reason={aggregateQuery.data.fallbackReason} /> : null}
         {exact && aggregateQuery.data && aggregate ? (
           <section className="mt-8 space-y-6" aria-live="polite">
@@ -291,11 +295,11 @@ function ZipSnapshot() {
               <Metric label="6-month recorded trend" value={percent(aggregate.trend6m)} trend={aggregate.trend6m} />
             </div>
             <Card><CardHeader><CardTitle>Recorded price range</CardTitle><CardDescription>The 25th-to-75th percentile range in this published aggregate.</CardDescription></CardHeader><CardContent className="text-2xl font-semibold">{currency(aggregate.p25Price)} – {currency(aggregate.p75Price)}</CardContent></Card>
-            <FreshnessPanel freshness={aggregateQuery.data.freshness} observed={aggregateQuery.data.coverage.observedSampleSize} />
+            <FreshnessPanel freshness={aggregateQuery.data.freshness} observed={aggregate.transactionCount ?? aggregateQuery.data.coverage.observedSampleSize} />
             <Card>
               <CardHeader><CardTitle>Recent verified transfers</CardTitle><CardDescription>Up to five exact-ZIP records from the same publication.</CardDescription></CardHeader>
               <CardContent>
-                {salesQuery.data?.matchMode === "exact" && salesQuery.data.records.length ? (
+                {salesQuery.isLoading ? <p className="text-muted-foreground">Loading recent transfers…</p> : salesQuery.isError ? <p className="text-muted-foreground">The recent-transfer sample is temporarily unavailable. The market snapshot above is still valid.</p> : salesQuery.data?.matchMode === "exact" && salesQuery.data.records.length ? (
                   <div className="divide-y">
                     {salesQuery.data.records.map((sale) => (
                       <div key={sale.id} className="grid gap-1 py-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:gap-6">
@@ -332,6 +336,8 @@ function PpsfBenchmark() {
     queryKey: ["tool", "ppsf", zip],
     queryFn: () => fetchEnvelope(`/api/market/aggregates?geoType=zip&geoId=${encodeURIComponent(zip)}&envelope=1`),
     enabled: Boolean(zip && submitted),
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
   const aggregate = query.data ? preferredAggregate(query.data.records) : undefined;
   const exact = query.data?.matchMode === "exact" && Boolean(aggregate);
@@ -370,7 +376,7 @@ function PpsfBenchmark() {
             <div><h2 className="text-2xl font-semibold">ZIP {zip} benchmark result</h2><p className="text-muted-foreground">{positioning}</p></div>
             <div className="grid gap-4 md:grid-cols-3"><Metric label="Your calculated $/sq ft" value={currency(subjectPpsf)} /><Metric label="ZIP median recorded $/sq ft" value={currency(aggregate.medianPricePerSqft)} /><Metric label="Difference from median" value={percent(difference)} trend={difference} /></div>
             <Card><CardHeader><CardTitle>Published $/sq ft range</CardTitle><CardDescription>25th to 75th percentile for exact-ZIP recorded sales when the current publication includes both bounds.</CardDescription></CardHeader><CardContent><div className="text-2xl font-semibold">{aggregate.p25PricePerSqft !== null && aggregate.p75PricePerSqft !== null ? `${currency(aggregate.p25PricePerSqft)} – ${currency(aggregate.p75PricePerSqft)}` : "Range not included in this publication"}</div><p className="mt-3 text-sm text-muted-foreground">This comparison does not adjust for condition, floor, views, building quality, common charges, property type, or other value drivers.</p></CardContent></Card>
-            <FreshnessPanel freshness={query.data.freshness} observed={query.data.coverage.observedSampleSize} />
+            <FreshnessPanel freshness={query.data.freshness} observed={aggregate.transactionCount ?? query.data.coverage.observedSampleSize} />
             <Link href={`/neighborhood/${zip}?geoType=zip`}><Button>Research ZIP {zip}<ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
           </section>
         ) : null}
@@ -386,6 +392,8 @@ function MomentumChecker() {
   const query = useQuery<DataEnvelope<UpAndComingZip>>({
     queryKey: ["tool", "momentum-rankings"],
     queryFn: () => fetchEnvelope("/api/market/trending-zips?limit=100&envelope=1"),
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
   const result = useMemo(() => query.data?.records.find((record) => record.zipCode === zip), [query.data, zip]);
   const rank = result && query.data ? query.data.records.findIndex((record) => record.zipCode === zip) + 1 : null;

@@ -92,6 +92,8 @@ test("public page predicates use one published, canonical, non-quarantined contr
   assert.match(eligibility, /BETWEEN 100000 AND 100000000/);
   assert.match(storage, /publicPropertyPageSql/);
   assert.match(storage, /publicUnitPageSql/);
+  assert.match(storage, /recent_sale_quarantine/);
+  assert.match(storage, /getRecentSalesForArea[\s\S]*publicPropertyPredicate\(\)/);
   assert.match(seo, /publicPropertyPageSql/);
   assert.match(seo, /publicUnitPageSql/);
 });
@@ -188,8 +190,9 @@ test("manual dataset publication cannot leave a day-old browser API response", (
     "../../client/src/pages/MarketExplorer.tsx",
     "../../client/src/pages/OpportunityScreener.tsx",
     "../../client/src/pages/InvestmentCalculator.tsx",
+    "../../client/src/pages/Tools.tsx",
   ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
-  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v2"/);
+  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v3"/);
   assert.match(workerSource, /max-age=0, must-revalidate, s-maxage=\$\{ttl\}/);
   assert.match(workerSource, /private, no-store, max-age=0, must-revalidate/);
   assert.doesNotMatch(workerSource, /trending-zips"\) return 900/);

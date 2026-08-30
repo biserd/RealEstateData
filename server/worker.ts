@@ -30,7 +30,7 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
-const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v2";
+const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v3";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");

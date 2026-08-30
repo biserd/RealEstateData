@@ -1164,7 +1164,25 @@ export class DatabaseStorage implements IStorage {
       })
       .from(sales)
       .innerJoin(properties, eq(sales.propertyId, properties.id))
-      .where(whereCondition)
+      .where(and(
+        whereCondition,
+        publicPropertyPredicate(),
+        gte(sales.salePrice, 50_000),
+        lte(sales.salePrice, 100_000_000),
+        sql`${sales.saleDate} >= NOW() - INTERVAL '120 months'`,
+        sql`(
+          sales.source_id IS NOT NULL
+          OR ${sales.matchMethod} IS NOT NULL
+          OR ${sales.rawBlock} IS NOT NULL
+          OR ${sales.rawLot} IS NOT NULL
+        )`,
+        sql`NOT EXISTS (
+          SELECT 1 FROM data_quality_quarantine recent_sale_quarantine
+          WHERE recent_sale_quarantine.source_table = 'sales'
+            AND recent_sale_quarantine.source_id = ${sales.id}
+            AND recent_sale_quarantine.review_status IN ('pending', 'rejected')
+        )`,
+      ))
       .orderBy(desc(sales.saleDate))
       .limit(limit);
     
