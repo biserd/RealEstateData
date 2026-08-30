@@ -56,7 +56,7 @@ export function Footer() {
               <span className="text-lg tracking-tight">Realtors Dashboard</span>
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              Real estate market intelligence expanding nationwide. Data-driven insights for smarter property decisions.
+              Source-backed recorded-sales and market intelligence with transparent coverage, freshness, and methodology.
             </p>
             <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
               <MapPin className="h-4 w-4" />
@@ -162,7 +162,7 @@ export function Footer() {
             &copy; {currentYear} Realtors Dashboard. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Currently: NY, NJ & CT • More states coming soon</span>
+            <span>Verified detail coverage: NYC • Other regions publish only after source validation</span>
             <span className="hidden md:inline">|</span>
             <span className="hidden md:inline">Data updated daily</span>
           </div>

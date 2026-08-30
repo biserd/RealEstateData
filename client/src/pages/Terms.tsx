@@ -21,8 +21,9 @@ export default function Terms() {
             <h2 className="text-xl font-semibold mb-4">2. Description of Service</h2>
             <p className="text-muted-foreground leading-relaxed">
               Realtors Dashboard provides real estate market intelligence, property analysis, and investment opportunity 
-              identification services. Currently covering New York, New Jersey, and Connecticut, with nationwide 
-              expansion planned. Our platform offers market data, property valuations, opportunity scoring, and AI-powered analysis tools.
+              identification services. Current verified public-record coverage is limited to the NYC datasets identified
+              on each result page; other regions remain unavailable until their sources, usage rights, and quality checks
+              are approved. Our platform offers market data, property valuations, opportunity scoring, and AI-powered analysis tools.
             </p>
           </section>
 

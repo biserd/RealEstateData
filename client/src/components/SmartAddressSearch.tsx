@@ -77,13 +77,13 @@ export function SmartAddressSearch({
       try {
         const response = await fetch(`/api/search/unified?q=${encodeURIComponent(query)}`);
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as SearchResults;
           setResults(data);
           setRateLimitInfo(null);
           setShowDropdown(true);
           setSelectedIndex(-1);
         } else if (response.status === 429) {
-          const data = await response.json().catch(() => ({}));
+          const data = await response.json().catch(() => ({})) as { limit?: number };
           setResults(null);
           setRateLimitInfo({ limit: data.limit ?? 5 });
           setShowDropdown(true);

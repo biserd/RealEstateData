@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { Search, MapPin, TrendingUp, TrendingDown, DollarSign, Home, Activity, Download, Map, Building2, ArrowRight, Globe, Hash, Navigation, Layers } from "lucide-react";
+import { Search, MapPin, TrendingUp, TrendingDown, DollarSign, Home, Activity, Download, Building2, ArrowRight, Globe, Hash, Navigation, Layers, AlertCircle, Database } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,15 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/layouts";
 import { MarketStatsCard } from "@/components/MarketStatsCard";
 import { SegmentSelector } from "@/components/SegmentSelector";
-import { PriceDistribution } from "@/components/PriceDistribution";
 import { CoverageBadge } from "@/components/CoverageBadge";
-import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
-import { EmptyState } from "@/components/EmptyState";
 import { SearchLimitUpgradeCard } from "@/components/SearchLimitUpgradeCard";
 import { useToast } from "@/hooks/use-toast";
 import { propertyTypes, bedsBands, yearBuiltBands } from "@shared/schema";
 import type { MarketAggregate, Property, Sale } from "@shared/schema";
+import type { DataEnvelope } from "@shared/dataEnvelope";
 import { format } from "date-fns";
 import { generatePropertySlug } from "@/lib/propertySlug";
 import { Link } from "wouter";
@@ -92,17 +90,25 @@ export default function MarketExplorer() {
   const [yearBuiltBand, setYearBuiltBand] = useState<string>("all");
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: marketOverview, isLoading: loadingOverview } = useQuery<MarketAggregate[]>({
+  const { data: marketOverviewResponse, isLoading: loadingOverview, isError: overviewError } = useQuery<DataEnvelope<MarketAggregate>>({
     queryKey: ["/api/market/overview"],
+    queryFn: async () => {
+      const response = await fetch("/api/market/overview?envelope=1", { credentials: "include" });
+      if (!response.ok) throw new Error("Market overview is temporarily unavailable");
+      return await response.json() as DataEnvelope<MarketAggregate>;
+    },
+    staleTime: 5 * 60 * 1000,
   });
+  const marketOverview = marketOverviewResponse?.records;
 
-  const { data: marketData, isLoading } = useQuery<MarketAggregate[]>({
+  const { data: marketDataResponse, isLoading, isError: marketError } = useQuery<DataEnvelope<MarketAggregate>>({
     queryKey: ["/api/market/aggregates", selectedGeo?.type, selectedGeo?.id, propertyType, bedsBand, yearBuiltBand],
     queryFn: async () => {
-      if (!selectedGeo) return [];
+      if (!selectedGeo) throw new Error("A geography must be selected");
       const params = new URLSearchParams({
         geoType: selectedGeo.type,
         geoId: selectedGeo.id,
+        envelope: "1",
       });
       if (propertyType !== "all") params.append("propertyType", propertyType);
       if (bedsBand !== "all") params.append("bedsBand", bedsBand);
@@ -112,12 +118,13 @@ export default function MarketExplorer() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch market data");
-      return res.json();
+      return await res.json() as DataEnvelope<MarketAggregate>;
     },
     enabled: !!selectedGeo,
   });
+  const marketData = marketDataResponse?.records;
 
-  const { data: areaProperties } = useQuery<Property[]>({
+  const { data: areaProperties, isError: propertiesError } = useQuery<Property[]>({
     queryKey: ["/api/properties/area", selectedGeo?.type, selectedGeo?.id],
     queryFn: async () => {
       if (!selectedGeo) return [];
@@ -130,8 +137,8 @@ export default function MarketExplorer() {
       const res = await fetch(`/api/properties/area?${params.toString()}`, {
         credentials: "include",
       });
-      if (!res.ok) return [];
-      return res.json();
+      if (!res.ok) throw new Error("Failed to fetch published properties for this area");
+      return await res.json() as Property[];
     },
     enabled: !!selectedGeo,
   });
@@ -150,7 +157,7 @@ export default function MarketExplorer() {
       }
       if (!res.ok) throw new Error("Search failed");
       setSearchLimitReached(false);
-      return res.json();
+      return await res.json() as Array<{ type: string; id: string; name: string; state: string }>;
     },
     enabled: searchQuery.length >= 2,
   });
@@ -162,24 +169,26 @@ export default function MarketExplorer() {
     }
   }, [autoSelectFromUrl, searchResults, selectedGeo]);
 
-  const { data: recentSales, isLoading: loadingSales } = useQuery<(Sale & { property: Property })[]>({
+  const { data: recentSalesResponse, isLoading: loadingSales, isError: salesError } = useQuery<DataEnvelope<Sale & { property: Property }>>({
     queryKey: ["/api/market/recent-sales", selectedGeo?.type, selectedGeo?.id],
     queryFn: async () => {
-      if (!selectedGeo) return [];
+      if (!selectedGeo) throw new Error("A geography must be selected");
       const params = new URLSearchParams({
         geoType: selectedGeo.type,
         geoId: selectedGeo.id,
         limit: "20",
+        envelope: "1",
       });
 
       const res = await fetch(`/api/market/recent-sales?${params.toString()}`, {
         credentials: "include",
       });
-      if (!res.ok) return [];
-      return res.json();
+      if (!res.ok) throw new Error("Failed to fetch recent recorded sales");
+      return await res.json() as DataEnvelope<Sale & { property: Property }>;
     },
     enabled: !!selectedGeo,
   });
+  const recentSales = recentSalesResponse?.records;
 
   const groupedResults = useMemo(() => {
     if (!searchResults || searchResults.length === 0) return null;
@@ -423,6 +432,23 @@ export default function MarketExplorer() {
               </div>
             </div>
 
+            {marketDataResponse && (
+              <div className="mb-6 rounded-lg border bg-muted/30 p-4 text-sm" data-testid="market-data-provenance">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium">Published market data</p>
+                  <p className="text-xs text-muted-foreground">
+                    Dataset {marketDataResponse.freshness.datasetVersion} · source through {marketDataResponse.freshness.sourceDate ? format(new Date(marketDataResponse.freshness.sourceDate), "MMM d, yyyy") : "not reported"} · {marketDataResponse.recordCount} published row{marketDataResponse.recordCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+                {marketDataResponse.matchMode !== "exact" && (
+                  <p className="mt-2 text-amber-700 dark:text-amber-300">
+                    {marketDataResponse.fallbackReason || "A broader verified geography is shown because the exact market did not meet publication rules."}
+                  </p>
+                )}
+                {marketDataResponse.warnings.map((warning) => <p key={warning} className="mt-1 text-muted-foreground">{warning}</p>)}
+              </div>
+            )}
+
             <div className="mb-6 flex flex-wrap gap-4">
               <SegmentSelector
                 label="Property Type"
@@ -480,26 +506,38 @@ export default function MarketExplorer() {
 
                     <Card className="mb-8">
                       <CardHeader>
-                        <CardTitle>Price Distribution</CardTitle>
+                        <CardTitle>Recorded-sale price range</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <PriceDistribution
-                          p25={currentMarket.p25Price || 400000}
-                          p50={currentMarket.medianPrice || 550000}
-                          p75={currentMarket.p75Price || 725000}
-                        />
-                        <div className="mt-6">
-                          <p className="mb-2 text-sm font-medium text-muted-foreground">
-                            Price per Sqft Distribution
-                          </p>
-                          <PriceDistribution
-                            p25={currentMarket.p25PricePerSqft || 300}
-                            p50={currentMarket.medianPricePerSqft || 425}
-                            p75={currentMarket.p75PricePerSqft || 575}
-                            unit="$"
-                            label="$/sqft Distribution"
-                          />
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm" data-testid="table-market-price-range">
+                            <thead>
+                              <tr className="border-b text-left text-muted-foreground">
+                                <th className="py-2 pr-4 font-medium">Measure</th>
+                                <th className="py-2 px-4 text-right font-medium">25th percentile</th>
+                                <th className="py-2 px-4 text-right font-medium">Median</th>
+                                <th className="py-2 pl-4 text-right font-medium">75th percentile</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-b">
+                                <td className="py-3 pr-4">Sale price</td>
+                                <td className="py-3 px-4 text-right tabular-nums">{formatPrice(currentMarket.p25Price || 0)}</td>
+                                <td className="py-3 px-4 text-right font-semibold tabular-nums">{formatPrice(currentMarket.medianPrice || 0)}</td>
+                                <td className="py-3 pl-4 text-right tabular-nums">{formatPrice(currentMarket.p75Price || 0)}</td>
+                              </tr>
+                              <tr>
+                                <td className="py-3 pr-4">Price per square foot</td>
+                                <td className="py-3 px-4 text-right tabular-nums">{currentMarket.p25PricePerSqft ? `$${currentMarket.p25PricePerSqft.toLocaleString()}` : "Insufficient sample"}</td>
+                                <td className="py-3 px-4 text-right font-semibold tabular-nums">{currentMarket.medianPricePerSqft ? `$${currentMarket.medianPricePerSqft.toLocaleString()}` : "Insufficient sample"}</td>
+                                <td className="py-3 pl-4 text-right tabular-nums">{currentMarket.p75PricePerSqft ? `$${currentMarket.p75PricePerSqft.toLocaleString()}` : "Insufficient sample"}</td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Based on {currentMarket.transactionCount || 0} verified recorded transactions. Values are not live listing prices.
+                        </p>
                       </CardContent>
                     </Card>
                   </>
@@ -530,12 +568,21 @@ export default function MarketExplorer() {
                   </div>
                 )}
 
-                <Tabs defaultValue="map" className="space-y-4">
+                {(marketError || propertiesError) && (
+                  <Card className="mb-6 border-destructive/50">
+                    <CardContent className="flex gap-3 p-4">
+                      <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
+                      <div>
+                        <p className="font-medium">Some market data could not be loaded</p>
+                        <p className="text-sm text-muted-foreground">The page is showing the verified information that remains available. Retry or choose a broader geography for the full dataset.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Tabs defaultValue="properties" className="space-y-4">
                   <TabsList>
-                    <TabsTrigger value="map" data-testid="tab-map">
-                      <Map className="mr-2 h-4 w-4" />
-                      Area Map
-                    </TabsTrigger>
+                    <TabsTrigger value="properties" data-testid="tab-properties">Published Properties</TabsTrigger>
                     {currentMarket && (
                       <>
                         <TabsTrigger value="trends" data-testid="tab-trends">Trends</TabsTrigger>
@@ -545,16 +592,48 @@ export default function MarketExplorer() {
                     )}
                   </TabsList>
 
-                  <TabsContent value="map">
+                  <TabsContent value="properties">
                     <Card>
-                      <CardContent className="p-4">
+                      <CardHeader>
+                        <CardTitle>Published properties in this market</CardTitle>
+                      </CardHeader>
+                      <CardContent>
                         {areaProperties && areaProperties.length > 0 ? (
-                          <PropertyMap properties={areaProperties} height="400px" showClustering />
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm" data-testid="table-area-properties">
+                              <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                  <th className="py-2 pr-4 font-medium">Property</th>
+                                  <th className="py-2 px-4 font-medium">Type</th>
+                                  <th className="py-2 px-4 text-right font-medium">Recorded / estimated value</th>
+                                  <th className="py-2 px-4 text-right font-medium">Size</th>
+                                  <th className="py-2 pl-4 text-right font-medium">Opportunity score</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {areaProperties.slice(0, 25).map((property) => (
+                                  <tr key={property.id} className="border-b last:border-0">
+                                    <td className="py-3 pr-4">
+                                      <Link href={`/properties/${generatePropertySlug(property)}`} className="font-medium hover:text-primary">
+                                        {property.address}
+                                      </Link>
+                                      <p className="text-xs text-muted-foreground">{property.city}, {property.state} {property.zipCode}</p>
+                                    </td>
+                                    <td className="py-3 px-4">{property.propertyType || "Not classified"}</td>
+                                    <td className="py-3 px-4 text-right tabular-nums">{formatPrice(property.estimatedValue || property.lastSalePrice || 0)}</td>
+                                    <td className="py-3 px-4 text-right tabular-nums">{property.sqft ? `${property.sqft.toLocaleString()} sqft` : "Not reported"}</td>
+                                    <td className="py-3 pl-4 text-right font-semibold tabular-nums">{property.opportunityScore ?? "Not scored"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         ) : (
-                          <div className="flex h-[400px] items-center justify-center">
-                            <div className="text-center">
-                              <Map className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                              <p className="text-muted-foreground">No properties with coordinates available in this area</p>
+                          <div className="flex gap-3 rounded-md border bg-muted/30 p-4">
+                            <Database className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">No exact property records are published for this geography</p>
+                              <p className="text-sm text-muted-foreground">Use the market statistics and recorded sales above, or choose the state to see verified broader coverage.</p>
                             </div>
                           </div>
                         )}
@@ -612,6 +691,14 @@ export default function MarketExplorer() {
                             {loadingSales ? (
                               <div className="flex items-center justify-center py-8">
                                 <Activity className="h-6 w-6 animate-spin text-muted-foreground" />
+                              </div>
+                            ) : salesError ? (
+                              <div className="flex gap-3 rounded-md border border-destructive/40 p-4">
+                                <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
+                                <div>
+                                  <p className="font-medium">Recent sales are temporarily unavailable</p>
+                                  <p className="text-sm text-muted-foreground">This is a data-load error, not a zero-sales result.</p>
+                                </div>
                               </div>
                             ) : recentSales && recentSales.length > 0 ? (
                               <div className="space-y-4">
@@ -693,15 +780,7 @@ export default function MarketExplorer() {
                                       .map(([type, count]) => (
                                         <div key={type} className="flex items-center justify-between">
                                           <span className="text-sm">{type}</span>
-                                          <div className="flex items-center gap-2">
-                                            <div className="h-2 w-24 rounded-full bg-muted overflow-hidden">
-                                              <div
-                                                className="h-full bg-primary rounded-full"
-                                                style={{ width: `${(count / areaProperties.length) * 100}%` }}
-                                              />
-                                            </div>
-                                            <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
-                                          </div>
+                                          <span className="text-sm text-muted-foreground tabular-nums">{count} ({Math.round((count / areaProperties.length) * 100)}%)</span>
                                         </div>
                                       ))}
                                   </div>
@@ -726,15 +805,7 @@ export default function MarketExplorer() {
                                       .map(([beds, count]) => (
                                         <div key={beds} className="flex items-center justify-between">
                                           <span className="text-sm">{beds}</span>
-                                          <div className="flex items-center gap-2">
-                                            <div className="h-2 w-24 rounded-full bg-muted overflow-hidden">
-                                              <div
-                                                className="h-full bg-emerald-500 rounded-full"
-                                                style={{ width: `${(count / areaProperties.length) * 100}%` }}
-                                              />
-                                            </div>
-                                            <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
-                                          </div>
+                                          <span className="text-sm text-muted-foreground tabular-nums">{count} ({Math.round((count / areaProperties.length) * 100)}%)</span>
                                         </div>
                                       ))}
                                   </div>
@@ -764,15 +835,7 @@ export default function MarketExplorer() {
                                       .map(([era, count]) => (
                                         <div key={era} className="flex items-center justify-between">
                                           <span className="text-sm">{era}</span>
-                                          <div className="flex items-center gap-2">
-                                            <div className="h-2 w-24 rounded-full bg-muted overflow-hidden">
-                                              <div
-                                                className="h-full bg-amber-500 rounded-full"
-                                                style={{ width: `${(count / areaProperties.length) * 100}%` }}
-                                              />
-                                            </div>
-                                            <span className="text-sm text-muted-foreground w-8 text-right">{count}</span>
-                                          </div>
+                                          <span className="text-sm text-muted-foreground tabular-nums">{count} ({Math.round((count / areaProperties.length) * 100)}%)</span>
                                         </div>
                                       ))}
                                   </div>
@@ -791,12 +854,16 @@ export default function MarketExplorer() {
                   )}
                 </Tabs>
 
-                {!currentMarket && (!areaProperties || areaProperties.length === 0) && (
-                  <EmptyState
-                    icon={<MapPin className="h-8 w-8" />}
-                    title="No data available"
-                    description="We don't have any data for this area yet. Try a different location."
-                  />
+                {!currentMarket && (!areaProperties || areaProperties.length === 0) && !marketError && !propertiesError && (
+                  <Card className="border-amber-500/40">
+                    <CardContent className="flex gap-3 p-5">
+                      <Database className="mt-0.5 h-5 w-5 text-amber-600" />
+                      <div>
+                        <p className="font-medium">Exact coverage is not currently published for {selectedGeo.name}</p>
+                        <p className="text-sm text-muted-foreground">Choose {selectedGeo.state ? getStateFull(selectedGeo.state) : "a state"} for broader verified properties and recorded market statistics. No records are being fabricated for this location.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </>
             )}
@@ -828,6 +895,16 @@ export default function MarketExplorer() {
             {/* State-level Market Overview Cards */}
             {loadingOverview ? (
               <LoadingState type="skeleton-details" />
+            ) : overviewError ? (
+              <Card className="border-destructive/50">
+                <CardContent className="flex gap-3 p-5">
+                  <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
+                  <div>
+                    <h2 className="font-semibold">Market overview could not be loaded</h2>
+                    <p className="text-sm text-muted-foreground">This is a service error, not an empty market. Search for a location or reload the page to retry.</p>
+                  </div>
+                </CardContent>
+              </Card>
             ) : marketOverview && marketOverview.length > 0 ? (
               <>
                 <div className="mb-6">
@@ -851,7 +928,7 @@ export default function MarketExplorer() {
                             </div>
                             <div>
                               <h3 className="font-semibold">{state.geoName || getStateFull(state.state)}</h3>
-                              <p className="text-xs text-muted-foreground">{(state.transactionCount || 0).toLocaleString()} properties</p>
+                              <p className="text-xs text-muted-foreground">{(state.transactionCount || 0).toLocaleString()} recorded transactions</p>
                             </div>
                           </div>
                           <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -928,7 +1005,7 @@ export default function MarketExplorer() {
                             ))}
                           </tr>
                           <tr className="border-b">
-                            <td className="py-3 pr-4 text-muted-foreground">Properties</td>
+                            <td className="py-3 pr-4 text-muted-foreground">Recorded transactions</td>
                             {marketOverview.map((s) => (
                               <td key={s.geoId} className="text-right py-3 px-4 font-semibold tabular-nums">
                                 {(s.transactionCount || 0).toLocaleString()}

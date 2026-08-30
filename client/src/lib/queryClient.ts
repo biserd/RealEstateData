@@ -11,7 +11,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
+): Promise<Omit<Response, "json"> & { json(): Promise<any> }> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -20,15 +20,20 @@ export async function apiRequest(
   });
 
   await throwIfResNotOk(res);
-  return res;
+  return res as Omit<Response, "json"> & { json(): Promise<any> };
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
+export function getQueryFn<T = any>(options: {
+  on401: "returnNull";
+}): QueryFunction<T | null>;
+export function getQueryFn<T = any>(options: {
+  on401: "throw";
+}): QueryFunction<T>;
+export function getQueryFn<T = any>({ on401: unauthorizedBehavior }: {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
+}): QueryFunction<T | null> {
+  return async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
     });
@@ -38,8 +43,9 @@ export const getQueryFn: <T>(options: {
     }
 
     await throwIfResNotOk(res);
-    return await res.json();
+    return await res.json() as T;
   };
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {

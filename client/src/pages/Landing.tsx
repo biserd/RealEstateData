@@ -9,8 +9,6 @@ import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
 import { OrganizationJsonLd, WebSiteJsonLd } from "@/components/JsonLd";
-import { StaticMapImage } from "@/components/StaticMapImage";
-import { StreetViewImage } from "@/components/StreetViewImage";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -188,7 +186,7 @@ export default function Landing() {
     {
       icon: <BarChart3 className="h-6 w-6" />,
       title: "Market Intelligence",
-      description: "Instant pricing bands (P25/P50/P75) for any ZIP, city, or neighborhood across NY, NJ, and CT.",
+      description: "Published pricing bands (P25/P50/P75) where verified transaction samples pass coverage and freshness rules.",
     },
     {
       icon: <TrendingUp className="h-6 w-6" />,
@@ -424,13 +422,13 @@ export default function Landing() {
                 </Card>
               </Link>
               <Link href="/admin-console">
-                <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-coverage-map">
+                <Card className="hover-elevate cursor-pointer h-full" data-testid="card-cta-coverage-data">
                   <CardContent className="flex items-center gap-4 p-4">
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Shield className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="font-semibold">Coverage Map</p>
+                      <p className="font-semibold">Coverage Data</p>
                       <p className="text-sm text-muted-foreground">Data availability</p>
                     </div>
                   </CardContent>
@@ -493,39 +491,13 @@ export default function Landing() {
                         className={`hover-elevate cursor-pointer h-full overflow-hidden ${isStrong ? "border-emerald-300 dark:border-emerald-700" : ""}`}
                         data-testid={`card-live-opportunity-${opp.id}`}
                       >
-                        <div className="relative aspect-[16/9] overflow-hidden bg-muted">
-                          <StreetViewImage
-                            lat={opp.latitude}
-                            lng={opp.longitude}
-                            address={opp.address}
-                            width={640}
-                            height={360}
-                            rounded={false}
-                            alt={`Photo of ${opp.address}`}
-                          />
-                          <div className="absolute top-2 right-2">
-                            <div className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold shadow-md ring-2 ring-background ${
-                              isStrong 
-                                ? "bg-emerald-500 text-white" 
-                                : opp.opportunityScore >= 50 
-                                  ? "bg-amber-500 text-white"
-                                  : "bg-muted text-muted-foreground"
-                            }`} title={`Opportunity Score ${opp.opportunityScore}/100`}>
-                              {opp.opportunityScore}
-                            </div>
-                          </div>
-                          <div className="absolute top-2 left-2">
-                            <Badge variant={opp.priceType === "verified" ? "default" : "secondary"} className="text-xs shadow-md">
-                              {opp.priceType === "verified" ? (
-                                <>
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Verified
-                                </>
-                              ) : "Estimated"}
-                            </Badge>
-                          </div>
-                        </div>
                         <CardContent className="pt-4">
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <Badge variant={opp.priceType === "verified" ? "default" : "secondary"} className="text-xs">
+                              {opp.priceType === "verified" ? "Verified sale" : "Estimated value"}
+                            </Badge>
+                            <span className={`text-sm font-bold ${isStrong ? "text-emerald-600" : "text-foreground"}`}>Score {opp.opportunityScore}/100</span>
+                          </div>
                           <div className="flex items-baseline justify-between gap-2 mb-1">
                             <span className="text-xl font-bold">
                               ${opp.price >= 1000000 
@@ -571,7 +543,7 @@ export default function Landing() {
                 {
                   icon: <BarChart3 className="h-5 w-5" />,
                   title: "For analysts",
-                  body: "Turn scattered property, sales, and neighborhood data into a repeatable screening workflow for NY, NJ, and CT markets.",
+                  body: "Turn published property, recorded-sale, and market data into a repeatable screening workflow with explicit geographic coverage.",
                   testId: "audience-analysts",
                 },
               ].map((card) => (
@@ -639,29 +611,11 @@ export default function Landing() {
                         className="hover-elevate cursor-pointer h-full overflow-hidden"
                         data-testid={`card-trending-zip-${area.zipCode}`}
                       >
-                        <div className="relative aspect-[16/9] overflow-hidden bg-muted">
-                          <StaticMapImage
-                            center={{ lat: area.latitude, lng: area.longitude }}
-                            zoom={12}
-                            markers={[{ lat: area.latitude, lng: area.longitude, color: "orange" }]}
-                            width={480}
-                            height={270}
-                            rounded={false}
-                            alt={`Map of ZIP ${area.zipCode} in ${area.city}, ${area.state}`}
-                          />
-                          <div className="absolute top-2 right-2">
-                            <Badge className={`text-xs shadow-md capitalize ${momentumColor}`}>
-                              <Activity className="h-3 w-3 mr-1" />
-                              {area.momentum}
-                            </Badge>
-                          </div>
-                          <div className="absolute top-2 left-2">
-                            <Badge variant="secondary" className="text-xs shadow-md font-mono">
-                              {area.zipCode}
-                            </Badge>
-                          </div>
-                        </div>
                         <CardContent className="pt-4">
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <Badge variant="secondary" className="text-xs font-mono">ZIP {area.zipCode}</Badge>
+                            <Badge className={`text-xs capitalize ${momentumColor}`}>{area.momentum}</Badge>
+                          </div>
                           <div className="flex items-baseline justify-between gap-2 mb-2">
                             <p className="font-semibold truncate">{area.city}, {area.state}</p>
                             <span
@@ -791,23 +745,8 @@ export default function Landing() {
               <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">Coverage Across the Tri-State</h2>
               <p className="text-muted-foreground">Comprehensive data across New York, New Jersey, and Connecticut</p>
             </div>
-            <div className="grid gap-8 lg:grid-cols-5 items-center">
-              <div className="lg:col-span-3 aspect-[16/10] overflow-hidden rounded-lg border" data-testid="map-coverage">
-                <StaticMapImage
-                  center={{ lat: 40.95, lng: -73.85 }}
-                  zoom={8}
-                  markers={[
-                    { lat: 40.7128, lng: -74.0060, color: "blue", label: "N" },
-                    { lat: 40.7357, lng: -74.1724, color: "blue", label: "J" },
-                    { lat: 41.7658, lng: -72.6734, color: "blue", label: "C" },
-                  ]}
-                  width={640}
-                  height={400}
-                  rounded={false}
-                  alt="Coverage map of NY, NJ, and CT"
-                />
-              </div>
-              <div className="lg:col-span-2 space-y-5">
+            <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
+              <div className="contents">
                 {coverageAreas.map((area) => (
                   <div key={area.state} className="flex items-start gap-3" data-testid={`coverage-row-${area.state.toLowerCase().replace(/\s+/g, "-")}`}>
                     <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">

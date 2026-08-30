@@ -13,7 +13,6 @@ import { getPropertyUrl, formatFullAddress } from "@/lib/propertySlug";
 import type { Property, ConfidenceLevel } from "@shared/schema";
 import { EntityTypeBadge, PriceTypeBadge } from "./UnitOpportunityCard";
 import { ScoreDriversList, type ScoreDriver } from "@/components/ScoreDriversList";
-import { StaticMapImage } from "@/components/StaticMapImage";
 
 interface PropertyCardProps {
   property: Property;
@@ -21,7 +20,6 @@ interface PropertyCardProps {
   onSave?: (propertyId: string) => void;
   isSaved?: boolean;
   scoreDrivers?: ScoreDriver[];
-  showStreetView?: boolean;
 }
 
 export function PropertyCard({
@@ -30,7 +28,6 @@ export function PropertyCard({
   onSave,
   isSaved = false,
   scoreDrivers,
-  showStreetView = false,
 }: PropertyCardProps) {
   const formatPrice = (price: number | null) => {
     if (!price) return "N/A";
@@ -145,19 +142,6 @@ export function PropertyCard({
       <CardContent className="pt-0">
         <Link href={getPropertyUrl(property)}>
           <div className="space-y-3">
-            {showStreetView && property.latitude && property.longitude && (
-              <div className="aspect-[16/9] -mx-1 overflow-hidden rounded-md" data-testid={`img-card-staticmap-${property.id}`}>
-                <StaticMapImage
-                  center={{ lat: property.latitude, lng: property.longitude }}
-                  zoom={16}
-                  markers={[{ lat: property.latitude, lng: property.longitude, color: "red" }]}
-                  width={480}
-                  height={270}
-                  rounded={false}
-                  alt={formatFullAddress(property)}
-                />
-              </div>
-            )}
             <div>
               <p className="text-sm text-muted-foreground">
                 {property.lastSalePrice ? "Sale Price" : "Estimated Value"}

@@ -12,7 +12,7 @@ export default function PropertyResolver() {
     queryKey: ["/api/property/resolve", id],
     queryFn: async () => {
       const res = await fetch(`/api/property/resolve/${id}`, { credentials: "include" });
-      const result = await res.json();
+      const result = await res.json() as { type: "unit" | "building" | "property"; redirectTo: string };
       // Return redirect info even on 404 to handle gracefully
       return result;
     },

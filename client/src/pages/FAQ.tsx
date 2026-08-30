@@ -21,7 +21,7 @@ export default function FAQ() {
     },
     {
       question: "Which areas do you cover?",
-      answer: "We currently cover New York, New Jersey, and Connecticut with comprehensive property and market data. We're actively expanding nationwide and will be adding more states soon."
+      answer: "Verified parcel and unit detail currently focuses on NYC. Non-NYC New York, New Jersey, and Connecticut publish only when their source, identity, freshness, and quality gates pass. Every market response identifies its effective geography and dataset date."
     },
     {
       question: "How accurate is your data?",

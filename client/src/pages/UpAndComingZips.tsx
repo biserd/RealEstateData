@@ -6,7 +6,6 @@ import {
   TrendingDown, 
   ArrowUpRight, 
   ArrowRight,
-  MapPin,
   Home,
   Building2,
   Activity,
@@ -38,16 +37,26 @@ import { AppLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
-import { PropertyMap } from "@/components/PropertyMap";
 import { cn } from "@/lib/utils";
 import type { UpAndComingZip } from "@shared/schema";
+import type { DataEnvelope } from "@shared/dataEnvelope";
 
 export default function UpAndComingZips() {
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [momentumFilter, setMomentumFilter] = useState<string>("all");
   const [trendFilter, setTrendFilter] = useState<string>("all");
 
-  const { data: rawZips, isLoading, error } = useQuery<UpAndComingZip[]>({
+  interface TrendingResponse {
+    areas: UpAndComingZip[];
+    matchMode: "exact" | "broadened" | "coverage_gap" | "stale_snapshot";
+    requestedGeography: string;
+    effectiveGeography: string;
+    fallbackReason: string | null;
+    freshness: DataEnvelope<UpAndComingZip>["freshness"];
+    warnings: string[];
+  }
+
+  const { data: trendingResponse, isLoading, error } = useQuery<TrendingResponse>({
     queryKey: ["/api/market/trending-zips", stateFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -55,14 +64,26 @@ export default function UpAndComingZips() {
         params.append("state", stateFilter);
       }
       params.append("limit", "50");
+      params.append("envelope", "1");
       
       const res = await fetch(`/api/market/trending-zips?${params.toString()}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch trending areas");
-      return res.json();
+      const envelope = await res.json() as DataEnvelope<UpAndComingZip>;
+      return {
+        areas: envelope.records,
+        matchMode: envelope.matchMode,
+        requestedGeography: envelope.requestedGeography.name || envelope.requestedGeography.id || stateFilter,
+        effectiveGeography: envelope.effectiveGeography.name || envelope.effectiveGeography.id || stateFilter,
+        fallbackReason: envelope.fallbackReason,
+        freshness: envelope.freshness,
+        warnings: envelope.warnings,
+      };
     },
   });
+
+  const rawZips = trendingResponse?.areas;
 
   const upAndComingZips = (rawZips || []).filter((z) => {
     if (momentumFilter !== "all" && z.momentum !== momentumFilter) return false;
@@ -73,6 +94,8 @@ export default function UpAndComingZips() {
   });
   const hasActiveFilters = momentumFilter !== "all" || trendFilter !== "all";
   const filteredOutCount = (rawZips?.length ?? 0) - upAndComingZips.length;
+  const displayZips = upAndComingZips.length > 0 ? upAndComingZips : (rawZips || []);
+  const filtersBroadened = upAndComingZips.length === 0 && displayZips.length > 0 && hasActiveFilters;
 
   const formatPrice = (price: number | null) => {
     if (!price) return "N/A";
@@ -128,40 +151,11 @@ export default function UpAndComingZips() {
     return "bg-muted";
   };
 
-  const mapProperties = upAndComingZips
-    ?.filter(z => z.latitude && z.longitude)
-    .map(z => ({
-      id: z.zipCode,
-      address: z.city,
-      city: z.city,
-      state: z.state,
-      zipCode: z.zipCode,
-      latitude: z.latitude,
-      longitude: z.longitude,
-      opportunityScore: z.trendScore,
-      estimatedValue: z.medianPrice,
-      propertyType: "SFH",
-      beds: null,
-      baths: null,
-      sqft: null,
-      county: null,
-      neighborhood: null,
-      lotSize: null,
-      yearBuilt: null,
-      lastSalePrice: null,
-      lastSaleDate: null,
-      pricePerSqft: null,
-      confidenceLevel: null,
-      imageUrl: null,
-      createdAt: null,
-      updatedAt: null,
-    })) || [];
-
   return (
     <AppLayout>
       <SEO
         title="Up & Coming ZIP Codes - Trending Real Estate Markets"
-        description="Discover trending neighborhoods with rising property values across NY, NJ, and CT. Data-driven trend scores reveal up-and-coming ZIP codes with strong appreciation potential."
+        description="Compare eligible source-backed ZIP rankings with visible sample size, source date, dataset version, and fallback geography."
         canonicalUrl="https://realtorsdashboard.com/up-and-coming"
       />
       <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -177,7 +171,7 @@ export default function UpAndComingZips() {
                 </h1>
               </div>
               <p className="text-muted-foreground mt-1">
-                Discover trending neighborhoods with strong appreciation and investment potential
+                Compare eligible markets using verified sales, transparent score components, and visible freshness
               </p>
             </div>
             
@@ -234,6 +228,16 @@ export default function UpAndComingZips() {
             </div>
           </div>
 
+          {trendingResponse && (
+            <div className="rounded-lg border bg-muted/30 p-4 text-sm" data-testid="trending-data-provenance">
+              <p className="font-medium">Source-backed ranking snapshot</p>
+              <p className="mt-1 text-muted-foreground">
+                Dataset {trendingResponse.freshness.datasetVersion} · source through {trendingResponse.freshness.sourceDate ? new Date(trendingResponse.freshness.sourceDate).toLocaleDateString() : "not reported"} · {rawZips?.length || 0} eligible market{rawZips?.length === 1 ? "" : "s"}
+              </p>
+              {trendingResponse.warnings.map((warning) => <p key={warning} className="mt-1 text-amber-700 dark:text-amber-300">{warning}</p>)}
+            </div>
+          )}
+
           {isLoading ? (
             <LoadingState type="skeleton-cards" count={6} />
           ) : error ? (
@@ -241,19 +245,27 @@ export default function UpAndComingZips() {
               icon={<Activity className="h-8 w-8" />}
               title="Unable to load data"
               description="There was an error fetching trending ZIP codes. Please try again."
+              action={{ label: "Retry", onClick: () => window.location.reload() }}
             />
-          ) : !upAndComingZips || upAndComingZips.length === 0 ? (
+          ) : !rawZips || rawZips.length === 0 ? (
             <EmptyState
               icon={<TrendingUp className="h-8 w-8" />}
-              title="No trending areas match these filters"
-              description={
-                hasActiveFilters
-                  ? `${filteredOutCount} area${filteredOutCount === 1 ? "" : "s"} hidden by your momentum/trend filters. Try resetting them.`
-                  : "No ZIP codes with positive growth trends found in the selected area."
-              }
+              title="Verified rankings are being rebuilt"
+              description="No ZIP currently passes the public-property, transaction-count, freshness, and geography-quality gates. Browse verified investment opportunities while the next market snapshot is prepared."
+              action={{ label: "Browse verified properties", onClick: () => { window.location.href = "/investment-opportunities"; } }}
             />
           ) : (
             <>
+              {(trendingResponse?.matchMode !== "exact" || filtersBroadened) && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-50/60 p-4 text-sm dark:bg-amber-950/20" data-testid="trending-fallback-notice">
+                  <p className="font-medium text-foreground">Showing the closest verified ranking set</p>
+                  <p className="mt-1 text-muted-foreground">
+                    {filtersBroadened
+                      ? `${filteredOutCount} eligible area${filteredOutCount === 1 ? " was" : "s were"} hidden by the selected momentum filters, so the full verified ranking is shown.`
+                      : trendingResponse?.fallbackReason || "The selected state has no eligible ranking snapshot, so verified Tri-State markets are shown."}
+                  </p>
+                </div>
+              )}
               <div className="rounded-lg border bg-muted/30 p-3 flex items-start gap-2">
                 <HelpCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                 <div className="text-sm text-muted-foreground space-y-2">
@@ -285,7 +297,7 @@ export default function UpAndComingZips() {
                       <div>
                         <p className="text-sm text-muted-foreground">Trending Areas</p>
                         <p className="text-2xl font-semibold" data-testid="text-total-zips">
-                          {upAndComingZips.length}
+                          {displayZips.length}
                         </p>
                       </div>
                     </div>
@@ -314,7 +326,9 @@ export default function UpAndComingZips() {
                           </TooltipContent>
                         </Tooltip>
                         <p className="text-2xl font-semibold" data-testid="text-avg-score">
-                          {Math.round(upAndComingZips.reduce((sum, z) => sum + z.trendScore, 0) / upAndComingZips.length)}
+                          {displayZips.length > 0
+                            ? Math.round(displayZips.reduce((sum, z) => sum + z.trendScore, 0) / displayZips.length)
+                            : "—"}
                         </p>
                       </div>
                     </div>
@@ -342,7 +356,7 @@ export default function UpAndComingZips() {
                           </TooltipContent>
                         </Tooltip>
                         <p className="text-2xl font-semibold" data-testid="text-accelerating">
-                          {upAndComingZips.filter(z => z.momentum === "accelerating").length}
+                          {displayZips.filter(z => z.momentum === "accelerating").length}
                         </p>
                       </div>
                     </div>
@@ -358,7 +372,7 @@ export default function UpAndComingZips() {
                       <div>
                         <p className="text-sm text-muted-foreground">Total Properties</p>
                         <p className="text-2xl font-semibold" data-testid="text-total-properties">
-                          {upAndComingZips.reduce((sum, z) => sum + z.propertyCount, 0).toLocaleString()}
+                          {displayZips.reduce((sum, z) => sum + z.propertyCount, 0).toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -366,27 +380,8 @@ export default function UpAndComingZips() {
                 </Card>
               </div>
 
-              {mapProperties.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <MapPin className="h-4 w-4" />
-                      Trending Areas Map
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <PropertyMap
-                      properties={mapProperties as any}
-                      height="350px"
-                      showClustering={false}
-                      getMarkerUrl={(p) => `/investment-opportunities?zipCodes=${p.zipCode}`}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {upAndComingZips.map((zip, index) => (
+                {displayZips.map((zip, index) => (
                   <Card 
                     key={zip.zipCode} 
                     className="hover-elevate transition-all"

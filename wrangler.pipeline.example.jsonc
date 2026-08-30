@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Merge these bindings into wrangler.jsonc only after the development Neon
+  // branch, migration, R2 bucket, Queue/DLQ, and Workflow have been reviewed.
+  // This pipeline is manual-only: never add a Cron trigger. Start a Workflow
+  // explicitly, review the candidate, then publish with the separate write gate.
+  // Do not deploy this example as a standalone Worker configuration.
+  "r2_buckets": [
+    {
+      "binding": "DATA_PIPELINE_RAW",
+      "bucket_name": "realtors-dashboard-data-pipeline-dev"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "DATA_PIPELINE_QUEUE",
+        "queue": "realtors-dashboard-data-pipeline-dev"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "realtors-dashboard-data-pipeline-dev",
+        "max_batch_size": 5,
+        "max_batch_timeout": 10,
+        "max_retries": 5,
+        "dead_letter_queue": "realtors-dashboard-data-pipeline-dlq-dev"
+      }
+    ]
+  },
+  "workflows": [
+    {
+      "name": "realtors-dashboard-data-refresh-dev",
+      "binding": "DATA_REFRESH_WORKFLOW",
+      "class_name": "DataRefreshWorkflow"
+    }
+  ]
+}

@@ -28,16 +28,16 @@ export default function About() {
   ];
 
   const coverage = [
-    { state: "New York", description: "Full property data for NYC, Long Island, and upstate markets" },
-    { state: "New Jersey", description: "Market aggregates and pricing trends statewide" },
-    { state: "Connecticut", description: "Market aggregates and pricing trends statewide" },
+    { state: "New York City", description: "Active official rolling-sales and condominium-identity sources" },
+    { state: "Non-NYC NY & New Jersey", description: "Source adapters remain disabled until access, identity, and rights validation passes" },
+    { state: "Connecticut", description: "Municipality-level coverage remains disabled until cadence and quality are measured" },
   ];
 
   return (
     <MarketingLayout>
       <SEO
         title="About Realtors Dashboard - Real Estate Intelligence Platform"
-        description="Learn about Realtors Dashboard's mission to democratize real estate intelligence. Transparent scoring, accurate data, and AI-powered insights for NY, NJ, and CT."
+        description="Learn about Realtors Dashboard's source-backed data, transparent scoring, freshness rules, and published coverage."
         canonicalUrl="https://realtorsdashboard.com/about"
       />
       <section className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
@@ -100,7 +100,7 @@ export default function About() {
         <div className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
           <h2 className="text-2xl font-bold tracking-tight mb-8">Coverage Area</h2>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            We're currently covering New York, New Jersey, and Connecticut—with more states 
+            Verified detail coverage currently focuses on NYC; other regions publish only after source and quality validation—with more sources
             coming soon as we expand nationwide.
           </p>
           <div className="grid gap-6 md:grid-cols-3">

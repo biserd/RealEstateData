@@ -75,7 +75,7 @@ export function useUpload(options: UseUploadOptions = {}) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(errorData.error || "Failed to get upload URL");
       }
 
@@ -178,7 +178,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         throw new Error("Failed to get upload URL");
       }
 
-      const data = await response.json();
+      const data = await response.json() as { uploadURL: string };
       return {
         method: "PUT",
         url: data.uploadURL,

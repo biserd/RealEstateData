@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearch, useLocation } from "wouter";
 import { Shield, HardHat, Train, Trees, Droplets, Building2, MapPin, ArrowRight, Lock, DollarSign, Home, Activity, TrendingUp, TrendingDown, BarChart3, Minus, History } from "lucide-react";
-import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid, Legend, Area } from "recharts";
 import { AppLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
 import { PlaceJsonLd } from "@/components/JsonLd";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { PropertyMap } from "@/components/PropertyMap";
 import { getPropertyUrl } from "@/lib/propertySlug";
 import { format } from "date-fns";
 import type { Property, Sale } from "@shared/schema";
@@ -427,46 +425,6 @@ export default function NeighborhoodReport() {
                   </div>
                 )}
 
-                <div className="h-[320px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={yearsWithMedian} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="year" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <YAxis
-                        yAxisId="price"
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={11}
-                        tickFormatter={(v) => formatPrice(v)}
-                      />
-                      <YAxis
-                        yAxisId="count"
-                        orientation="right"
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={11}
-                        allowDecimals={false}
-                      />
-                      <RTooltip
-                        contentStyle={{
-                          background: "hsl(var(--popover))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "6px",
-                          fontSize: "12px",
-                        }}
-                        formatter={(v: number, name: string) => {
-                          if (name === "Sales") return [v.toLocaleString(), name];
-                          return [formatPrice(v), name];
-                        }}
-                        labelFormatter={(y) => `Year ${y}`}
-                      />
-                      <Legend wrapperStyle={{ fontSize: "12px" }} />
-                      <Bar yAxisId="count" dataKey="saleCount" fill="hsl(var(--muted-foreground) / 0.25)" name="Sales" />
-                      <Line yAxisId="price" type="monotone" dataKey="p25Price" stroke="hsl(217 91% 60% / 0.4)" strokeWidth={1} strokeDasharray="3 3" dot={false} name="25th %ile" />
-                      <Line yAxisId="price" type="monotone" dataKey="p75Price" stroke="hsl(217 91% 60% / 0.4)" strokeWidth={1} strokeDasharray="3 3" dot={false} name="75th %ile" />
-                      <Line yAxisId="price" type="monotone" dataKey="medianPrice" stroke="hsl(217 91% 60%)" strokeWidth={2.5} dot={{ r: 3 }} name="Median Price" />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -499,24 +457,6 @@ export default function NeighborhoodReport() {
                     </tbody>
                   </table>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })()}
-
-        {(() => {
-          const mapped = areaProperties.filter((p) => p.latitude && p.longitude);
-          if (mapped.length === 0) return null;
-          return (
-            <Card className="mb-8" data-testid="card-neighborhood-map">
-              <CardHeader>
-                <CardTitle className="text-base">Area Map</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  Showing {mapped.length} {mapped.length === 1 ? "property" : "properties"} in {data.geoName}. Click a marker to see details.
-                </p>
-              </CardHeader>
-              <CardContent>
-                <PropertyMap properties={mapped} height="500px" zoom={13} />
               </CardContent>
             </Card>
           );
@@ -646,9 +586,6 @@ export default function NeighborhoodReport() {
                           <span className="text-muted-foreground">{type}</span>
                           <span className="font-medium">{count} ({pct.toFixed(0)}%)</span>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-                        </div>
                       </div>
                     );
                   })}
@@ -673,9 +610,6 @@ export default function NeighborhoodReport() {
                         <div className="mb-1 flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">{bed}</span>
                           <span className="font-medium">{count} ({pct.toFixed(0)}%)</span>
-                        </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     );

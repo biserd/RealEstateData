@@ -27,6 +27,25 @@ async function check(url: string, expected: number | number[], bodyMustNotContai
   }
 }
 
+async function checkEnvelope(url: string) {
+  try {
+    const response = await fetch(url, { headers: { accept: "application/json" } });
+    const body = await response.json() as Record<string, unknown>;
+    const records = body.records;
+    const freshness = body.freshness as Record<string, unknown> | undefined;
+    const valid = response.ok
+      && Array.isArray(records)
+      && typeof body.recordCount === "number"
+      && body.recordCount === records.length
+      && typeof body.matchMode === "string"
+      && Boolean(freshness)
+      && typeof freshness?.datasetVersion === "string";
+    results.push({ url, expected: "200 data envelope", actual: response.status, ok: valid, detail: valid ? undefined : "invalid or incomplete data envelope" });
+  } catch (error) {
+    results.push({ url, expected: "200 data envelope", actual: 0, ok: false, detail: error instanceof Error ? error.message : String(error) });
+  }
+}
+
 function extractLocs(xml: string): string[] {
   return Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), (match) => match[1].replace(/&amp;/g, "&"));
 }
@@ -44,10 +63,17 @@ async function main() {
   await Promise.all([
     check(`${baseUrl}/api/health`, 200),
     check(`${baseUrl}/api/market/trending-zips?limit=5`, 200),
+    check(`${baseUrl}/api/data/status`, 200),
     check(`${baseUrl}/unit/120-east-87-street-unit-e4a-manhattan-015151552`, [200, 301], /Unit not found|Unable to load unit/i),
     check(`${baseUrl}/api/units/resolve/120-east-87-street-unit-e4a-manhattan-015151552`, 200),
     check(`${baseUrl}/unit/definitely-not-a-real-unit`, 404),
     check(`${baseUrl}/properties/definitely-not-a-real-property`, 404),
+  ]);
+  await Promise.all([
+    checkEnvelope(`${baseUrl}/api/market/overview?envelope=1`),
+    checkEnvelope(`${baseUrl}/api/market/trending-zips?limit=5&envelope=1`),
+    checkEnvelope(`${baseUrl}/api/market/aggregates?geoType=zip&geoId=10977&envelope=1`),
+    checkEnvelope(`${baseUrl}/api/market/recent-sales?geoType=zip&geoId=10977&limit=5&envelope=1`),
   ]);
 
   const indexResponse = await fetch(`${baseUrl}/sitemap.xml`);

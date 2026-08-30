@@ -118,11 +118,11 @@ export default function Developers() {
           <Card className="hover-elevate">
             <CardHeader>
               <Zap className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>Real-Time Data</CardTitle>
+              <CardTitle>Versioned Data</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                Access up-to-date property data, market statistics, and opportunity scores.
+                Access source-backed property data, market statistics, and opportunity scores with explicit freshness metadata.
               </p>
             </CardContent>
           </Card>
@@ -250,7 +250,7 @@ export default function Developers() {
                       <code className="font-mono text-sm">/api/external/properties</code>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
-                      Search and filter properties across NY, NJ, and CT.
+                      Search and filter the properties currently eligible for public release.
                     </p>
                     <div className="text-sm">
                       <strong>Query Parameters:</strong>

@@ -1414,6 +1414,8 @@ export const insertUsageTrackingSchema = createInsertSchema(usageTracking).omit(
   id: true,
   actionDate: true,
 });
+
+export * from "./dataPlatformSchema";
 export type InsertUsageTracking = z.infer<typeof insertUsageTrackingSchema>;
 export type UsageTracking = typeof usageTracking.$inferSelect;
 

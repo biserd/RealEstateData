@@ -19,10 +19,6 @@ import { SEO } from "@/components/SEO";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
-import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip,
-  CartesianGrid, Legend, ReferenceLine,
-} from "recharts";
 
 // ───────────────────────────────────────────── Types ─────────────────────────────────────────────
 
@@ -468,7 +464,15 @@ function PropertyAutofill({ onAutofill }: { onAutofill: (data: { price: number; 
       // a property page directly. Here we try to fetch as a property id first.
       const r = await fetch(`/api/calculator/property/${encodeURIComponent(propertyId)}`);
       if (r.ok) {
-        const p = await r.json();
+        const p = await r.json() as {
+          estimatedValue?: number;
+          estimatedMonthlyRent?: number;
+          suggestedPropertyTaxRate?: number;
+          address: string;
+          city: string;
+          state: string;
+          zipCode: string;
+        };
         onAutofill({
           price: p.estimatedValue || 500000,
           rent: p.estimatedMonthlyRent || 3000,
@@ -492,9 +496,9 @@ function PropertyAutofill({ onAutofill }: { onAutofill: (data: { price: number; 
     try {
       const r = await fetch(`/api/properties/area?geoType=zip&geoId=${encodeURIComponent(geoId)}&limit=1&sortBy=opportunity`);
       if (r.ok) {
-        const data = await r.json();
+        const data = await r.json() as { id?: string; address?: string }[] | { properties?: { id?: string; address?: string }[] };
         const p = Array.isArray(data) ? data[0] : data?.properties?.[0];
-        if (p?.id) return pickProperty(p.id, p.address);
+        if (p?.id) return pickProperty(p.id, p.address ?? null);
       }
     } catch {}
     toast({ title: "No properties in that area", variant: "destructive" });
@@ -722,14 +726,6 @@ export default function InvestmentCalculator() {
 
   const expenseBreakdown = results.monthlyExpenseBreakdown;
   const totalMonthlyExpense = Object.values(expenseBreakdown).reduce((sum, v) => sum + v, 0);
-
-  // Chart data — slim down to year, cashFlow, equity, totalReturn
-  const chartData = results.projection.map((p) => ({
-    year: p.year,
-    cashFlow: Math.round(p.cumulativeCashFlow),
-    equity: Math.round(p.equity),
-    totalReturn: Math.round(p.totalReturn),
-  }));
 
   return (
     <AppLayout>
@@ -1125,7 +1121,7 @@ export default function InvestmentCalculator() {
               </Card>
             )}
 
-            {/* Cash flow projection chart */}
+            {/* Cash flow projection table */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -1134,67 +1130,30 @@ export default function InvestmentCalculator() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[280px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis
-                        dataKey="year"
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={11}
-                        tickFormatter={(y) => `Y${y}`}
-                      />
-                      <YAxis
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={11}
-                        tickFormatter={(v) => formatCurrency(v)}
-                      />
-                      <RTooltip
-                        contentStyle={{
-                          background: "hsl(var(--popover))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "6px",
-                          fontSize: "12px",
-                        }}
-                        formatter={(v: number) => formatCurrency(v)}
-                        labelFormatter={(y) => `Year ${y}`}
-                      />
-                      <Legend wrapperStyle={{ fontSize: "12px" }} />
-                      <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 2" />
-                      {inputs.mode === "refinance" && (
-                        <ReferenceLine
-                          x={inputs.refiYear}
-                          stroke="hsl(var(--primary))"
-                          strokeDasharray="4 4"
-                          label={{ value: "Refi", fill: "hsl(var(--primary))", fontSize: 11, position: "top" }}
-                        />
-                      )}
-                      <Line
-                        type="monotone"
-                        dataKey="cashFlow"
-                        stroke="hsl(142 76% 36%)"
-                        strokeWidth={2}
-                        dot={false}
-                        name="Cumulative Cash Flow"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="equity"
-                        stroke="hsl(217 91% 60%)"
-                        strokeWidth={2}
-                        dot={false}
-                        name="Equity"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="totalReturn"
-                        stroke="hsl(262 83% 58%)"
-                        strokeWidth={2.5}
-                        dot={false}
-                        name="Total Return"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="py-2 text-left font-medium">Year</th>
+                        <th className="py-2 text-right font-medium">Cumulative cash flow</th>
+                        <th className="py-2 text-right font-medium">Equity</th>
+                        <th className="py-2 text-right font-medium">Total return</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[1, 5, 10, 20, 30].map((year) => {
+                        const row = results.projection[year - 1];
+                        return (
+                          <tr key={year} className="border-b last:border-0">
+                            <td className="py-2 font-medium">{year}{inputs.mode === "refinance" && year === inputs.refiYear ? " (refinance)" : ""}</td>
+                            <td className="py-2 text-right tabular-nums">{formatCurrency(row.cumulativeCashFlow)}</td>
+                            <td className="py-2 text-right tabular-nums">{formatCurrency(row.equity)}</td>
+                            <td className="py-2 text-right font-medium tabular-nums">{formatCurrency(row.totalReturn)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-3 text-center">
                   <div className="rounded-md border p-2">
@@ -1274,13 +1233,13 @@ export default function InvestmentCalculator() {
               <CardContent>
                 <div className="space-y-2.5">
                   {[
-                    { label: "Mortgage", value: expenseBreakdown.mortgage, color: "bg-primary" },
-                    { label: "Property Tax", value: expenseBreakdown.propertyTax, color: "bg-amber-500" },
-                    { label: "Insurance", value: expenseBreakdown.insurance, color: "bg-blue-500" },
-                    { label: "Maintenance", value: expenseBreakdown.maintenance, color: "bg-emerald-500" },
-                    { label: "Management", value: expenseBreakdown.management, color: "bg-purple-500" },
-                    { label: "Vacancy Reserve", value: expenseBreakdown.vacancy, color: "bg-red-500" },
-                  ].map(({ label, value, color }) => (
+                    { label: "Mortgage", value: expenseBreakdown.mortgage },
+                    { label: "Property Tax", value: expenseBreakdown.propertyTax },
+                    { label: "Insurance", value: expenseBreakdown.insurance },
+                    { label: "Maintenance", value: expenseBreakdown.maintenance },
+                    { label: "Management", value: expenseBreakdown.management },
+                    { label: "Vacancy Reserve", value: expenseBreakdown.vacancy },
+                  ].map(({ label, value }) => (
                     <div key={label}>
                       <div className="flex items-center justify-between mb-1 gap-2">
                         <span className="text-sm">{label}</span>
@@ -1290,12 +1249,6 @@ export default function InvestmentCalculator() {
                           </span>
                           <span className="text-sm font-medium tabular-nums w-20 text-right">${Math.round(value).toLocaleString()}</span>
                         </div>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full ${color} rounded-full transition-all`}
-                          style={{ width: `${totalMonthlyExpense > 0 ? (value / totalMonthlyExpense) * 100 : 0}%` }}
-                        />
                       </div>
                     </div>
                   ))}

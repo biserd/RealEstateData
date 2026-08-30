@@ -61,7 +61,7 @@ export default function Guides() {
           </h1>
           <p className="text-lg text-muted-foreground">
             Practical guides built on verified ACRIS sales, the Opportunity
-            Score methodology, and the data we publish across NY, NJ, and CT.
+            Score methodology, and the source-backed data currently eligible for publication.
             No fluff, no recycled SEO copy - just the workflows we use
             ourselves.
           </p>

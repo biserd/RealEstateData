@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch, useLocation } from "wouter";
-import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Map, Crown, Lock, Home, Building2 } from "lucide-react";
+import { Filter, Grid, List, SortDesc, Download, TrendingUp, X, Crown, Lock, Home, Building2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +22,6 @@ import {
 import { AppLayout } from "@/components/layouts";
 import { FilterPanel } from "@/components/FilterPanel";
 import { PropertyCard } from "@/components/PropertyCard";
-import { PropertyMap } from "@/components/PropertyMap";
 import { UnitOpportunityCard } from "@/components/UnitOpportunityCard";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
@@ -102,10 +101,9 @@ export default function OpportunityScreener() {
   const [urlInitialized, setUrlInitialized] = useState(false);
   const [filters, setFilters] = useState<ScreenerFilters>(defaultFilters);
   const [sortBy, setSortBy] = useState("score");
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | undefined>(undefined);
   const [, navigate] = useLocation();
   const [entityType, setEntityType] = useState<"properties" | "units">("units");
 
@@ -131,6 +129,10 @@ export default function OpportunityScreener() {
     visibleCount: number;
     hiddenCount: number;
     message?: string;
+    matchMode?: "exact" | "broadened" | "platform_fallback";
+    requestedGeography?: { type: string; id?: string; ids?: string[]; state?: string };
+    effectiveGeography?: { type: string; id?: string; ids?: string[]; name?: string };
+    fallbackReason?: string | null;
   }
 
   const { data: screenerData, isLoading } = useQuery<ScreenerResponse>({
@@ -182,6 +184,14 @@ export default function OpportunityScreener() {
   const isLimited = screenerData?.limited;
   const visibleCount = screenerData?.visibleCount ?? 3;
   const hiddenCount = screenerData?.hiddenCount ?? 0;
+  const geographyLabel = (geography?: ScreenerResponse["requestedGeography"] | ScreenerResponse["effectiveGeography"]) => {
+    if (!geography) return "the selected geography";
+    if ("name" in geography && geography.name) return geography.name;
+    if (geography.ids?.length) return geography.ids.join(", ");
+    if (geography.id) return geography.id;
+    if ("state" in geography && geography.state) return geography.state;
+    return "the Tri-State area";
+  };
 
   const { data: unitsData, isLoading: unitsLoading } = useQuery<{
     units: UnitOpportunity[];
@@ -372,15 +382,6 @@ export default function OpportunityScreener() {
                   >
                     <List className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant={viewMode === "map" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setViewMode("map")}
-                    data-testid="button-map-view"
-                  >
-                    <Map className="h-4 w-4" />
-                  </Button>
                 </div>
 
                 <Button 
@@ -519,6 +520,18 @@ export default function OpportunityScreener() {
           </div>
 
           <div className="p-4 md:p-6">
+            {entityType === "properties" && screenerData?.matchMode && screenerData.matchMode !== "exact" && (
+              <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-300/70 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100" data-testid="screener-fallback-notice">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-medium">Showing the closest verified opportunities</p>
+                  <p className="mt-1 opacity-90">
+                    No published properties matched {geographyLabel(screenerData.requestedGeography)} exactly.
+                    {screenerData.effectiveGeography ? ` Results were broadened to ${geographyLabel(screenerData.effectiveGeography)}.` : " The most relevant platform-wide results are shown instead."}
+                  </p>
+                </div>
+              </div>
+            )}
             {entityType === "units" ? (
               unitsLoading ? (
                 <LoadingState type="skeleton-cards" count={6} />
@@ -534,7 +547,7 @@ export default function OpportunityScreener() {
                     <UnitOpportunityCard 
                       key={unit.unitBbl} 
                       unit={unit} 
-                      viewMode={viewMode === "map" ? "grid" : viewMode}
+                      viewMode={viewMode}
                     />
                   ))}
                 </div>
@@ -548,36 +561,6 @@ export default function OpportunityScreener() {
             ) : isLoading ? (
               <LoadingState type="skeleton-cards" count={6} />
             ) : properties && properties.length > 0 ? (
-              viewMode === "map" ? (
-                <div className="flex h-[calc(100vh-16rem)] flex-col gap-4 lg:flex-row">
-                  <div className="flex-1 min-h-[400px]">
-                    <PropertyMap
-                      properties={properties}
-                      height="100%"
-                      showClustering
-                      onPropertySelect={(property) => setSelectedPropertyId(property.id)}
-                      selectedPropertyId={selectedPropertyId}
-                    />
-                  </div>
-                  <div className="w-full overflow-auto lg:w-80">
-                    <div className="space-y-3">
-                      {properties.slice(0, 10).map((property) => (
-                        <div
-                          key={property.id}
-                          className={`cursor-pointer transition-all ${
-                            selectedPropertyId === property.id
-                              ? "ring-2 ring-primary rounded-lg"
-                              : ""
-                          }`}
-                          onClick={() => setSelectedPropertyId(property.id)}
-                        >
-                          <PropertyCard property={property} scoreDrivers={getBuildingScoreDrivers(property)} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
                 <>
                   <div
                     className={
@@ -635,7 +618,6 @@ export default function OpportunityScreener() {
                     </div>
                   )}
                 </>
-              )
             ) : (
               <EmptyState
                 icon={<TrendingUp className="h-8 w-8" />}

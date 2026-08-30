@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 const DEFAULT_TITLE = "Realtors Dashboard - Real Estate Market Intelligence";
-const DEFAULT_DESCRIPTION = "Find underpriced properties and understand market pricing with AI-powered real estate intelligence. Currently covering NY, NJ, CT with more states coming soon.";
+const DEFAULT_DESCRIPTION = "Source-backed real estate market intelligence built from verified recorded sales, reproducible comps, and explicit coverage and freshness.";
 
 interface SEOProps {
   title: string;

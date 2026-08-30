@@ -66,16 +66,10 @@ export function MarketStatsCard({
           )}
         </div>
         {percentile !== undefined && (
-          <div className="mt-4">
-            <div className="mb-1 flex justify-between text-xs">
+          <div className="mt-4 border-t pt-3">
+            <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Market Position</span>
               <span className="font-medium">P{percentile}</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${percentile}%` }}
-              />
             </div>
           </div>
         )}

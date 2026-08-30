@@ -47,15 +47,15 @@ const TOPICS: Record<TopicKey, TopicContent> = {
         heading: "What goes into the score",
         body: "Each property is scored against a rolling pool of verified comparable sales filtered by geography, property type, and time window. The model blends four signal families:",
         bullets: [
-          "Price vs comps: median $/sqft and median price for tightly matched comparable transactions in the same ZIP and property type.",
-          "Recency: trades within the last 12 months are weighted more heavily than older transactions.",
-          "Property fit: square footage, bed/bath count, year built, and unit classification narrow the comp pool before pricing is computed.",
-          "Market trend: ZIP-level momentum (price appreciation, sales velocity) adjusts the expected price band for the current quarter.",
+          "Price trend (30%): current-period median verified sale price versus the prior complete period.",
+          "Transaction velocity (25%): qualifying current-period transfers versus the prior period.",
+          "Liquidity and comp depth (35% combined): transaction count and reproducible same-geography comp coverage.",
+          "Confidence (10%): sample-size tier after identity, arms-length, geography, price, and freshness gates pass.",
         ],
       },
       {
         heading: "How the 0-100 number is produced",
-        body: "We compute an expected price band from the comp pool, then place the subject property's asking or estimated value inside that band. Properties sitting well below the expected median earn higher scores; properties at or above the median score lower. The exact mapping is monotonic so a higher score always implies a better price-to-comp position.",
+        body: "Market rankings and property opportunity scores are separate products. The market ranking uses the published component weights above and is versioned as up-and-coming-v1.0.0. Property scores use verified comparable transactions and expose their own rule version. A score is not published when its destination has no public property or either comparison period has fewer than five qualifying sales.",
       },
       {
         heading: "Confidence bands",
@@ -94,12 +94,13 @@ const TOPICS: Record<TopicKey, TopicContent> = {
     sections: [
       {
         heading: "Geographic coverage",
-        body: "Verified parcel and unit detail pages currently focus on NYC. New Jersey and Connecticut remain available at market level while parcel provenance is revalidated.",
+        body: "Verified parcel and unit detail pages currently focus on NYC. Non-NYC New York, New Jersey, and Connecticut are not treated as current coverage until each official adapter passes access, rights, identity, freshness, and quality review.",
         bullets: [
           "New York City: 300K+ official condo-unit identities from NYC Open Data; only units with an exact recorded-sale match are published as detail pages.",
-          "New Jersey: market aggregates remain available; property-level rows stay unpublished until they have stable parcel identifiers and source-backed sales.",
-          "Connecticut: market aggregates remain available; property-level rows stay unpublished until their CAMA identity and provenance pass validation.",
-          "National expansion: additional states are being onboarded; nationwide rollout is in progress.",
+          "Non-NYC New York: NYS SalesWeb is cataloged but disabled until automated access and redistribution review is complete; this includes ZIP 10977.",
+          "New Jersey: MOD-IV/SR1A is cataloged but disabled until file shape, cadence, parcel identity, and redistribution checks pass.",
+          "Connecticut: OPM/municipal data is cataloged but disabled until municipality-level coverage and cadence are measured.",
+          "Live listings: unavailable until a licensed MLS/vendor feed and its display/retention rules are supplied.",
         ],
       },
       {
@@ -107,15 +108,14 @@ const TOPICS: Record<TopicKey, TopicContent> = {
         body: "We only ingest sources we can attribute. Every detail page links the underlying data so users can verify it themselves.",
         bullets: [
           "NYC Open Data: PLUTO, rolling sales, ACRIS recorded transactions, and condo declarations.",
-          "Connecticut Open Data and New Jersey property records: parcel-level data and recorded sales.",
-          "Zillow Research: ZIP-level housing market reference series.",
+          "NYS SalesWeb, NJ MOD-IV/SR1A, and Connecticut OPM/municipal resources: planned, fail-closed adapters pending source validation.",
           "FRED MORTGAGE30US: live 30-year mortgage rate series used by the investment calculator.",
           "NYC Geoclient API: address normalization and geocoding for NYC parcels.",
         ],
       },
       {
         heading: "Refresh cadence",
-        body: "Sales and market aggregates refresh on a regular ETL schedule. Static reference data (parcel polygons, building footprints) refreshes when the source agencies publish new releases. Mortgage rates refresh daily from FRED.",
+        body: "Every source carries its own watermark, expected publication lag, raw checksum, ingestion time, and dataset version. A candidate release must pass geography, duplicate, sample-size, volume, and freshness gates before one atomic publication pointer moves. Failed runs leave the prior dataset active.",
       },
       {
         heading: "What we do not include",
@@ -150,7 +150,7 @@ const TOPICS: Record<TopicKey, TopicContent> = {
     sections: [
       {
         heading: "What counts as a verified sale",
-        body: "A verified sale is a recorded property transfer drawn from official public records. For NYC that means ACRIS recorded deeds and the rolling sales file. For New Jersey and Connecticut that means county and statewide recorded sales feeds.",
+        body: "A verified sale is a recorded property transfer drawn from an approved official source and resolved to a canonical property/unit and geography. NYC rolling sales are active. New Jersey, Connecticut, and non-NYC New York are not described as verified current coverage until their disabled source adapters pass review.",
         bullets: [
           "Sourced from named public agencies, never from listing portals.",
           "Includes the recorded sale price, sale date, and parcel identifier.",

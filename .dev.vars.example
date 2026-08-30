@@ -1,5 +1,12 @@
 # Local Worker secrets. Copy to .dev.vars and fill locally; never commit values.
 DATABASE_URL=postgresql://user:password@host/database
+DATABASE_ENV=development
+# Command-scoped for applied production maintenance only; do not keep these in
+# Worker variables. BACKUP_VERIFIED_AT must name a verified backup/Neon branch
+# created within the prior 24 hours.
+# CONFIRM_PRODUCTION_WRITE=YES
+# BACKUP_VERIFIED_AT=2026-08-30T00:00:00.000Z
+# CONFIRM_DATASET_PUBLISH=YES
 SESSION_SECRET=replace-with-a-long-random-value
 STRIPE_SECRET_KEY=sk_test_replace_me
 STRIPE_PUBLISHABLE_KEY=pk_test_replace_me

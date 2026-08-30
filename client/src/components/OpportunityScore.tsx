@@ -34,20 +34,11 @@ export function OpportunityScore({
     return "text-red-600 dark:text-red-400";
   };
 
-  const getProgressColor = (value: number) => {
-    if (value >= 75) return "stroke-emerald-500";
-    if (value >= 50) return "stroke-amber-500";
-    return "stroke-red-500";
-  };
-
   const sizeClasses = {
-    sm: { wrapper: "h-16 w-16", text: "text-lg", label: "text-[8px]" },
-    md: { wrapper: "h-24 w-24", text: "text-2xl", label: "text-[10px]" },
-    lg: { wrapper: "h-32 w-32", text: "text-4xl", label: "text-xs" },
+    sm: { wrapper: "px-3 py-2", text: "text-lg", label: "text-[9px]" },
+    md: { wrapper: "px-4 py-3", text: "text-2xl", label: "text-[10px]" },
+    lg: { wrapper: "px-6 py-4", text: "text-4xl", label: "text-xs" },
   };
-
-  const circumference = 2 * Math.PI * 45;
-  const progress = ((100 - score) / 100) * circumference;
 
   const breakdownItems = breakdown
     ? [
@@ -61,29 +52,8 @@ export function OpportunityScore({
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className={cn("relative", sizeClasses[size].wrapper)}>
-        <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
-          <circle
-            cx="50"
-            cy="50"
-            r="45"
-            fill="none"
-            strokeWidth="8"
-            className="stroke-muted"
-          />
-          <circle
-            cx="50"
-            cy="50"
-            r="45"
-            fill="none"
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={progress}
-            className={cn("transition-all duration-500", getProgressColor(score))}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <div className={cn("rounded-lg border bg-muted/30 text-center", sizeClasses[size].wrapper)}>
+        <div className="flex flex-col items-center justify-center">
           <span className={cn("font-bold tabular-nums", sizeClasses[size].text, getScoreColor(score))}>
             {score}
           </span>
@@ -118,19 +88,7 @@ export function OpportunityScore({
                   {item.value}
                 </span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    item.value >= 75
-                      ? "bg-emerald-500"
-                      : item.value >= 50
-                        ? "bg-amber-500"
-                        : "bg-red-500"
-                  )}
-                  style={{ width: `${item.value}%` }}
-                />
-              </div>
+              <p className="text-xs text-muted-foreground">Weighted contribution: {item.weight}</p>
             </div>
           ))}
 

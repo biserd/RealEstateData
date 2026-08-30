@@ -6,8 +6,6 @@ import { getPropertyUrl } from "@/lib/propertySlug";
 import { SEO } from "@/components/SEO";
 import { PropertyJsonLd } from "@/components/PropertyJsonLd";
 import { BreadcrumbsJsonLd } from "@/components/JsonLd";
-import { StreetViewImage } from "@/components/StreetViewImage";
-import { InteractiveStreetView } from "@/components/InteractiveStreetView";
 import { 
   ArrowLeft, 
   Heart, 
@@ -41,11 +39,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AppLayout } from "@/components/layouts";
 import { OpportunityScore } from "@/components/OpportunityScore";
 import { ScoreDriversList, generateBuildingScoreDrivers, type ScoreDriver } from "@/components/ScoreDriversList";
-import { PriceDistribution } from "@/components/PriceDistribution";
 import { CompsTable } from "@/components/CompsTable";
 import { AIChat } from "@/components/AIChat";
 import { CoverageBadge } from "@/components/CoverageBadge";
-import { PropertyMap } from "@/components/PropertyMap";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
 import { DealMemo } from "@/components/DealMemo";
@@ -272,7 +268,7 @@ export default function PropertyDetail() {
         credentials: "include",
       });
       if (res.status === 429) {
-        const data = await res.json();
+        const data = await res.json() as { message?: string };
         throw new Error(data.message || "Daily limit reached");
       }
       if (!res.ok) throw new Error("Failed to unlock property");
@@ -527,16 +523,6 @@ export default function PropertyDetail() {
             </Link>
           </div>
 
-        {(property.latitude && property.longitude) && (
-          <div className="mb-6 aspect-[16/9] sm:aspect-[21/9] overflow-hidden rounded-lg border" data-testid="hero-streetview-property">
-            <InteractiveStreetView
-              lat={property.latitude}
-              lng={property.longitude}
-              address={formatFullAddress(property)}
-            />
-          </div>
-        )}
-
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-4">
@@ -780,23 +766,26 @@ export default function PropertyDetail() {
                     <CardHeader>
                       <CardTitle>Market Position</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                      <PriceDistribution
-                        p25={480000}
-                        p50={550000}
-                        p75={650000}
-                        currentValue={property.estimatedValue || property.lastSalePrice || undefined}
-                        label="Price Distribution (3BR SFH)"
-                      />
-                      <Separator />
-                      <PriceDistribution
-                        p25={350}
-                        p50={425}
-                        p75={520}
-                        currentValue={property.pricePerSqft || undefined}
-                        label="$/sqft Distribution"
-                        unit="$"
-                      />
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Current value basis</p>
+                          <p className="font-semibold">{property.lastSalePrice ? "Recorded sale" : "Modeled estimate"}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Price per square foot</p>
+                          <p className="font-semibold">{property.pricePerSqft ? `$${property.pricePerSqft.toLocaleString()}` : "Not available"}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Confidence</p>
+                          <p className="font-semibold">{property.confidenceLevel || "Not scored"}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Comparable sales</p>
+                          <p className="font-semibold">{comps?.length || 0} published records</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Market position is presented from published records; no illustrative distribution is substituted for missing observations.</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -885,7 +874,7 @@ export default function PropertyDetail() {
                 state: property.state,
                 zipCode: property.zipCode,
                 lastSalePrice: property.lastSalePrice ?? null,
-                lastSaleDate: property.lastSaleDate ?? null,
+                lastSaleDate: property.lastSaleDate ? new Date(property.lastSaleDate).toISOString() : null,
                 estimatedValue: property.estimatedValue ?? null,
                 opportunityScore: property.opportunityScore ?? null,
                 beds: property.beds ?? null,
@@ -900,23 +889,6 @@ export default function PropertyDetail() {
           <TabsContent value="comps" className="space-y-6">
             {isPropertyUnlocked ? (
               <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      Property Location & Comps
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <PropertyMap
-                      properties={comps?.map((c) => c.property) || []}
-                      subjectProperty={property}
-                      height="350px"
-                      showClustering={false}
-                    />
-                  </CardContent>
-                </Card>
-
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between gap-2">
                     <CardTitle className="flex items-center gap-2">

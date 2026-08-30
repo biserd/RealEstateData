@@ -1,8 +1,10 @@
 import { env as cloudflareEnv } from "cloudflare:workers";
 import { httpServerHandler } from "cloudflare:node";
 import { UsageQuota, configureQuotaNamespace } from "./quota";
+import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueMessage } from "./dataPipelineWorkflow";
 
 export { UsageQuota };
+export { DataRefreshWorkflow } from "./dataPipelineWorkflow";
 
 const bindings = cloudflareEnv as Env;
 configureQuotaNamespace(bindings.USAGE_QUOTA);
@@ -98,6 +100,12 @@ function cacheKeyFor(request: Request): Request {
   return new Request(url.toString(), { method: "GET" });
 }
 
+function lastKnownGoodKey(request: Request): Request {
+  const key = new URL(cacheKeyFor(request).url);
+  key.searchParams.set("__rd_snapshot", "last-known-good");
+  return new Request(key.toString(), { method: "GET" });
+}
+
 async function fetchBackendWithCache(
   request: Request,
   env: Env,
@@ -107,6 +115,7 @@ async function fetchBackendWithCache(
   const ttl = request.method === "GET" ? publicCacheTtl(pathname) : null;
   const cache = (caches as unknown as { default: Cache }).default;
   const key = ttl ? cacheKeyFor(request) : null;
+  const snapshotKey = key && pathname.startsWith("/api/market/") ? lastKnownGoodKey(request) : null;
 
   if (key) {
     const cached = await cache.match(key);
@@ -118,7 +127,48 @@ async function fetchBackendWithCache(
   }
 
   const nodeRequest = request as Request<unknown, IncomingRequestCfProperties>;
-  const response = await expressHandler.fetch!(nodeRequest, env, ctx);
+  let response: Response;
+  try {
+    response = await expressHandler.fetch!(nodeRequest, env, ctx);
+  } catch (error) {
+    if (snapshotKey) {
+      const snapshot = await cache.match(snapshotKey);
+      if (snapshot) {
+        const headers = new Headers(snapshot.headers);
+        headers.set("x-rd-cache", "STALE-SNAPSHOT");
+        headers.set("x-rd-match-mode", "stale_snapshot");
+        headers.set("warning", '110 - "Serving last known good published snapshot"');
+        console.error(JSON.stringify({ level: "error", event: "backend_snapshot_fallback", pathname, message: error instanceof Error ? error.message : String(error) }));
+        if (new URL(request.url).searchParams.get("envelope") === "1" && (headers.get("content-type") || "").includes("application/json")) {
+          const payload = await snapshot.clone().json() as Record<string, unknown>;
+          payload.matchMode = "stale_snapshot";
+          payload.fallbackReason = "The current data service is unavailable. This is the last known good published snapshot.";
+          payload.warnings = [...(Array.isArray(payload.warnings) ? payload.warnings : []), "Serving a stale snapshot while the current data path recovers."];
+          return Response.json(payload, { status: 200, headers });
+        }
+        return new Response(snapshot.body, { status: 200, headers });
+      }
+    }
+    throw error;
+  }
+  if ((!response.ok || response.status >= 500) && snapshotKey) {
+    const snapshot = await cache.match(snapshotKey);
+    if (snapshot) {
+      const headers = new Headers(snapshot.headers);
+      headers.set("x-rd-cache", "STALE-SNAPSHOT");
+      headers.set("x-rd-match-mode", "stale_snapshot");
+      headers.set("warning", '110 - "Serving last known good published snapshot"');
+      if (new URL(request.url).searchParams.get("envelope") === "1" && (headers.get("content-type") || "").includes("application/json")) {
+        const payload = await snapshot.clone().json() as Record<string, unknown>;
+        const warnings = Array.isArray(payload.warnings) ? payload.warnings : [];
+        payload.matchMode = "stale_snapshot";
+        payload.fallbackReason = "The current data service is unavailable. This is the last known good published snapshot.";
+        payload.warnings = [...warnings, "Serving a stale snapshot while the current data path recovers."];
+        return Response.json(payload, { status: 200, headers });
+      }
+      return new Response(snapshot.body, { status: 200, headers });
+    }
+  }
   if (!key || !ttl || !response.ok || response.headers.has("set-cookie")) return response;
 
   const headers = new Headers(response.headers);
@@ -126,6 +176,11 @@ async function fetchBackendWithCache(
   headers.set("x-rd-cache", "MISS");
   const cacheable = new Response(response.body, { status: response.status, headers });
   ctx.waitUntil(cache.put(key, cacheable.clone()));
+  if (snapshotKey) {
+    const snapshotHeaders = new Headers(cacheable.headers);
+    snapshotHeaders.set("cache-control", "public, max-age=604800");
+    ctx.waitUntil(cache.put(snapshotKey, new Response(cacheable.clone().body, { status: cacheable.status, headers: snapshotHeaders })));
+  }
   return cacheable;
 }
 
@@ -206,5 +261,8 @@ export default {
 
     if (isDocumentRequest(request)) return serveDocument(request);
     return bindings.ASSETS.fetch(request);
+  },
+  async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
+    await handleDataPipelineQueue(batch as MessageBatch<PipelineQueueMessage>, env as unknown as DataPipelineBindings);
   },
 } satisfies ExportedHandler<Env>;

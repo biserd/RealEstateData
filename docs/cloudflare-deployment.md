@@ -12,18 +12,13 @@ The application is configured as a Cloudflare Worker with Workers Static Assets,
 - Stripe uses direct API calls and signature-verified webhooks; the Replit Stripe connector and mirrored `stripe.*` schema are no longer required by request handling.
 - AI calls use the native Workers AI binding and the single approved `@cf/zai-org/glm-5.3-flash` model. No third-party AI key is required.
 - The unused Replit object-storage scaffold and its Google Cloud dependencies have been removed. The current application has no registered upload route; add an R2 binding if uploads are introduced later.
-- Default property/location previews are generated from application data and make no Google request.
-- Street View is loaded only after a click through the Maps Embed API. Rich multi-marker maps retain their existing click-to-load Maps JavaScript behavior.
+- The text-first frontend does not load Google Maps JavaScript, Static Maps, Street View, or map embeds.
 
 ## Prerequisites
 
 1. Use a Workers Paid plan for Cloudflare Email Service sends to arbitrary recipients.
 2. Put `realtorsdashboard.com` on Cloudflare DNS and onboard the domain under **Compute > Email Service > Email Sending**. Cloudflare adds the required bounce MX, SPF, DKIM, and DMARC records.
-3. Create separate, website-restricted Google keys:
-   - `VITE_GOOGLE_MAPS_API_KEY`: Maps JavaScript API only.
-   - `VITE_GOOGLE_MAPS_EMBED_API_KEY`: Maps Embed API only.
-   These values are public browser credentials and must be supplied to the frontend build environment.
-4. Provide the Postgres connection URL. Store it as a Worker secret; do not place it in `wrangler.jsonc`.
+3. Provide the Postgres connection URL. Store it as a Worker secret; do not place it in `wrangler.jsonc`.
 
 ## Local validation
 

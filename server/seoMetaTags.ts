@@ -27,7 +27,7 @@ const SOFTWARE_APPLICATION_JSONLD: Record<string, any> = {
   operatingSystem: 'Web',
   url: SITE_URL,
   description:
-    'Real estate market intelligence platform with proprietary opportunity scoring, AI-powered property analysis, and verified transaction data for NY, NJ, and CT.',
+    'Source-backed real estate market intelligence with verified recorded sales, reproducible comps, and explicit coverage and freshness.',
   offers: [
     { '@type': 'Offer', name: 'Free', price: 0, priceCurrency: 'USD' },
     { '@type': 'Offer', name: 'Pro', price: 29, priceCurrency: 'USD' },
@@ -88,7 +88,7 @@ const FAQ_JSONLD: Record<string, any> = {
       name: 'Which areas do you cover?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'New York, New Jersey, and Connecticut today, including 300K+ verified NYC condo unit records. Nationwide expansion is in progress.',
+        text: 'Current verified public-record coverage is limited to the NYC datasets identified on each result page. Other regions remain unavailable until source rights and quality checks are approved.',
       },
     },
     {
@@ -96,7 +96,7 @@ const FAQ_JSONLD: Record<string, any> = {
       name: 'How accurate is your data?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Data comes from authoritative public sources including NYC Open Data (PLUTO, rolling sales, ACRIS), Connecticut and New Jersey property records, Zillow Research, and FRED. Every page cites its sources.',
+        text: 'Published records come from the approved sources identified on each result page. The current productionized source catalog is limited to NYC public-record datasets, with freshness and coverage reported explicitly.',
       },
     },
     {
@@ -131,7 +131,7 @@ const DATASET_JSONLD: Record<string, any> = {
   '@type': 'Dataset',
   name: 'Realtors Dashboard Real Estate Dataset',
   description:
-    'Property records, verified recorded sales, market aggregates, and opportunity scores for NY, NJ, and CT, including 300K+ NYC condo units. Available via the Realtors Dashboard Developer API.',
+    'Published property records, verified recorded sales, market snapshots, and opportunity scores with explicit coverage, provenance, and freshness. Available via the Realtors Dashboard Developer API.',
   url: `${SITE_URL}/developers`,
   creator: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
   spatialCoverage: [
@@ -209,10 +209,10 @@ const HOMEPAGE_BODY_HTML = `
 
 const DEFAULT_META: PageMeta = {
   title: 'Realtors Dashboard - Real Estate Market Intelligence',
-  description: 'Find underpriced properties and understand market pricing with AI-powered real estate intelligence. Currently covering NY, NJ, CT with more states coming soon.',
+  description: 'Source-backed property and market intelligence with verified recorded sales, reproducible comps, and visible coverage and freshness.',
   ogType: 'website',
   canonicalPath: '/',
-  h1: 'Real Estate Market Intelligence for NY, NJ, and CT',
+  h1: 'Source-Backed Real Estate Market Intelligence',
   bodyHtml: HOMEPAGE_BODY_HTML,
   jsonLd: SOFTWARE_APPLICATION_JSONLD,
 };
@@ -250,7 +250,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/market-intelligence': {
     title: 'Market Intelligence - Realtors Dashboard',
-    description: 'Explore real estate market statistics by geography. Median prices, sales volume, price trends, and inventory data for NY, NJ, and CT.',
+    description: 'Explore published recorded-sales market statistics by geography with sample size, dataset version, source date, and truthful geographic fallbacks.',
     ogType: 'website',
     canonicalPath: '/market-intelligence',
     h1: 'Market Intelligence',
@@ -371,7 +371,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     ogType: 'website',
     canonicalPath: '/calculator',
     h1: 'Investment Property Calculator',
-    bodyHtml: '<p>Real-time rental property analyzer with Standard, Refinance, and BRRRR scenarios. Outputs cap rate, cash-on-cash, cash flow, GRM, DSCR, break-even occupancy, and a 30-year projection chart.</p>',
+    bodyHtml: '<p>Real-time rental property analyzer with Standard, Refinance, and BRRRR scenarios. Outputs cap rate, cash-on-cash, cash flow, GRM, DSCR, break-even occupancy, and a 30-year projection table.</p>',
   },
   '/methodology/opportunity-score': {
     title: 'Opportunity Score Explained - How We Rate Properties | Realtors Dashboard',
@@ -674,11 +674,6 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       <ul>${factsList}</ul>
     `;
 
-    // Keep crawler content deterministic; the live page offers opt-in Street View.
-    const streetViewHtml = (row.latitude && row.longitude)
-      ? `<p><em>Street-level view available on the live page.</em></p>`
-      : '';
-
     // AI narrative — render only if a fresh cached version exists. Otherwise
     // fire-and-forget background generation so the next crawl has it.
     const cachedNarrative = await getCachedNarrative('unit', row.unit_bbl);
@@ -738,7 +733,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
           .join('')}</dl>`
       : '';
 
-    const bodyHtml = `${intro}${streetViewHtml}${narrativeHtml}${unitSalesHtml}${buildingSalesHtml}${buildingStatsHtml}${siblingsHtml}${faqHtml}${relatedLinksHtml}`;
+    const bodyHtml = `${intro}${narrativeHtml}${unitSalesHtml}${buildingSalesHtml}${buildingStatsHtml}${siblingsHtml}${faqHtml}${relatedLinksHtml}`;
 
     // Richer JSON-LD: Residence with floorSize/numberOfRooms + Place containedInPlace.
     const residenceJsonLd: Record<string, any> = {
@@ -981,10 +976,6 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       ${factsHtml ? `<ul>${factsHtml}</ul>` : ''}
     `;
 
-    const streetViewHtml = (row.latitude && row.longitude)
-      ? `<p><em>Street-level view available on the live page.</em></p>`
-      : '';
-
     const cachedNarrative = await getCachedNarrative('property', row.id);
     if (!cachedNarrative?.fresh) maybeGenerateNarrative('property', row.id);
     const narrativeHtml = cachedNarrative?.narrative
@@ -1040,7 +1031,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
           .join('')}</dl>`
       : '';
 
-    const bodyHtml = `${intro}${streetViewHtml}${narrativeHtml}${salesHtml}${neighborhoodHtml}${compsHtml}${propFaqHtml}${relatedLinksHtml}`;
+    const bodyHtml = `${intro}${narrativeHtml}${salesHtml}${neighborhoodHtml}${compsHtml}${propFaqHtml}${relatedLinksHtml}`;
 
     const jsonLd: Record<string, any> = {
       '@context': 'https://schema.org',

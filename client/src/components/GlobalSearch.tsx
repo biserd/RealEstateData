@@ -76,7 +76,7 @@ export function GlobalSearch() {
         if (res.ok) {
           setResults(await res.json());
         } else if (res.status === 429) {
-          const errorData = await res.json();
+          const errorData = await res.json() as RateLimitError;
           setRateLimitError(errorData);
           setResults(null);
         }

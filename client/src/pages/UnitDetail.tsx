@@ -24,9 +24,6 @@ import {
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { ResidenceJsonLd, BreadcrumbsJsonLd } from "@/components/JsonLd";
-import { StreetViewImage } from "@/components/StreetViewImage";
-import { InteractiveStreetView } from "@/components/InteractiveStreetView";
-import { PropertyMap } from "@/components/PropertyMap";
 import type { Property } from "@shared/schema";
 import { AppLayout } from "@/components/layouts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -427,36 +424,8 @@ function AIInsightsSection({ unitBbl }: { unitBbl: string }) {
                 >
                   {isScore && numValue !== null ? (
                     <>
-                      {/* Circular Progress Ring */}
-                      <div className="relative w-16 h-16 mb-2">
-                        <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
-                          <circle
-                            cx="32"
-                            cy="32"
-                            r="28"
-                            stroke="currentColor"
-                            strokeWidth="6"
-                            fill="none"
-                            className="text-muted/30"
-                          />
-                          <circle
-                            cx="32"
-                            cy="32"
-                            r="28"
-                            strokeWidth="6"
-                            fill="none"
-                            strokeLinecap="round"
-                            className={colors.ring}
-                            strokeDasharray={`${(numValue / 100) * 176} 176`}
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className={`text-lg font-bold ${colors.text}`} data-testid={`stat-ai-${i}`}>
-                            {numValue}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-center text-muted-foreground font-medium">{num.label}</p>
+                      <p className={`text-2xl font-bold ${colors.text}`} data-testid={`stat-ai-${i}`}>{numValue}/100</p>
+                      <p className="mt-1 text-xs text-center text-muted-foreground font-medium">{num.label}</p>
                     </>
                   ) : (
                     <>
@@ -610,9 +579,9 @@ export default function UnitDetail() {
         requestError.status = res.status;
         throw requestError;
       }
-      const data = await res.json();
+      const data = await res.json() as CondoUnit | { unit: CondoUnit };
       // The resolve endpoint returns { unitBbl, slug, unit: {...} }
-      return data.unit || data;
+      return "unit" in data ? data.unit : data;
     },
     enabled: !!idOrSlug,
     retry: (failureCount, requestError) => {
@@ -732,40 +701,6 @@ export default function UnitDetail() {
           unitDesignation={unit.unitDesignation}
         />
 
-        {((unit as any).latitude && (unit as any).longitude) && (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2 aspect-[16/9] overflow-hidden rounded-lg border" data-testid="hero-streetview-unit">
-              <InteractiveStreetView
-                lat={(unit as any).latitude}
-                lng={(unit as any).longitude}
-                address={unit.buildingDisplayAddress}
-              />
-            </div>
-            <div className="aspect-[16/9] md:aspect-auto overflow-hidden rounded-lg border" data-testid="map-unit-location">
-              <PropertyMap
-                properties={nearbyProperties}
-                subjectProperty={{
-                  id: unit.unitBbl,
-                  address: unit.buildingDisplayAddress || "",
-                  unit: unit.unitDesignation || null,
-                  city: unit.borough || "",
-                  state: "NY",
-                  zipCode: unit.zipCode || "",
-                  propertyType: "Condo",
-                  beds: (unit as any).beds ?? null,
-                  baths: (unit as any).baths ?? null,
-                  sqft: (unit as any).sqft ?? null,
-                  latitude: (unit as any).latitude,
-                  longitude: (unit as any).longitude,
-                } as Property}
-                center={{ lat: (unit as any).latitude, lng: (unit as any).longitude }}
-                zoom={15}
-                height="100%"
-              />
-            </div>
-          </div>
-        )}
-
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card data-testid="card-unit-header">
@@ -866,8 +801,6 @@ export default function UnitDetail() {
                 {opportunityData?.buildingAvgPricePerYear && opportunityData.buildingAvgPricePerYear.length > 0 && (() => {
                   const years = opportunityData.buildingAvgPricePerYear.slice(0, 6);
                   const summary = opportunityData.buildingTrendSummary;
-                  const maxMedian = Math.max(...years.map(y => y.medianPrice));
-                  const minMedian = Math.min(...years.map(y => y.medianPrice));
                   const totalSales = years.reduce((s, y) => s + y.saleCount, 0);
                   const formatCompact = (n: number) =>
                     n >= 1_000_000
@@ -922,8 +855,6 @@ export default function UnitDetail() {
                       <CardContent>
                         <div className="space-y-1.5">
                           {years.map((item) => {
-                            const range = maxMedian - minMedian || 1;
-                            const widthPct = Math.round(((item.medianPrice - minMedian) / range) * 80) + 20;
                             const yoyColor =
                               item.yoyPct === null
                                 ? "text-muted-foreground bg-muted"
@@ -939,19 +870,13 @@ export default function UnitDetail() {
                                 data-testid={`row-price-year-${item.year}`}
                               >
                                 <span className="text-sm font-medium tabular-nums">{item.year}</span>
-                                <div className="relative h-6">
-                                  <div
-                                    className="absolute inset-y-0 left-0 rounded bg-primary/15 dark:bg-primary/25"
-                                    style={{ width: `${widthPct}%` }}
-                                  />
-                                  <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
                                     <span className="text-[11px] text-muted-foreground tabular-nums">
                                       {item.saleCount} sale{item.saleCount === 1 ? "" : "s"}
                                     </span>
                                     <span className="text-[11px] text-muted-foreground tabular-nums">
                                       {formatCompact(item.minPrice)}–{formatCompact(item.maxPrice)}
                                     </span>
-                                  </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-semibold tabular-nums">

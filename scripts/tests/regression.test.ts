@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { canonicalRedirectTarget, isDatabaseBackedPagePath } from "../../server/entityPagePolicy";
+import { inferTriStateFromZip, normalizeZipCode } from "../../shared/triStateGeography";
+import { assertDatabaseWriteAllowed } from "../lib/database-safety";
 import {
   buildNycBbl,
   classifyUnitType,
@@ -8,6 +11,18 @@ import {
   parseMoney,
   saleFingerprint,
 } from "../lib/real-estate-normalization";
+import {
+  buildMarketSnapshots,
+  buildRankings,
+  candidatePasses,
+  selectComparableSales,
+  validateCandidate,
+  type PublicPropertyFact,
+  type VerifiedSaleFact,
+} from "../../pipeline/analytics";
+import { assertSourceMayPublish } from "../../pipeline/contracts";
+import { sourceById } from "../../pipeline/sourceCatalog";
+import { buildings, condoUnits, marketAggregates, properties, sales } from "../../shared/schema";
 
 test("database-backed URL policy recognizes only supported entity pages", () => {
   assert.equal(isDatabaseBackedPagePath("/unit/example-123"), true);
@@ -44,4 +59,142 @@ test("source values are validated and deterministic", () => {
     unit: "E4A",
   };
   assert.equal(saleFingerprint(input), saleFingerprint(input));
+});
+
+test("ZIP fallback inference is conservative and preserves tri-state identity", () => {
+  assert.equal(normalizeZipCode(" 10977-1234 "), "10977");
+  assert.equal(inferTriStateFromZip("10977"), "NY");
+  assert.equal(inferTriStateFromZip("07030"), "NJ");
+  assert.equal(inferTriStateFromZip("06901"), "CT");
+  assert.equal(inferTriStateFromZip("94105"), null);
+});
+
+test("production writes require an explicit confirmation and recent backup", () => {
+  const original = {
+    DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_ENV: process.env.DATABASE_ENV,
+    CONFIRM_PRODUCTION_WRITE: process.env.CONFIRM_PRODUCTION_WRITE,
+    BACKUP_VERIFIED_AT: process.env.BACKUP_VERIFIED_AT,
+  };
+
+  try {
+    process.env.DATABASE_URL = "postgresql://example.invalid/app";
+    process.env.DATABASE_ENV = "production";
+    delete process.env.CONFIRM_PRODUCTION_WRITE;
+    delete process.env.BACKUP_VERIFIED_AT;
+    assert.throws(() => assertDatabaseWriteAllowed(true), /Production write blocked/);
+
+    process.env.CONFIRM_PRODUCTION_WRITE = "YES";
+    process.env.BACKUP_VERIFIED_AT = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    assert.throws(() => assertDatabaseWriteAllowed(true), /no more than 24 hours old/);
+
+    process.env.BACKUP_VERIFIED_AT = new Date().toISOString();
+    assert.doesNotThrow(() => assertDatabaseWriteAllowed(true));
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("approved refresh path cannot import the generated-data aggregate builder", () => {
+  const source = readFileSync(new URL("../refresh-live-data.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /productionDataSync|create-comps|server\/seed/);
+  assert.match(source, /--recompute is disabled/);
+});
+
+test("the schema push command is protected by the database write gate", () => {
+  const packageJson = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { scripts: Record<string, string> };
+  assert.match(packageJson.scripts["db:push"], /database-write-gate/);
+});
+
+test("deployed legacy table models remain safe before the additive migration", () => {
+  for (const [tableName, table] of Object.entries({ properties, sales, marketAggregates, condoUnits, buildings })) {
+    assert.equal("geographyId" in table, false, `${tableName} must not select migration-only columns before 0001 is applied`);
+  }
+  assert.equal("sourceFingerprint" in sales, false);
+  assert.equal("publishedDatasetVersionId" in properties, false);
+});
+
+function sale(id: string, geographyId: string, date: string, price: number, propertyId = id): VerifiedSaleFact {
+  return {
+    id,
+    geographyId,
+    propertyId,
+    salePrice: price,
+    saleDate: new Date(date),
+    sqft: 1_000,
+    propertyType: "Condo",
+    beds: 2,
+    armsLength: true,
+    packageSale: false,
+    identityResolved: true,
+    sourceId: "nyc-rolling-sales",
+  };
+}
+
+test("market snapshots and rankings are deterministic and reject empty destinations", () => {
+  const sales: VerifiedSaleFact[] = [];
+  for (let index = 0; index < 6; index++) {
+    sales.push(sale(`prior-${index}`, "zip:NY:10001", `2024-${String(index + 1).padStart(2, "0")}-15`, 500_000 + index * 10_000));
+    sales.push(sale(`current-${index}`, "zip:NY:10001", `2025-${String(index + 1).padStart(2, "0")}-15`, 600_000 + index * 10_000));
+  }
+  const periodEnd = new Date("2026-01-01T00:00:00.000Z");
+  const first = buildMarketSnapshots(sales, periodEnd);
+  const second = buildMarketSnapshots([...sales].reverse(), periodEnd);
+  assert.deepEqual(first, second);
+  assert.equal(first.length, 1);
+  assert.equal(first[0].transactionCount, 6);
+  assert.ok((first[0].trendPercent || 0) > 0);
+
+  const noDestination = buildRankings(first, new Map());
+  assert.equal(noDestination[0].eligible, false);
+  assert.deepEqual(noDestination[0].exclusionReasons, ["no_public_destination_properties"]);
+  const eligible = buildRankings(first, new Map([["zip:NY:10001", 3]]));
+  assert.equal(eligible[0].eligible, true);
+  assert.equal(eligible[0].rank, 1);
+});
+
+test("comps are source-backed, same-geography, reproducible, and rule filtered", () => {
+  const subject: PublicPropertyFact = { id: "subject", geographyId: "zip:NY:10001", propertyType: "Condo", beds: 2, sqft: 1_000, yearBuilt: 2000 };
+  const sales = [
+    sale("best", subject.geographyId, "2025-12-01", 650_000, "other-1"),
+    { ...sale("package", subject.geographyId, "2025-11-01", 640_000, "other-2"), packageSale: true },
+    sale("wrong-geo", "zip:NJ:07030", "2025-12-01", 620_000, "other-3"),
+  ];
+  const first = selectComparableSales(subject, sales, new Date("2026-01-01T00:00:00.000Z"));
+  const second = selectComparableSales(subject, [...sales].reverse(), new Date("2026-01-01T00:00:00.000Z"));
+  assert.deepEqual(first, second);
+  assert.deepEqual(first.map((member) => member.saleId), ["best"]);
+});
+
+test("critical candidate quality failures always block publication", () => {
+  const quality = validateCandidate({
+    snapshots: [],
+    rankings: [],
+    contradictoryGeographyCount: 1,
+    duplicateSourceRecordCount: 0,
+    comparableSetCount: 0,
+    sourceAgeDays: 46,
+  });
+  assert.equal(candidatePasses(quality), false);
+  assert.ok(quality.some((result) => result.ruleId === "cross_geography_contradictions" && result.status === "fail"));
+  assert.ok(quality.some((result) => result.ruleId === "comparable_sets_nonempty" && result.status === "fail"));
+  assert.ok(quality.some((result) => result.ruleId === "source_freshness_days" && result.status === "fail"));
+});
+
+test("regional and listing sources remain fail-closed until rights and adapters are approved", () => {
+  assert.doesNotThrow(() => assertSourceMayPublish(sourceById("nyc-rolling-sales")));
+  assert.throws(() => assertSourceMayPublish(sourceById("nys-salesweb")), /not active|cannot publish/);
+  assert.throws(() => assertSourceMayPublish(sourceById("licensed-reso")), /not active|cannot publish/);
+});
+
+test("atomic publication migration requires validation and preserves the prior version", () => {
+  const migration = readFileSync(new URL("../../migrations/0001_versioned_data_platform.sql", import.meta.url), "utf8");
+  assert.match(migration, /CREATE OR REPLACE FUNCTION publish_validated_dataset/);
+  assert.match(migration, /candidate must be validated before publication/);
+  assert.match(migration, /critical quality failures block publication/);
+  assert.match(migration, /SET status = 'retired'/);
+  assert.doesNotMatch(migration, /TRUNCATE/i);
 });

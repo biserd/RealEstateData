@@ -59,6 +59,7 @@ import {
   type Building,
   type InsertBuilding,
 } from "@shared/schema";
+import { inferTriStateFromZip } from "@shared/triStateGeography";
 
 // A property is public only when it has enough real, traceable source data to
 // support a detail page. This intentionally excludes the legacy randomly
@@ -92,6 +93,159 @@ function publicPropertyPredicate() {
       )
     )
   `;
+}
+
+function publicOpportunityPropertyPredicate() {
+  return sql`
+    ${publicPropertyPredicate()}
+    AND ${properties.sqft} IS NOT NULL
+    AND ${properties.sqft} >= 100
+    AND (
+      ${properties.propertyType} != 'Condo'
+      OR ${properties.sqft} <= 6000
+    )
+    AND (
+      ${properties.pricePerSqft} >= 50
+      OR (
+        ${properties.pricePerSqft} IS NULL
+        AND (${properties.estimatedValue}::numeric / NULLIF(${properties.sqft}, 0)) >= 50
+      )
+    )
+  `;
+}
+
+function isMissingVersionedSchema(error: unknown): boolean {
+  return error instanceof Error && /current_(published_dataset|market_snapshots|ranking_snapshots)|does not exist/i.test(error.message);
+}
+
+type VersionedMarketAggregate = MarketAggregate & {
+  geographyId: string;
+  publishedDatasetVersionId: string;
+};
+
+async function publishedMarketAggregates(geoType: string, geoId: string): Promise<VersionedMarketAggregate[] | null> {
+  try {
+    const published = await db.execute(sql`SELECT id FROM current_published_dataset LIMIT 1`);
+    if (published.rows.length === 0) return null;
+    if (geoType === "state") {
+      const result = await db.execute(sql`
+        SELECT
+          ${`state-v2-${geoId}`}::text AS id,
+          ${geoId}::text AS geo_id,
+          ${geoId === "NY" ? "New York" : geoId === "NJ" ? "New Jersey" : geoId === "CT" ? "Connecticut" : geoId}::text AS geo_name,
+          ${geoId}::text AS state,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.median_price)::int AS median_price,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.median_price_per_sqft)::real AS median_price_per_sqft,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.p25_price)::int AS p25_price,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.p75_price)::int AS p75_price,
+          sum(snapshot.transaction_count)::int AS transaction_count,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.trend_percent)::real AS trend_percent,
+          max(snapshot.computed_at) AS computed_at,
+          max(snapshot.dataset_version_id) AS dataset_version_id
+        FROM current_market_snapshots snapshot
+        JOIN canonical_geographies geography ON geography.id = snapshot.geography_id
+        WHERE geography.state = ${geoId} AND geography.type = 'zip'
+        HAVING count(*) > 0
+      `);
+      return result.rows.map((value: any) => ({
+        id: value.id,
+        geoType: "state",
+        geoId: value.geo_id,
+        geoName: value.geo_name,
+        state: value.state,
+        propertyType: null, bedsBand: null, bathsBand: null, yearBuiltBand: null, sizeBand: null,
+        medianPrice: value.median_price === null ? null : Number(value.median_price),
+        medianPricePerSqft: value.median_price_per_sqft === null ? null : Number(value.median_price_per_sqft),
+        p25Price: value.p25_price === null ? null : Number(value.p25_price),
+        p75Price: value.p75_price === null ? null : Number(value.p75_price),
+        p25PricePerSqft: null, p75PricePerSqft: null,
+        transactionCount: Number(value.transaction_count || 0),
+        turnoverRate: null, volatility: null, trend3m: null, trend6m: null,
+        trend12m: value.trend_percent === null ? null : Number(value.trend_percent),
+        computedAt: new Date(value.computed_at),
+        geographyId: `state:${geoId}`,
+        publishedDatasetVersionId: value.dataset_version_id,
+      }));
+    }
+    const result = await db.execute(sql`
+      SELECT snapshot.*, geography.type AS geo_type, geography.zip_code, geography.canonical_name, geography.state
+      FROM current_market_snapshots snapshot
+      JOIN canonical_geographies geography ON geography.id = snapshot.geography_id
+      WHERE geography.type = ${geoType}
+        AND CASE WHEN ${geoType} = 'zip' THEN geography.zip_code = ${geoId} ELSE geography.id = ${geoId} END
+      ORDER BY snapshot.computed_at DESC LIMIT 1
+    `);
+    return result.rows.map((value: any) => ({
+      id: value.id,
+      geoType: value.geo_type,
+      geoId: value.zip_code || value.geography_id,
+      geoName: value.canonical_name,
+      state: value.state,
+      propertyType: null, bedsBand: null, bathsBand: null, yearBuiltBand: null, sizeBand: null,
+      medianPrice: value.median_price === null ? null : Number(value.median_price),
+      medianPricePerSqft: value.median_price_per_sqft === null ? null : Number(value.median_price_per_sqft),
+      p25Price: value.p25_price === null ? null : Number(value.p25_price),
+      p75Price: value.p75_price === null ? null : Number(value.p75_price),
+      p25PricePerSqft: null, p75PricePerSqft: null,
+      transactionCount: Number(value.transaction_count || 0),
+      turnoverRate: null, volatility: null, trend3m: null, trend6m: null,
+      trend12m: value.trend_percent === null ? null : Number(value.trend_percent),
+      computedAt: new Date(value.computed_at),
+      geographyId: value.geography_id,
+      publishedDatasetVersionId: value.dataset_version_id,
+    }));
+  } catch (error) {
+    if (isMissingVersionedSchema(error)) return null;
+    throw error;
+  }
+}
+
+async function publishedUpAndComing(state: string | undefined, limit: number): Promise<UpAndComingZip[] | null> {
+  try {
+    const published = await db.execute(sql`SELECT id FROM current_published_dataset LIMIT 1`);
+    if (published.rows.length === 0) return null;
+    const result = await db.execute(sql`
+      SELECT ranking.rank, ranking.total_score, ranking.price_trend_score,
+        ranking.transaction_velocity_score, ranking.liquidity_score, ranking.comp_depth_score,
+        ranking.confidence_score, geography.zip_code, geography.canonical_name, geography.state,
+        snapshot.trend_percent, snapshot.median_price, snapshot.median_price_per_sqft,
+        snapshot.transaction_count,
+        count(properties.id) FILTER (WHERE properties.id IS NOT NULL)::int AS property_count,
+        round(avg(properties.opportunity_score))::int AS avg_opportunity_score
+      FROM current_ranking_snapshots ranking
+      JOIN canonical_geographies geography ON geography.id = ranking.geography_id
+      JOIN current_market_snapshots snapshot ON snapshot.geography_id = ranking.geography_id
+      LEFT JOIN properties ON properties.geography_id = ranking.geography_id AND ${publicOpportunityPropertyPredicate()}
+      WHERE geography.type = 'zip' AND (${state || null}::text IS NULL OR geography.state = ${state || null})
+      GROUP BY ranking.rank, ranking.total_score, ranking.price_trend_score,
+        ranking.transaction_velocity_score, ranking.liquidity_score, ranking.comp_depth_score,
+        ranking.confidence_score, geography.zip_code, geography.canonical_name, geography.state,
+        snapshot.trend_percent, snapshot.median_price, snapshot.median_price_per_sqft, snapshot.transaction_count
+      HAVING count(properties.id) > 0
+      ORDER BY ranking.rank
+      LIMIT ${limit}
+    `);
+    return result.rows.map((value: any) => ({
+      zipCode: value.zip_code,
+      city: value.canonical_name,
+      state: value.state,
+      trendScore: Math.round(Number(value.total_score)),
+      trend12m: value.trend_percent === null ? null : Number(value.trend_percent),
+      trend6m: null,
+      trend3m: null,
+      medianPrice: value.median_price === null ? null : Number(value.median_price),
+      medianPricePerSqft: value.median_price_per_sqft === null ? null : Number(value.median_price_per_sqft),
+      transactionCount: Number(value.transaction_count || 0),
+      avgOpportunityScore: value.avg_opportunity_score === null ? null : Number(value.avg_opportunity_score),
+      propertyCount: Number(value.property_count || 0),
+      momentum: Number(value.trend_percent || 0) > 0 ? "accelerating" : "steady",
+      latitude: null,
+      longitude: null,
+    }));
+  } catch (error) {
+    if (isMissingVersionedSchema(error)) return null;
+    throw error;
+  }
 }
 
 // Unit pages need a transaction matched to the exact unit. A sale elsewhere in
@@ -626,48 +780,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProperties(filters: ScreenerFilters, limit = 50, offset = 0): Promise<Property[]> {
-    const conditions: any[] = [publicPropertyPredicate()];
-    
-    // Always filter out properties with invalid sqft data to prevent unrealistic price/sqft
-    // Properties must have valid sqft (>= 100) and reasonable pricePerSqft (>= 50 $/sqft for Tri-State area)
-    conditions.push(isNotNull(properties.sqft));
-    conditions.push(gte(properties.sqft, 100));
-    
-    // CRITICAL: Filter out building-level records from opportunity screener
-    // Condos with sqft > 6000 are almost certainly building-level records, not individual units
-    // This prevents misleading "deals" that are actually entire buildings with estimated prices
-    conditions.push(
-      or(
-        // Non-condo properties can have any sqft
-        sql`${properties.propertyType} != 'Condo'`,
-        // Condos must have sqft <= 6000 to be considered individual units
-        and(
-          sql`${properties.propertyType} = 'Condo'`,
-          lte(properties.sqft, 6000)
-        )
-      )
-    );
-    
-    conditions.push(
-      or(
-        isNotNull(properties.pricePerSqft),
-        and(isNotNull(properties.estimatedValue), isNotNull(properties.sqft))
-      )
-    );
-    // Filter out unrealistically low price per sqft (below $50/sqft is not realistic for NY/NJ/CT)
-    // Also compute derived pricePerSqft when the stored value is NULL
-    conditions.push(
-      or(
-        and(
-          isNotNull(properties.pricePerSqft),
-          gte(properties.pricePerSqft, 50)
-        ),
-        and(
-          sql`${properties.pricePerSqft} IS NULL`,
-          sql`(${properties.estimatedValue}::numeric / NULLIF(${properties.sqft}, 0)) >= 50`
-        )
-      )
-    );
+    const conditions: any[] = [publicOpportunityPropertyPredicate()];
     
     if (filters.state) {
       conditions.push(eq(properties.state, filters.state));
@@ -1204,6 +1317,10 @@ export class DatabaseStorage implements IStorage {
 
   // Market aggregate operations
   async getMarketAggregates(geoType: string, geoId: string, filters?: any): Promise<MarketAggregate[]> {
+    if (!filters?.propertyType && !filters?.bedsBand && !filters?.yearBuiltBand) {
+      const published = await publishedMarketAggregates(geoType, geoId);
+      if (published !== null) return published;
+    }
     // City ids in the UI/popular chips are lowercase slugs ("hoboken") but
     // most aggregate rows use the same case. Match case-insensitively for
     // safety. Same for neighborhood (kebab-case "cd-108").
@@ -1234,7 +1351,16 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(marketAggregates.computedAt))
       .limit(1);
 
-    if (rows.length > 0) return rows;
+    if (rows.length > 0) {
+      const row = rows[0];
+      const isPlausibleStateAggregate =
+        geoType !== "state" ||
+        (Number(row.medianPrice || 0) >= 50_000 &&
+          Number(row.medianPrice || 0) <= 20_000_000 &&
+          Number(row.transactionCount || 0) > 0);
+
+      if (isPlausibleStateAggregate) return rows;
+    }
 
     // Fall back: state-level aggregates aren't pre-computed, so synthesize one
     // on the fly from the per-ZIP rows for that state. Uses median-of-medians
@@ -1252,7 +1378,7 @@ export class DatabaseStorage implements IStorage {
         const arr = xs.filter((v) => v !== null && v !== undefined && !Number.isNaN(v)).sort((a, b) => a - b);
         if (arr.length === 0) return 0;
         const mid = Math.floor(arr.length / 2);
-        return arr.length % 2 === 0 ? Math.round((arr[mid - 1] + arr[mid]) / 2) : arr[mid];
+        return arr.length % 2 === 0 ? (arr[mid - 1] + arr[mid]) / 2 : arr[mid];
       };
 
       const synthetic: MarketAggregate = {
@@ -1288,11 +1414,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMarketOverview(): Promise<MarketAggregate[]> {
-    return await db
-      .select()
-      .from(marketAggregates)
-      .where(eq(marketAggregates.geoType, "state"))
-      .orderBy(marketAggregates.state);
+    const overview = await Promise.all(
+      ["NY", "NJ", "CT"].map(async (state) => {
+        const rows = await this.getMarketAggregates("state", state);
+        const row = rows[0];
+        if (!row) return null;
+
+        const medianPrice = Number(row.medianPrice || 0);
+        const transactions = Number(row.transactionCount || 0);
+        if (medianPrice < 50_000 || medianPrice > 20_000_000 || transactions < 1) {
+          return null;
+        }
+        return row;
+      }),
+    );
+
+    return overview.filter((row): row is MarketAggregate => row !== null);
   }
 
   async createMarketAggregate(aggregate: InsertMarketAggregate): Promise<MarketAggregate> {
@@ -1700,6 +1837,39 @@ export class DatabaseStorage implements IStorage {
 
   // Comps operations
   async getComps(propertyId: string): Promise<(Comp & { property: Property })[]> {
+    try {
+      const versioned = await db.execute(sql`
+        SELECT member.id, comp_set.subject_id, sale.property_id AS comp_property_id,
+          member.weight, member.adjustment, sale.sale_price, comp_set.created_at,
+          to_jsonb(properties) AS property
+        FROM comparable_sets_v2 comp_set
+        JOIN current_published_dataset version ON version.id = comp_set.dataset_version_id
+        JOIN comparable_members_v2 member ON member.comparable_set_id = comp_set.id
+        JOIN sales sale ON sale.id = member.sale_id
+        JOIN properties ON properties.id = sale.property_id
+        WHERE comp_set.subject_type = 'property' AND comp_set.subject_id = ${propertyId}
+          AND ${publicPropertyPredicate()}
+        ORDER BY member.weight DESC, sale.sale_date DESC
+      `);
+      if (versioned.rows.length > 0) {
+        return versioned.rows.map((value: any) => ({
+          id: value.id,
+          subjectPropertyId: value.subject_id,
+          compPropertyId: value.comp_property_id,
+          similarityScore: Number(value.weight) * 100,
+          sqftAdjustment: Number(value.adjustment || 0),
+          ageAdjustment: null,
+          bedsAdjustment: null,
+          adjustedPrice: Math.round(Number(value.sale_price) * (1 + Number(value.adjustment || 0))),
+          computedAt: new Date(value.created_at),
+          property: value.property as Property,
+        }));
+      }
+      const published = await db.execute(sql`SELECT id FROM current_published_dataset LIMIT 1`);
+      if (published.rows.length > 0) return [];
+    } catch (error) {
+      if (!isMissingVersionedSchema(error) && !(error instanceof Error && /comparable_sets_v2|comparable_members_v2/i.test(error.message))) throw error;
+    }
     const result = await db
       .select()
       .from(comps)
@@ -1745,10 +1915,15 @@ export class DatabaseStorage implements IStorage {
 
   // Up and coming ZIP codes
   async getUpAndComingZips(state?: string, limit = 25): Promise<UpAndComingZip[]> {
+    const published = await publishedUpAndComing(state, limit);
+    if (published !== null) return published;
     // Get ZIP-level market aggregates with trend data
     const conditions = [
       eq(marketAggregates.geoType, "zip"),
       isNotNull(marketAggregates.trend12m),
+      gte(marketAggregates.transactionCount, 5),
+      gte(marketAggregates.medianPrice, 50_000),
+      lte(marketAggregates.medianPrice, 20_000_000),
     ];
     
     if (state) {
@@ -1764,7 +1939,7 @@ export class DatabaseStorage implements IStorage {
     const propertyStats = await db
       .select({
         zipCode: properties.zipCode,
-        city: properties.city,
+        city: sql<string>`MODE() WITHIN GROUP (ORDER BY ${properties.city})`,
         state: properties.state,
         propertyCount: sql<number>`count(*)::int`,
         avgOpportunityScore: sql<number>`round(avg(${properties.opportunityScore}))::int`,
@@ -1772,8 +1947,11 @@ export class DatabaseStorage implements IStorage {
         avgLng: sql<number>`avg(${properties.longitude})`,
       })
       .from(properties)
-      .where(state ? eq(properties.state, state) : sql`true`)
-      .groupBy(properties.zipCode, properties.city, properties.state);
+      .where(and(
+        publicOpportunityPropertyPredicate(),
+        state ? eq(properties.state, state) : sql`true`,
+      ))
+      .groupBy(properties.zipCode, properties.state);
 
     // Combine data and calculate trend scores
     const zipMap = new Map<string, {
@@ -1781,14 +1959,19 @@ export class DatabaseStorage implements IStorage {
       stats: typeof propertyStats[0] | null;
     }>();
 
-    // Index aggregates by ZIP
+    // ZIP text alone is not a geography key. State must participate in every
+    // match so a corrupt or duplicated ZIP cannot borrow another state's city,
+    // property count, coordinates, or opportunity score.
     for (const agg of zipAggregates) {
-      zipMap.set(agg.geoId, { aggregate: agg, stats: null });
+      if (!agg.state || !/^[0-9]{5}$/.test(agg.geoId)) continue;
+      const inferredState = inferTriStateFromZip(agg.geoId);
+      if (inferredState && inferredState !== agg.state) continue;
+      zipMap.set(`${agg.state}:${agg.geoId}`, { aggregate: agg, stats: null });
     }
 
     // Match property stats
     for (const stat of propertyStats) {
-      const existing = zipMap.get(stat.zipCode);
+      const existing = zipMap.get(`${stat.state}:${stat.zipCode}`);
       if (existing) {
         existing.stats = stat;
       }
@@ -1798,11 +1981,12 @@ export class DatabaseStorage implements IStorage {
     const results: UpAndComingZip[] = [];
 
     const entries = Array.from(zipMap.entries());
-    for (const [zipCode, data] of entries) {
+    for (const [, data] of entries) {
       const { aggregate, stats } = data;
-      
-      // Skip if no positive trend
-      if (!aggregate.trend12m || aggregate.trend12m <= 0) continue;
+      const zipCode = aggregate.geoId;
+
+      // A ranking must lead to a usable, public screener destination.
+      if (!stats || stats.propertyCount <= 0 || stats.state !== aggregate.state) continue;
 
       // Calculate momentum
       const trend12m = aggregate.trend12m || 0;
@@ -1846,7 +2030,7 @@ export class DatabaseStorage implements IStorage {
 
       results.push({
         zipCode,
-        city: stats?.city || aggregate.geoName,
+        city: stats.city || aggregate.geoName,
         state: aggregate.state,
         trendScore: Math.min(100, Math.max(0, trendScore)),
         trend12m: aggregate.trend12m,
@@ -1855,18 +2039,20 @@ export class DatabaseStorage implements IStorage {
         medianPrice: aggregate.medianPrice,
         medianPricePerSqft: aggregate.medianPricePerSqft,
         transactionCount: aggregate.transactionCount,
-        avgOpportunityScore: stats?.avgOpportunityScore || null,
-        propertyCount: stats?.propertyCount || 0,
+        avgOpportunityScore: stats.avgOpportunityScore || null,
+        propertyCount: stats.propertyCount,
         momentum,
-        latitude: stats?.avgLat || null,
-        longitude: stats?.avgLng || null,
+        latitude: null,
+        longitude: null,
       });
     }
 
-    // Sort by trend score descending
+    // Prefer genuinely rising markets. If no rising markets are currently
+    // published, return the best verified market records instead of an empty
+    // page; their trend and momentum labels remain visible and truthful.
     results.sort((a, b) => b.trendScore - a.trendScore);
-
-    return results.slice(0, limit);
+    const rising = results.filter((result) => Number(result.trend12m || 0) > 0);
+    return (rising.length > 0 ? rising : results).slice(0, limit);
   }
 
   // NYC Deep Coverage - Property Signals
@@ -1995,15 +2181,30 @@ export class DatabaseStorage implements IStorage {
   }> {
     const [propertiesCount] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(properties);
+      .from(properties)
+      .where(publicPropertyPredicate());
     
     const [salesCount] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(sales);
+      .from(sales)
+      .where(and(
+        gte(sales.salePrice, 50_000),
+        or(
+          isNotNull(sales.matchMethod),
+          isNotNull(sales.rawBlock),
+          isNotNull(sales.unitBbl),
+          isNotNull(sales.baseBbl),
+        ),
+      ));
     
     const [marketAggregatesCount] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(marketAggregates);
+      .from(marketAggregates)
+      .where(and(
+        gte(marketAggregates.transactionCount, 1),
+        gte(marketAggregates.medianPrice, 50_000),
+        lte(marketAggregates.medianPrice, 20_000_000),
+      ));
     
     const [compsCount] = await db
       .select({ count: sql<number>`count(*)::int` })

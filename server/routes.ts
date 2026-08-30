@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { type Server } from "http";
 import passport from "passport";
 import { z } from "zod";
+import { inferTriStateFromZip, stateName } from "@shared/triStateGeography";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, optionalAuth, hashPassword, hashActivationToken, generateActivationToken } from "./auth";
 import { analyzeProperty, analyzeMarket, generateDealMemo, calculateScenario, analyzeScenario, generatePropertyInsights, type ScenarioInputs, type PropertyInsights } from "./ai";
@@ -18,6 +19,7 @@ import { usageService, ActionType } from "./usageService";
 import { processDailyDigest, processInstantAlerts, recordPropertyChange } from "./savedSearchService";
 import { consumeQuota, type SubscriptionTier } from "./quota";
 import { requireTurnstile, turnstileConfig } from "./turnstile";
+import { dataEnvelope, getPublishedFreshness } from "./dataEnvelope";
 
 const FREE_TIER_LIMITS = {
   search: { daily: 30 },
@@ -1104,7 +1106,48 @@ Sitemap: ${baseUrl}/sitemap.xml
       }
       
       const FREE_VISIBLE_COUNT = 3;
-      const properties = await storage.getProperties(filters, requestedLimit, offset);
+      const requestedGeography = filters.zipCodes?.length
+        ? { type: "zip", ids: filters.zipCodes }
+        : filters.cities?.length
+          ? { type: "city", ids: filters.cities, state: filters.state }
+          : filters.state
+            ? { type: "state", id: filters.state }
+            : { type: "tri_state" };
+
+      let properties = await storage.getProperties(filters, requestedLimit, offset);
+      let matchMode: "exact" | "broadened" | "platform_fallback" = "exact";
+      let fallbackReason: string | null = null;
+      let effectiveGeography: Record<string, unknown> = requestedGeography;
+
+      if (properties.length === 0) {
+        const inferredStates = Array.from(new Set((filters.zipCodes || [])
+          .map((zip) => inferTriStateFromZip(zip))
+          .filter((value): value is "NY" | "NJ" | "CT" => Boolean(value))));
+        const fallbackState = filters.state || (inferredStates.length === 1 ? inferredStates[0] : undefined);
+        const broadenedFilters: ScreenerFilters = {
+          ...filters,
+          state: fallbackState,
+          zipCodes: undefined,
+          cities: undefined,
+        };
+        properties = await storage.getProperties(broadenedFilters, requestedLimit, offset);
+        if (properties.length > 0) {
+          matchMode = "broadened";
+          effectiveGeography = fallbackState
+            ? { type: "state", id: fallbackState, name: stateName(fallbackState) }
+            : { type: "tri_state" };
+          fallbackReason = filters.zipCodes?.length
+            ? `No qualifying public properties are currently published for ${filters.zipCodes.join(", ")}. Showing verified ${fallbackState ? stateName(fallbackState) : "Tri-State"} opportunities instead.`
+            : "No properties matched every selected filter. Showing verified opportunities from a broader geography while preserving non-geographic filters.";
+        }
+      }
+
+      if (properties.length === 0) {
+        properties = await storage.getProperties({}, requestedLimit, offset);
+        matchMode = "platform_fallback";
+        effectiveGeography = { type: "tri_state" };
+        fallbackReason = "No properties matched the requested filters. Showing the highest-confidence verified opportunities currently published.";
+      }
       const totalCount = properties.length;
       const hiddenCount = isFreeUser ? Math.max(0, totalCount - FREE_VISIBLE_COUNT) : 0;
       
@@ -1113,6 +1156,10 @@ Sitemap: ${baseUrl}/sitemap.xml
         limited: isFreeUser && totalCount > FREE_VISIBLE_COUNT,
         visibleCount: isFreeUser ? FREE_VISIBLE_COUNT : totalCount,
         hiddenCount,
+        requestedGeography,
+        effectiveGeography,
+        matchMode,
+        fallbackReason,
         message: isFreeUser && hiddenCount > 0 
           ? `Unlock ${hiddenCount} more undervalued properties in this area with Pro.` 
           : undefined,
@@ -1450,44 +1497,6 @@ Sitemap: ${baseUrl}/sitemap.xml
     } catch (error) {
       console.error("Error resolving unit:", error);
       res.status(500).json({ message: "Failed to resolve unit" });
-    }
-  });
-
-  // Admin: Generate slugs for units (batch operation)
-  app.post("/api/admin/generate-unit-slugs", isAuthenticated, async (req: any, res) => {
-    try {
-      // Check if user is admin
-      const user = await storage.getUser(req.user.id);
-      if (!user || user.role !== "admin") {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-      
-      const batchSize = parseInt(req.query.batchSize as string) || 1000;
-      const offset = parseInt(req.query.offset as string) || 0;
-      
-      // Get units without slugs
-      const units = await storage.getUnitsForSitemapPaginated(batchSize, offset);
-      
-      let generated = 0;
-      for (const unit of units) {
-        if (!unit.slug) {
-          const slug = generateUnitSlug(unit);
-          await storage.updateUnitSlug(unit.unitBbl, slug);
-          generated++;
-        }
-      }
-      
-      res.json({
-        message: `Generated ${generated} slugs`,
-        batchSize,
-        offset,
-        unitsProcessed: units.length,
-        slugsGenerated: generated,
-        nextOffset: offset + batchSize,
-      });
-    } catch (error) {
-      console.error("Error generating unit slugs:", error);
-      res.status(500).json({ message: "Failed to generate unit slugs" });
     }
   });
 
@@ -2008,9 +2017,38 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // Market routes - public read access
+  app.get("/api/data/status", async (_req, res) => {
+    try {
+      const freshness = await getPublishedFreshness();
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=900");
+      res.json({
+        ok: true,
+        freshness,
+        coverage: {
+          recordedSales: ["NYC"],
+          liveListings: false,
+          pendingValidation: ["non-NYC NY", "NJ", "CT"],
+        },
+        methodologyVersion: "text-first-market-v1.0.0",
+      });
+    } catch (error) {
+      console.error("Error fetching data status:", error);
+      res.status(503).json({ message: "Published data status is temporarily unavailable", code: "data_status_unavailable" });
+    }
+  });
+
   app.get("/api/market/overview", async (req, res) => {
     try {
       const overview = await storage.getMarketOverview();
+      if (req.query.envelope === "1") {
+        return res.json(await dataEnvelope({
+          requestedGeography: { type: "tri_state", name: "NY/NJ/CT" },
+          records: overview,
+          supportedRecordTypes: ["recorded_sales", "market_snapshots"],
+          missingRecordTypes: ["live_listings"],
+          minimumSampleSize: 5,
+        }));
+      }
       res.json(overview);
     } catch (error) {
       console.error("Error fetching market overview:", error);
@@ -2123,11 +2161,45 @@ Sitemap: ${baseUrl}/sitemap.xml
       if (!geoType || !geoId) {
         return res.status(400).json({ message: "geoType and geoId are required" });
       }
-      const aggregates = await storage.getMarketAggregates(
+      let aggregates = await storage.getMarketAggregates(
         geoType as string,
         geoId as string,
         { propertyType, bedsBand, yearBuiltBand }
       );
+      let matchMode: "exact" | "broadened" | "coverage_gap" = "exact";
+      let effective = { type: String(geoType), id: String(geoId) };
+      let fallbackReason: string | null = null;
+      if (req.query.envelope === "1" && aggregates.length === 0) {
+        const inferredState = String(geoType) === "zip" ? inferTriStateFromZip(String(geoId)) : null;
+        if (inferredState) {
+          aggregates = await storage.getMarketAggregates("state", inferredState, { propertyType, bedsBand, yearBuiltBand });
+          if (aggregates.length > 0) {
+            matchMode = "broadened";
+            effective = { type: "state", id: inferredState };
+            fallbackReason = `No qualifying market snapshot is published for ${geoId}. Showing verified ${stateName(inferredState)} market data.`;
+          }
+        }
+        if (aggregates.length === 0) {
+          aggregates = await storage.getMarketOverview();
+          matchMode = aggregates.length > 0 ? "broadened" : "coverage_gap";
+          effective = { type: "tri_state", id: "NY-NJ-CT" };
+          fallbackReason = aggregates.length > 0
+            ? `No qualifying market snapshot is published for ${geoId}. Showing the current Tri-State overview.`
+            : `No verified market snapshot is currently published for ${geoId}.`;
+        }
+      }
+      if (req.query.envelope === "1") {
+        return res.json(await dataEnvelope({
+          requestedGeography: { type: String(geoType), id: String(geoId) },
+          effectiveGeography: effective,
+          matchMode,
+          records: aggregates,
+          fallbackReason,
+          supportedRecordTypes: ["recorded_sales", "market_snapshots"],
+          missingRecordTypes: ["live_listings"],
+          minimumSampleSize: 5,
+        }));
+      }
       res.json(aggregates);
     } catch (error) {
       console.error("Error fetching market aggregates:", error);
@@ -2142,12 +2214,37 @@ Sitemap: ${baseUrl}/sitemap.xml
       if (!geoType || !geoId) {
         return res.status(400).json({ message: "geoType and geoId are required" });
       }
-      const recentSales = await storage.getRecentSalesForArea(
+      let recentSales = await storage.getRecentSalesForArea(
         geoType as string,
         geoId as string,
         parseInt(limit as string) || 20
       );
+      let matchMode: "exact" | "broadened" | "coverage_gap" = "exact";
+      let effective = { type: String(geoType), id: String(geoId) };
+      let fallbackReason: string | null = null;
+      if (req.query.envelope === "1" && recentSales.length === 0) {
+        const inferredState = String(geoType) === "zip" ? inferTriStateFromZip(String(geoId)) : null;
+        if (inferredState) {
+          recentSales = await storage.getRecentSalesForArea("state", inferredState, parseInt(limit as string) || 20);
+          matchMode = recentSales.length > 0 ? "broadened" : "coverage_gap";
+          effective = { type: "state", id: inferredState };
+          fallbackReason = recentSales.length > 0
+            ? `No qualifying recent sales are published for ${geoId}. Showing verified ${stateName(inferredState)} transactions.`
+            : `No verified recent sales are currently published for ${geoId}.`;
+        }
+      }
       res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+      if (req.query.envelope === "1") {
+        return res.json(await dataEnvelope({
+          requestedGeography: { type: String(geoType), id: String(geoId) },
+          effectiveGeography: effective,
+          matchMode,
+          records: recentSales,
+          fallbackReason,
+          supportedRecordTypes: ["recorded_sales"],
+          missingRecordTypes: ["live_listings"],
+        }));
+      }
       res.json(recentSales);
     } catch (error) {
       console.error("Error fetching recent sales:", error);
@@ -2160,8 +2257,31 @@ Sitemap: ${baseUrl}/sitemap.xml
     try {
       const state = req.query.state as string | undefined;
       const limit = parseInt(req.query.limit as string) || 25;
-      const upAndComingZips = await storage.getUpAndComingZips(state, limit);
+      let upAndComingZips = await storage.getUpAndComingZips(state, limit);
+      let matchMode: "exact" | "broadened" = "exact";
+      if (state && upAndComingZips.length === 0) {
+        upAndComingZips = await storage.getUpAndComingZips(undefined, limit);
+        matchMode = "broadened";
+      }
       res.setHeader("Cache-Control", "public, max-age=60, s-maxage=900, stale-while-revalidate=1800");
+      res.setHeader("X-RD-Match-Mode", matchMode);
+      res.setHeader("X-RD-Requested-Geography", state || "tri-state");
+      res.setHeader("X-RD-Effective-Geography", matchMode === "broadened" ? "tri-state" : state || "tri-state");
+      if (matchMode === "broadened") {
+        res.setHeader("X-RD-Fallback-Reason", `No eligible markets are currently published for ${state}. Showing verified Tri-State rankings.`);
+      }
+      if (req.query.envelope === "1") {
+        return res.json(await dataEnvelope({
+          requestedGeography: state ? { type: "state", id: state, name: stateName(state) } : { type: "tri_state", name: "NY/NJ/CT" },
+          effectiveGeography: matchMode === "broadened" ? { type: "tri_state", name: "NY/NJ/CT" } : state ? { type: "state", id: state, name: stateName(state) } : { type: "tri_state", name: "NY/NJ/CT" },
+          matchMode,
+          records: upAndComingZips,
+          fallbackReason: matchMode === "broadened" ? `No eligible markets are currently published for ${state}. Showing verified Tri-State rankings.` : null,
+          supportedRecordTypes: ["recorded_sales", "market_rankings", "public_properties"],
+          missingRecordTypes: ["live_listings"],
+          minimumSampleSize: 5,
+        }));
+      }
       res.json(upAndComingZips);
     } catch (error) {
       console.error("Error fetching up and coming ZIPs:", error);
@@ -2878,26 +2998,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  // Recompute market_aggregates from real recorded sales. Safe to re-run.
-  // Used to refresh the production database after deploying ETL changes.
-  app.post("/api/admin/refresh-aggregates", isAuthenticated, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.user.id);
-      if (user?.role !== "admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const { refreshAggregates } = await import("./productionDataSync");
-      const startedAt = Date.now();
-      const count = await refreshAggregates();
-      const elapsedMs = Date.now() - startedAt;
-      res.json({ success: true, aggregateCount: count, elapsedMs });
-    } catch (error: any) {
-      console.error("Error refreshing aggregates:", error);
-      res.status(500).json({ message: "Failed to refresh aggregates", error: error?.message });
-    }
-  });
-
-  // ETL status (admin) - mock for now
+  // ETL telemetry is not yet persisted. Never report invented pipeline health.
   app.get("/api/admin/etl-status", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.id);
@@ -2905,10 +3006,11 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(403).json({ message: "Forbidden" });
       }
       res.json({
-        lastRun: new Date().toISOString(),
-        status: "healthy",
-        recordsProcessed: 45823,
-        errors: 0,
+        lastRun: null,
+        status: "not_configured",
+        recordsProcessed: null,
+        errors: null,
+        message: "Persistent ETL run telemetry has not been configured yet.",
       });
     } catch (error) {
       console.error("Error fetching ETL status:", error);

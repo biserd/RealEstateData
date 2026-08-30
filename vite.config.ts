@@ -15,6 +15,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 450,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("@tanstack/react-query")) return "data-client";
+          if (id.includes("@radix-ui")) return "ui-primitives";
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|wouter)[\\/]/.test(id)) return "framework";
+          return "vendor";
+        },
+      },
+    },
   },
   server: {
     fs: {

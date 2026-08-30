@@ -23,7 +23,7 @@ export default function ApiAccess() {
     {
       icon: <Database className="h-6 w-6" />,
       title: "Real Estate Data at Scale",
-      description: "Access 199,500+ properties, market statistics, and comparable sales data across NY, NJ, and CT.",
+      description: "Access published properties, market snapshots, and source-backed comparable sales with explicit dataset metadata.",
     },
     {
       icon: <Zap className="h-6 w-6" />,
@@ -78,7 +78,7 @@ export default function ApiAccess() {
   const useCases = [
     {
       title: "Build Investment Tools",
-      description: "Power your investment analysis platform with real-time property data and opportunity scores.",
+      description: "Power your investment analysis platform with versioned public-record data and opportunity scores.",
     },
     {
       title: "Integrate with CRM",
@@ -109,7 +109,7 @@ export default function ApiAccess() {
     <>
       <SEO 
         title="Developer API - Real Estate Data for Your Applications"
-        description="Access 199,500+ properties via REST API. Get property data, market statistics, opportunity scores, and comparable sales for NY, NJ, and CT."
+        description="Access published properties, recorded-sale market statistics, opportunity scores, and reproducible comps with explicit coverage and freshness."
       />
       <div className="min-h-screen bg-background">
       <MarketingHeader />

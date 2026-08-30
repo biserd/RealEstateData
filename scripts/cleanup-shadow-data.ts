@@ -1,5 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "../server/db";
+import { assertDatabaseWriteAllowed, databaseIdentity } from "./lib/database-safety";
 
 const apply = process.argv.includes("--apply");
 
@@ -9,6 +10,8 @@ async function count(query: SQL): Promise<number> {
 }
 
 async function main() {
+  assertDatabaseWriteAllowed(apply);
+  console.log(JSON.stringify({ database: databaseIdentity() }));
   const generatedSalesWhere = sql`
     property_id IS NOT NULL
     AND match_method IS NULL

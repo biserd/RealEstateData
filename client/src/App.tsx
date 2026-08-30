@@ -2,18 +2,15 @@ import { Switch, Route } from "wouter";
 import { lazy, Suspense } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
-import NotFound from "@/pages/not-found";
-import Landing from "@/pages/Landing";
-import Home from "@/pages/Home";
-import Login from "@/pages/Login";
-
-// P-01: lazy-load non-critical routes so the initial bundle stays small.
-// Landing, Home, and Login are eager because they sit on the auth boundary
-// and one of them renders on every first paint.
+// Every route is lazy, including the auth boundary. The static HTML/CSS shell
+// paints immediately while only the selected page module is downloaded.
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Landing = lazy(() => import("@/pages/Landing"));
+const Home = lazy(() => import("@/pages/Home"));
+const Login = lazy(() => import("@/pages/Login"));
+const Toaster = lazy(() => import("@/components/ui/toaster").then((module) => ({ default: module.Toaster })));
 const Register = lazy(() => import("@/pages/Register"));
 const MarketExplorer = lazy(() => import("@/pages/MarketExplorer"));
 const OpportunityScreener = lazy(() => import("@/pages/OpportunityScreener"));
@@ -116,18 +113,14 @@ function Router() {
   );
 }
 
-// P-03: MapProvider is no longer mounted at the root — it is now wrapped
-// inside <PropertyMap> and the activated branch of <InteractiveStreetView>,
-// so the Google Maps JS bundle is only requested on routes that visibly
-// render an interactive map.
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
+        <Suspense fallback={null}>
           <Toaster />
-          <Router />
-        </TooltipProvider>
+        </Suspense>
+        <Router />
       </ThemeProvider>
     </QueryClientProvider>
   );

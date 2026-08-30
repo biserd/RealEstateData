@@ -85,6 +85,7 @@
   ],
   "vars": {
     "NODE_ENV": "production",
+    "DATABASE_ENV": "production",
     "APP_BASE_URL": "https://realtorsdashboard.com",
     "EMAIL_FROM_ADDRESS": "hello@realtorsdashboard.com",
     "EMAIL_FROM_NAME": "Realtors Dashboard",

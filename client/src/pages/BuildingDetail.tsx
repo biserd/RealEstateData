@@ -19,9 +19,6 @@ import {
 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { BuildingJsonLd, BreadcrumbsJsonLd } from "@/components/JsonLd";
-import { StreetViewImage } from "@/components/StreetViewImage";
-import { InteractiveStreetView } from "@/components/InteractiveStreetView";
-import { PropertyMap } from "@/components/PropertyMap";
 import { AppLayout } from "@/components/layouts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -197,7 +194,6 @@ export default function BuildingDetail() {
 
   const stats = insights?.salesStats;
   const trend = insights?.yearlyTrend || [];
-  const trendMaxMedian = Math.max(1, ...trend.map((t) => t.medianPrice));
   const lastTwo = trend.slice(-2);
   const yoyDelta =
     lastTwo.length === 2 && lastTwo[0].medianPrice > 0
@@ -243,39 +239,6 @@ export default function BuildingDetail() {
           buildingAddress={building.displayAddress}
           buildingBbl={building.baseBbl}
         />
-
-        {(building.latitude && building.longitude) && (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2 aspect-[16/9] overflow-hidden rounded-lg border" data-testid="hero-streetview-building">
-              <InteractiveStreetView
-                lat={building.latitude}
-                lng={building.longitude}
-                address={building.displayAddress}
-              />
-            </div>
-            <div className="aspect-[16/9] md:aspect-auto overflow-hidden rounded-lg border" data-testid="map-building-location">
-              <PropertyMap
-                properties={nearbyProperties}
-                subjectProperty={{
-                  id: building.baseBbl,
-                  address: building.displayAddress,
-                  city: building.borough || "",
-                  state: "NY",
-                  zipCode: building.zipCode || "",
-                  propertyType: "Condo Building",
-                  beds: null,
-                  baths: null,
-                  sqft: null,
-                  latitude: building.latitude,
-                  longitude: building.longitude,
-                } as Property}
-                center={{ lat: building.latitude, lng: building.longitude }}
-                zoom={15}
-                height="100%"
-              />
-            </div>
-          </div>
-        )}
 
         <Card data-testid="card-building-header">
           <CardHeader>
@@ -494,7 +457,7 @@ export default function BuildingDetail() {
                   {mixTotal === 0 && (
                     <p className="text-sm text-muted-foreground">No unit breakdown available.</p>
                   )}
-                  {unitMixConfig.map(({ key, label, Icon, color }) => {
+                  {unitMixConfig.map(({ key, label, Icon }) => {
                     const count = insights?.unitMix[key] ?? 0;
                     if (count === 0) return null;
                     const pct = mixTotal > 0 ? (count / mixTotal) * 100 : 0;
@@ -511,12 +474,6 @@ export default function BuildingDetail() {
                               ({pct.toFixed(0)}%)
                             </span>
                           </span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={cn("h-full rounded-full", color)}
-                            style={{ width: `${pct}%` }}
-                          />
                         </div>
                       </div>
                     );
@@ -538,36 +495,14 @@ export default function BuildingDetail() {
                     No yearly trend data available yet.
                   </p>
                 ) : (
-                  <div className="space-y-2">
-                    {trend.map((row) => {
-                      const widthPct = (row.medianPrice / trendMaxMedian) * 100;
-                      return (
-                        <div
-                          key={row.year}
-                          className="grid grid-cols-12 items-center gap-3 text-sm"
-                          data-testid={`row-trend-${row.year}`}
-                        >
-                          <span className="col-span-1 font-mono text-muted-foreground">
-                            {row.year}
-                          </span>
-                          <div className="col-span-7 h-6 rounded bg-muted overflow-hidden">
-                            <div
-                              className="h-full bg-primary/70 flex items-center justify-end pr-2 text-xs text-primary-foreground font-medium"
-                              style={{ width: `${Math.max(8, widthPct)}%` }}
-                            >
-                              {formatPrice(row.medianPrice)}
-                            </div>
-                          </div>
-                          <span className="col-span-2 text-xs text-muted-foreground tabular-nums">
-                            {row.count} {row.count === 1 ? "sale" : "sales"}
-                          </span>
-                          <span className="col-span-2 text-xs text-muted-foreground tabular-nums text-right">
-                            {formatPrice(row.minPrice)} – {formatPrice(row.maxPrice)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <div className="overflow-x-auto"><table className="w-full text-sm">
+                    <thead><tr className="border-b text-muted-foreground"><th className="py-2 text-left">Year</th><th className="text-right">Sales</th><th className="text-right">Median</th><th className="text-right">Range</th></tr></thead>
+                    <tbody>{trend.map((row) => (
+                      <tr key={row.year} className="border-b last:border-0" data-testid={`row-trend-${row.year}`}>
+                        <td className="py-2 font-mono">{row.year}</td><td className="text-right tabular-nums">{row.count}</td><td className="text-right font-medium tabular-nums">{formatPrice(row.medianPrice)}</td><td className="text-right text-muted-foreground tabular-nums">{formatPrice(row.minPrice)} – {formatPrice(row.maxPrice)}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table></div>
                 )}
               </CardContent>
             </Card>
