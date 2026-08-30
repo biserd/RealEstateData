@@ -111,7 +111,10 @@ function clientApiHeaders(source: Headers): Headers {
   const headers = new Headers(source);
   // Keep dynamic JSON out of browser caches. Edge reuse is handled explicitly
   // through Cache API entries below and is unaffected by this client policy.
-  headers.set("cache-control", "private, no-store, max-age=0, must-revalidate");
+  // `no-transform` is also required on the public custom domain: zone-level
+  // browser features must not rewrite API payloads that the client parses as
+  // JSON. The direct workers.dev hostname does not pass through those features.
+  headers.set("cache-control", "private, no-store, max-age=0, must-revalidate, no-transform");
   return headers;
 }
 

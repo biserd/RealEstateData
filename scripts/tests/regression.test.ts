@@ -203,6 +203,7 @@ test("HTML documents prevent zone-level JavaScript detection injection", () => {
   const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
   assert.match(workerSource, /function protectDocumentResponse/);
   assert.match(workerSource, /cache-control[^\n]+no-transform/);
+  assert.match(workerSource, /private, no-store, max-age=0, must-revalidate, no-transform/);
   assert.match(workerSource, /no-store, no-transform/);
   assert.match(workerSource, /public, max-age=60, stale-while-revalidate=300, no-transform/);
 });
