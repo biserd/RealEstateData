@@ -20,7 +20,7 @@ export function serveStatic(app: Express) {
     },
   }));
 
-  app.use("*", async (req, res) => {
+  app.use(async (req, res) => {
     try {
       const indexPath = path.resolve(distPath, "index.html");
       let html = await fs.promises.readFile(indexPath, "utf-8");

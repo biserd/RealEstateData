@@ -24,7 +24,7 @@ The platform uses Drizzle ORM with PostgreSQL (Neon serverless driver) and a sch
 
 ### AI Integration
 
-AI features for Property Analysis, Market Intelligence, and Grounded Responses are powered by OpenAI API (GPT-5) via Replit AI Integrations. AI outputs are structured JSON, incorporate contextual data, include confidence scoring, and provide data citations to prevent hallucinations.
+AI features for Property Analysis, Market Intelligence, and Grounded Responses use the OpenAI API directly or through an optional Cloudflare AI Gateway. AI outputs are structured JSON, incorporate contextual data, include confidence scoring, and provide data citations to prevent hallucinations.
 
 ### Features
 
@@ -62,13 +62,13 @@ The guides hub at `/guides` and 8 long-form articles at `/guides/:slug` make up 
 -   **Compression:** Express `compression` middleware gzips HTML/JSON/XML responses (skips images/video/audio).
 -   **Sitemap caching:** All sitemap and `robots.txt` routes set public `Cache-Control` with `stale-while-revalidate`.
 -   **Code splitting:** Routes other than Landing/Home/Login are loaded via `React.lazy` + `Suspense` to keep the initial bundle small.
--   **Maps on demand:** `MapProvider` is mounted inside `<PropertyMap>` and the activated branch of `<InteractiveStreetView>` instead of the app root, so the Google Maps JS bundle only loads on routes that visibly render a map. Static map and Street View images are served through the on-disk proxy at `/api/img/staticmap` and `/api/img/streetview`.
+-   **Maps on demand:** App-owned SVG location previews are the default and make no Google request. The Maps JavaScript API and Maps Embed Street View load only after an explicit user action.
 
 ## External Dependencies
 
--   **AI Services:** Replit AI Integrations (OpenAI-compatible API for GPT-5)
+-   **AI Services:** OpenAI API, optionally routed through Cloudflare AI Gateway
 -   **Database:** Neon Serverless PostgreSQL
--   **Payments:** Stripe (via stripe-replit-sync) for subscription management and multi-app routing.
--   **Authentication:** Passport Local Strategy (bcrypt for password hashing)
+-   **Payments:** Direct Stripe API calls and signed webhooks
+-   **Authentication:** Passport Local Strategy (bcryptjs for password hashing)
 -   **Geocoding:** NYC Geoclient API
 -   **Market Data:** Zillow Research, FRED MORTGAGE30US series (for live mortgage rates)

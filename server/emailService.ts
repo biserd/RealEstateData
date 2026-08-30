@@ -1,15 +1,92 @@
-// Resend Email Service - Direct API Integration
-import { Resend } from 'resend';
+// Cloudflare Email Service. Workers use the native send_email binding; local
+// Node development may use Cloudflare's REST API with an account ID/token.
+interface CloudflareEmailAddress {
+  email: string;
+  name: string;
+}
 
-const FROM_EMAIL = 'Realtors Dashboard <hello@realtorsdashboard.com>';
-const ADMIN_EMAIL = 'hello@bigappledigital.nyc';
+let workerEmailBinding: SendEmail | null = null;
 
-function getResendClient() {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new Error('RESEND_API_KEY environment variable is not set');
+export function configureCloudflareEmail(binding: SendEmail): void {
+  workerEmailBinding = binding;
+}
+
+const EMAIL_FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'hello@realtorsdashboard.com';
+const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'Realtors Dashboard';
+const FROM_EMAIL = `${EMAIL_FROM_NAME} <${EMAIL_FROM_ADDRESS}>`;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'hello@bigappledigital.nyc';
+
+function normalizeFrom(value: string): CloudflareEmailAddress {
+  const match = value.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (!match) return { email: value.trim(), name: EMAIL_FROM_NAME };
+  return { email: match[2].trim(), name: match[1].trim() || EMAIL_FROM_NAME };
+}
+
+async function sendThroughCloudflare(message: {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<{ data: { id: string } | null; error: Error | null }> {
+  try {
+    if (workerEmailBinding) {
+      const result = await workerEmailBinding.send({
+        from: normalizeFrom(message.from),
+        to: message.to,
+        subject: message.subject,
+        html: message.html,
+      });
+      return { data: { id: result.messageId }, error: null };
+    }
+
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken = process.env.CLOUDFLARE_EMAIL_API_TOKEN;
+    if (!accountId || !apiToken) {
+      throw new Error(
+        'Cloudflare Email is not configured. Use the EMAIL Worker binding or set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_EMAIL_API_TOKEN for local Node development.',
+      );
+    }
+
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/email/sending/send`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: normalizeFrom(message.from),
+          to: message.to,
+          subject: message.subject,
+          html: message.html,
+        }),
+      },
+    );
+    const payload = await response.json() as {
+      success?: boolean;
+      result?: { messageId?: string; delivered?: string[]; queued?: string[] };
+      errors?: Array<{ message?: string }>;
+    };
+    if (!response.ok || payload.success === false) {
+      throw new Error(
+        payload.errors?.map((error) => error.message).filter(Boolean).join('; ') ||
+          `Cloudflare Email returned HTTP ${response.status}`,
+      );
+    }
+    const id = payload.result?.messageId ||
+      `cloudflare-${crypto.randomUUID()}`;
+    return { data: { id }, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
   }
-  return new Resend(apiKey);
+}
+
+function getCloudflareEmailClient() {
+  return { emails: { send: sendThroughCloudflare } };
 }
 
 interface SendEmailOptions {
@@ -21,9 +98,9 @@ interface SendEmailOptions {
 
 export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
   try {
-    const client = getResendClient();
+    const client = getCloudflareEmailClient();
     
-    console.log(`[Resend] Sending email to ${options.to}: ${options.subject}`);
+    console.log(`[Cloudflare Email] Sending email to ${options.to}: ${options.subject}`);
     
     const result = await client.emails.send({
       from: options.from || FROM_EMAIL,
@@ -33,24 +110,24 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
     });
     
     if (result.error) {
-      console.error(`[Resend] Error sending email:`, result.error);
+      console.error(`[Cloudflare Email] Error sending email:`, result.error);
       return false;
     }
     
-    console.log(`[Resend] Email sent successfully, id: ${result.data?.id}`);
+    console.log(`[Cloudflare Email] Email sent successfully, id: ${result.data?.id}`);
     return true;
   } catch (error) {
-    console.error('[Resend] Failed to send email:', error);
+    console.error('[Cloudflare Email] Failed to send email:', error);
     return false;
   }
 }
 
 export async function sendWelcomeEmail(userEmail: string, firstName?: string | null) {
   try {
-    const client = getResendClient();
+    const client = getCloudflareEmailClient();
     const name = firstName || 'there';
     
-    console.log(`[Resend] Attempting to send welcome email to ${userEmail} from ${FROM_EMAIL}`);
+    console.log(`[Cloudflare Email] Attempting to send welcome email to ${userEmail} from ${FROM_EMAIL}`);
     
     const result = await client.emails.send({
       from: FROM_EMAIL,
@@ -111,28 +188,28 @@ export async function sendWelcomeEmail(userEmail: string, firstName?: string | n
       `,
     });
     
-    console.log(`[Resend] Welcome email response:`, JSON.stringify(result, null, 2));
+    console.log(`[Cloudflare Email] Welcome email response:`, JSON.stringify(result, null, 2));
     
     if (result.error) {
-      console.error(`[Resend] Error sending welcome email:`, result.error);
+      console.error(`[Cloudflare Email] Error sending welcome email:`, result.error);
       return false;
     }
     
-    console.log(`[Resend] Welcome email sent successfully to ${userEmail}, id: ${result.data?.id}`);
+    console.log(`[Cloudflare Email] Welcome email sent successfully to ${userEmail}, id: ${result.data?.id}`);
     return true;
   } catch (error) {
-    console.error('[Resend] Failed to send welcome email:', error);
+    console.error('[Cloudflare Email] Failed to send welcome email:', error);
     return false;
   }
 }
 
 export async function sendActivationEmail(userEmail: string, activationToken: string, tier: 'pro' | 'premium') {
   try {
-    const client = getResendClient();
+    const client = getCloudflareEmailClient();
     const tierName = tier === 'premium' ? 'Premium' : 'Pro';
     const activationUrl = `https://realtorsdashboard.com/activate?token=${activationToken}`;
     
-    console.log(`[Resend] Attempting to send activation email to ${userEmail}`);
+    console.log(`[Cloudflare Email] Attempting to send activation email to ${userEmail}`);
     
     const result = await client.emails.send({
       from: FROM_EMAIL,
@@ -201,31 +278,31 @@ export async function sendActivationEmail(userEmail: string, activationToken: st
       `,
     });
     
-    console.log(`[Resend] Activation email response:`, JSON.stringify(result, null, 2));
+    console.log(`[Cloudflare Email] Activation email response:`, JSON.stringify(result, null, 2));
     
     if (result.error) {
-      console.error(`[Resend] Error sending activation email:`, result.error);
+      console.error(`[Cloudflare Email] Error sending activation email:`, result.error);
       return false;
     }
     
-    console.log(`[Resend] Activation email sent successfully to ${userEmail}, id: ${result.data?.id}`);
+    console.log(`[Cloudflare Email] Activation email sent successfully to ${userEmail}, id: ${result.data?.id}`);
     return true;
   } catch (error) {
-    console.error('[Resend] Failed to send activation email:', error);
+    console.error('[Cloudflare Email] Failed to send activation email:', error);
     return false;
   }
 }
 
 export async function sendPasswordResetEmail(userEmail: string, resetToken: string) {
   try {
-    const client = getResendClient();
+    const client = getCloudflareEmailClient();
     const resetUrl = `https://realtorsdashboard.com/reset-password?token=${resetToken}`;
     const devResetUrl = process.env.NODE_ENV !== 'production' 
       ? `http://localhost:5000/reset-password?token=${resetToken}` 
       : resetUrl;
     const linkUrl = process.env.NODE_ENV === 'production' ? resetUrl : devResetUrl;
     
-    console.log(`[Resend] Attempting to send password reset email to ${userEmail}`);
+    console.log(`[Cloudflare Email] Attempting to send password reset email to ${userEmail}`);
     
     const result = await client.emails.send({
       from: FROM_EMAIL,
@@ -275,14 +352,14 @@ export async function sendPasswordResetEmail(userEmail: string, resetToken: stri
     });
     
     if (result.error) {
-      console.error(`[Resend] Error sending password reset email:`, result.error);
+      console.error(`[Cloudflare Email] Error sending password reset email:`, result.error);
       return false;
     }
     
-    console.log(`[Resend] Password reset email sent to ${userEmail}, id: ${result.data?.id}`);
+    console.log(`[Cloudflare Email] Password reset email sent to ${userEmail}, id: ${result.data?.id}`);
     return true;
   } catch (error) {
-    console.error('[Resend] Failed to send password reset email:', error);
+    console.error('[Cloudflare Email] Failed to send password reset email:', error);
     return false;
   }
 }
@@ -294,7 +371,7 @@ export async function sendTrialStartedNotificationToAdmin(
   lastName?: string | null,
 ) {
   try {
-    const client = getResendClient();
+    const client = getCloudflareEmailClient();
 
     const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Not provided';
     const startTime = new Date().toLocaleString('en-US', {
@@ -304,7 +381,7 @@ export async function sendTrialStartedNotificationToAdmin(
     });
     const tierLabel = tier === 'premium' ? 'Premium' : tier === 'pro' ? 'Pro' : tier;
 
-    console.log(`[Resend] Sending trial-started notification for ${userEmail} (${tierLabel}) to ${ADMIN_EMAIL}`);
+    console.log(`[Cloudflare Email] Sending trial-started notification for ${userEmail} (${tierLabel}) to ${ADMIN_EMAIL}`);
 
     const result = await client.emails.send({
       from: FROM_EMAIL,
@@ -351,21 +428,21 @@ export async function sendTrialStartedNotificationToAdmin(
     });
 
     if (result.error) {
-      console.error(`[Resend] Error sending trial-started notification:`, result.error);
+      console.error(`[Cloudflare Email] Error sending trial-started notification:`, result.error);
       return false;
     }
 
-    console.log(`[Resend] Trial-started notification sent for ${userEmail}, id: ${result.data?.id}`);
+    console.log(`[Cloudflare Email] Trial-started notification sent for ${userEmail}, id: ${result.data?.id}`);
     return true;
   } catch (error) {
-    console.error('[Resend] Failed to send trial-started notification:', error);
+    console.error('[Cloudflare Email] Failed to send trial-started notification:', error);
     return false;
   }
 }
 
 export async function sendNewUserNotificationToAdmin(userEmail: string, firstName?: string | null, lastName?: string | null) {
   try {
-    const client = getResendClient();
+    const client = getCloudflareEmailClient();
     
     const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Not provided';
     const signupTime = new Date().toLocaleString('en-US', { 
@@ -374,7 +451,7 @@ export async function sendNewUserNotificationToAdmin(userEmail: string, firstNam
       timeStyle: 'short'
     });
     
-    console.log(`[Resend] Attempting to send admin notification for ${userEmail} to ${ADMIN_EMAIL}`);
+    console.log(`[Cloudflare Email] Attempting to send admin notification for ${userEmail} to ${ADMIN_EMAIL}`);
     
     const result = await client.emails.send({
       from: FROM_EMAIL,
@@ -418,17 +495,17 @@ export async function sendNewUserNotificationToAdmin(userEmail: string, firstNam
       `,
     });
     
-    console.log(`[Resend] Admin notification response:`, JSON.stringify(result, null, 2));
+    console.log(`[Cloudflare Email] Admin notification response:`, JSON.stringify(result, null, 2));
     
     if (result.error) {
-      console.error(`[Resend] Error sending admin notification:`, result.error);
+      console.error(`[Cloudflare Email] Error sending admin notification:`, result.error);
       return false;
     }
     
-    console.log(`[Resend] Admin notification sent successfully for ${userEmail}, id: ${result.data?.id}`);
+    console.log(`[Cloudflare Email] Admin notification sent successfully for ${userEmail}, id: ${result.data?.id}`);
     return true;
   } catch (error) {
-    console.error('[Resend] Failed to send admin notification:', error);
+    console.error('[Cloudflare Email] Failed to send admin notification:', error);
     return false;
   }
 }

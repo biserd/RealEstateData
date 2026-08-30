@@ -24,8 +24,8 @@ export default function Privacy() {
             </p>
             <h3 className="text-lg font-medium mb-2">Account Information</h3>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              When you create an account, we collect your name, email address, and authentication credentials 
-              through our identity provider (Replit Auth).
+              When you create an account, we collect your name, email address, and a securely hashed password.
+              Login sessions are stored in the application database.
             </p>
             <h3 className="text-lg font-medium mb-2">Usage Data</h3>
             <p className="text-muted-foreground leading-relaxed mb-4">

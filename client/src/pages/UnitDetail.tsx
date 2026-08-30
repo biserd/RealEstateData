@@ -45,8 +45,7 @@ import { Button } from "@/components/ui/button";
 import { Crown, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useAnonUnitViewLimit } from "@/hooks/useAnonViewLimit";
-import { PriceGate, LoginGateCard, AnonLimitDialog } from "@/components/UnitGating";
+import { PriceGate, LoginGateCard } from "@/components/UnitGating";
 
 interface CondoUnit {
   unitBbl: string;
@@ -598,7 +597,6 @@ export default function UnitDetail() {
   const { isAuthenticated } = useAuth();
   const { isPro, isPremium } = useSubscription();
   const hasPro = isPro || isPremium;
-  const anonView = useAnonUnitViewLimit(idOrSlug, !isAuthenticated);
 
   // First resolve the slug/id to get the actual unit data
   const { data: unit, isLoading, error } = useQuery<CondoUnit>({
@@ -1130,7 +1128,6 @@ export default function UnitDetail() {
           </div>
         </div>
       </div>
-      <AnonLimitDialog open={anonView.limitReached} authenticated={isAuthenticated} />
     </AppLayout>
   );
 }

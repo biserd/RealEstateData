@@ -1,6 +1,4 @@
-import { useState } from "react";
-import { Building2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { LocationPreview } from "@/components/LocationPreview";
 
 interface StreetViewImageProps {
   lat: number | null | undefined;
@@ -25,69 +23,23 @@ export function StreetViewImage({
   rounded = true,
   loading = "lazy",
 }: StreetViewImageProps) {
-  const [streetErrored, setStreetErrored] = useState(false);
-  const [mapErrored, setMapErrored] = useState(false);
+  void loading;
 
   const hasCoords =
     lat !== null && lat !== undefined && lng !== null && lng !== undefined && !Number.isNaN(lat) && !Number.isNaN(lng);
 
-  if (!hasCoords || mapErrored) {
-    return (
-      <div
-        className={cn(
-          "flex items-center justify-center bg-muted text-muted-foreground",
-          rounded && "rounded-lg",
-          className,
-        )}
-        style={{ aspectRatio: `${width} / ${height}` }}
-        data-testid="img-streetview-fallback"
-      >
-        <Building2 className="h-10 w-10 opacity-50" />
-      </div>
-    );
-  }
-
-  const reqW = Math.min(width, 640);
-  const reqH = Math.min(height, 640);
-
-  if (streetErrored) {
-    const mapSrc = `/api/img/staticmap?lat=${lat}&lng=${lng}&zoom=17&w=${reqW}&h=${reqH}&marker=red`;
-    return (
-      <img
-        src={mapSrc}
-        width={width}
-        height={height}
-        loading={loading}
-        decoding="async"
-        alt={alt || (address ? `Map view of ${address}` : "Map view")}
-        className={cn(
-          "w-full h-full object-cover",
-          rounded && "rounded-lg",
-          className,
-        )}
-        onError={() => setMapErrored(true)}
-        data-testid="img-streetview-map-fallback"
-      />
-    );
-  }
-
-  const src = `/api/img/streetview?lat=${lat}&lng=${lng}&w=${reqW}&h=${reqH}`;
-
   return (
-    <img
-      src={src}
+    <LocationPreview
+      center={hasCoords ? { lat: Number(lat), lng: Number(lng) } : null}
+      markers={hasCoords ? [{ lat: Number(lat), lng: Number(lng), color: "blue" }] : []}
+      address={address}
       width={width}
       height={height}
-      loading={loading}
-      decoding="async"
-      alt={alt || (address ? `Street view of ${address}` : "Street view")}
-      className={cn(
-        "w-full h-full object-cover",
-        rounded && "rounded-lg",
-        className,
-      )}
-      onError={() => setStreetErrored(true)}
-      data-testid="img-streetview"
+      zoom={17}
+      alt={alt || (address ? `Location preview of ${address}` : "Location preview")}
+      className={className}
+      rounded={rounded}
+      variant="property"
     />
   );
 }

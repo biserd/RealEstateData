@@ -5,3 +5,10 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .cache/
+.wrangler/
+.npm-cache/
+.dev.vars
+.env
+.env.*
+!.env.example
+!.dev.vars.example

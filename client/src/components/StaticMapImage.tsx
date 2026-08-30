@@ -1,6 +1,4 @@
-import { useState } from "react";
-import { MapPin } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { LocationPreview } from "@/components/LocationPreview";
 
 interface MapMarker {
   lat: number;
@@ -34,7 +32,8 @@ export function StaticMapImage({
   rounded = true,
   loading = "lazy",
 }: StaticMapImageProps) {
-  const [errored, setErrored] = useState(false);
+  void mapType;
+  void loading;
 
   const validMarkers = markers.filter(
     (m) => m.lat !== null && m.lng !== null && !Number.isNaN(m.lat) && !Number.isNaN(m.lng),
@@ -48,52 +47,16 @@ export function StaticMapImage({
       ? { lat: validMarkers[0].lat, lng: validMarkers[0].lng }
       : null;
 
-  if (!effective || errored) {
-    return (
-      <div
-        className={cn(
-          "flex items-center justify-center bg-muted text-muted-foreground",
-          rounded && "rounded-lg",
-          className,
-        )}
-        style={{ aspectRatio: `${width} / ${height}` }}
-        data-testid="img-staticmap-fallback"
-      >
-        <MapPin className="h-10 w-10 opacity-50" />
-      </div>
-    );
-  }
-
-  const reqW = Math.min(width, 640);
-  const reqH = Math.min(height, 640);
-  const markerColor = validMarkers[0]?.color || "red";
-
-  const params = new URLSearchParams({
-    lat: String(effective.lat),
-    lng: String(effective.lng),
-    zoom: String(zoom),
-    w: String(reqW),
-    h: String(reqH),
-    maptype: mapType,
-    marker: markerColor,
-  });
-  const src = `/api/img/staticmap?${params.toString()}`;
-
   return (
-    <img
-      src={src}
+    <LocationPreview
+      center={effective}
+      markers={validMarkers}
       width={width}
       height={height}
-      loading={loading}
-      decoding="async"
+      zoom={zoom}
       alt={alt}
-      className={cn(
-        "w-full h-full object-cover",
-        rounded && "rounded-lg",
-        className,
-      )}
-      onError={() => setErrored(true)}
-      data-testid="img-staticmap"
+      className={className}
+      rounded={rounded}
     />
   );
 }

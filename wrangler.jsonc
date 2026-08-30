@@ -1,0 +1,95 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "realtors-dashboard",
+  "main": "./server/worker.ts",
+  "workers_dev": true,
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist/public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*",
+      "/robots.txt",
+      "/sitemap*",
+      "/properties/*",
+      "/property/*",
+      "/building/*",
+      "/unit/*",
+      "/neighborhood/*",
+      "/methodology/*",
+      "/guides/*",
+      "/browse/*"
+    ]
+  },
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": ["hello@realtorsdashboard.com"]
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "USAGE_QUOTA",
+        "class_name": "UsageQuota"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1-usage-quota",
+      "new_sqlite_classes": ["UsageQuota"]
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "PUBLIC_RATE_LIMIT",
+      "namespace_id": "100101",
+      "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      "name": "SEARCH_RATE_LIMIT",
+      "namespace_id": "100102",
+      "simple": { "limit": 60, "period": 60 }
+    },
+    {
+      "name": "AI_RATE_LIMIT",
+      "namespace_id": "100103",
+      "simple": { "limit": 20, "period": 60 }
+    },
+    {
+      "name": "AUTH_RATE_LIMIT",
+      "namespace_id": "100104",
+      "simple": { "limit": 20, "period": 60 }
+    },
+    {
+      "name": "EXTERNAL_API_RATE_LIMIT",
+      "namespace_id": "100105",
+      "simple": { "limit": 100, "period": 10 }
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "realtorsdashboard.com/*",
+      "zone_name": "realtorsdashboard.com"
+    },
+    {
+      "pattern": "www.realtorsdashboard.com/*",
+      "zone_name": "realtorsdashboard.com"
+    }
+  ],
+  "vars": {
+    "NODE_ENV": "production",
+    "APP_BASE_URL": "https://realtorsdashboard.com",
+    "EMAIL_FROM_ADDRESS": "hello@realtorsdashboard.com",
+    "EMAIL_FROM_NAME": "Realtors Dashboard",
+    "ADMIN_EMAIL": "hello@bigappledigital.nyc",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEhj75hc4gIoOsCg"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

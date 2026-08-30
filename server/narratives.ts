@@ -1,15 +1,10 @@
 import { db } from "./db";
 import { sql } from "drizzle-orm";
-import OpenAI from "openai";
+import { openai } from "./aiClient";
 
 const MODEL = "gpt-5-mini";
 const STALE_AFTER_DAYS = 365;
 const MAX_NARRATIVE_TOKENS = 400;
-
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
 
 const inFlight = new Set<string>();
 

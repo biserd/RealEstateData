@@ -14,6 +14,7 @@ import { SEO } from "@/components/SEO";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, Check } from "lucide-react";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -33,6 +34,9 @@ export default function Register() {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
+  const [challengeVersion, setChallengeVersion] = useState(0);
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -53,7 +57,7 @@ export default function Register() {
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterFormData) => {
       const { confirmPassword, ...registerData } = data;
-      const response = await apiRequest("POST", "/api/auth/register", registerData);
+      const response = await apiRequest("POST", "/api/auth/register", { ...registerData, turnstileToken });
       return response.json();
     },
     onSuccess: () => {
@@ -65,6 +69,8 @@ export default function Register() {
       setLocation("/");
     },
     onError: (error: Error) => {
+      setTurnstileToken(null);
+      setChallengeVersion((version) => version + 1);
       const message = error.message.includes("400") 
         ? "This email is already registered"
         : "Registration failed. Please try again.";
@@ -243,10 +249,17 @@ export default function Register() {
                   )}
                 />
 
+                <TurnstileWidget
+                  key={challengeVersion}
+                  action="register"
+                  onToken={setTurnstileToken}
+                  onEnabledChange={setTurnstileEnabled}
+                />
+
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={registerMutation.isPending}
+                  disabled={registerMutation.isPending || (turnstileEnabled && !turnstileToken)}
                   data-testid="button-register-submit"
                 >
                   {registerMutation.isPending ? (

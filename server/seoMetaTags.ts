@@ -655,7 +655,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       <ul>${factsList}</ul>
     `;
 
-    // Static Street View image (proxied/cached server-side) — visible to crawlers without JS.
+    // Keep crawler content deterministic; the live page offers opt-in Street View.
     const streetViewHtml = (row.latitude && row.longitude)
       ? `<p><em>Street-level view available on the live page.</em></p>`
       : '';

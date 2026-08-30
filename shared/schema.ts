@@ -1205,7 +1205,7 @@ export const savedSearchNotifications = pgTable(
     // Email details
     emailSent: boolean("email_sent").default(false),
     emailSentAt: timestamp("email_sent_at"),
-    emailId: varchar("email_id"), // Resend message ID
+    emailId: varchar("email_id"), // Cloudflare Email message ID
     
     // Content
     subject: varchar("subject"),

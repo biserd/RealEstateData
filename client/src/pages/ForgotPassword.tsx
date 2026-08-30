@@ -13,6 +13,7 @@ import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, Mail, ArrowLeft, CheckCircle } from "lucide-react";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const forgotSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -22,6 +23,9 @@ type ForgotFormData = z.infer<typeof forgotSchema>;
 
 export default function ForgotPassword() {
   const [submitted, setSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
+  const [challengeVersion, setChallengeVersion] = useState(0);
 
   const form = useForm<ForgotFormData>({
     resolver: zodResolver(forgotSchema),
@@ -30,11 +34,15 @@ export default function ForgotPassword() {
 
   const forgotMutation = useMutation({
     mutationFn: async (data: ForgotFormData) => {
-      const response = await apiRequest("POST", "/api/auth/forgot-password", data);
+      const response = await apiRequest("POST", "/api/auth/forgot-password", { ...data, turnstileToken });
       return response.json();
     },
     onSuccess: () => {
       setSubmitted(true);
+    },
+    onError: () => {
+      setTurnstileToken(null);
+      setChallengeVersion((version) => version + 1);
     },
   });
 
@@ -118,10 +126,17 @@ export default function ForgotPassword() {
                         )}
                       />
 
+                      <TurnstileWidget
+                        key={challengeVersion}
+                        action="forgot_password"
+                        onToken={setTurnstileToken}
+                        onEnabledChange={setTurnstileEnabled}
+                      />
+
                       <Button
                         type="submit"
                         className="w-full"
-                        disabled={forgotMutation.isPending}
+                        disabled={forgotMutation.isPending || (turnstileEnabled && !turnstileToken)}
                         data-testid="button-forgot-submit"
                       >
                         {forgotMutation.isPending ? (

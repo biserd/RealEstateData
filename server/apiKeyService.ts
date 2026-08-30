@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { storage } from './storage';
 import type { ApiKey, User } from '@shared/schema';
 

@@ -2623,6 +2623,8 @@ export class DatabaseStorage implements IStorage {
     buildingDisplayAddress: string | null;
     borough: string | null;
     zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
     lastSalePrice: number;
     lastSaleDate: Date;
     opportunityScore: number;

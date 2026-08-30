@@ -1,31 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { apiKeyService } from './apiKeyService';
-import type { User, ApiKey } from '@shared/schema';
+import type { User as AppUser, ApiKey } from '@shared/schema';
+import { consumeQuota, type SubscriptionTier } from './quota';
 
 declare global {
   namespace Express {
     interface Request {
-      apiUser?: User;
+      apiUser?: AppUser;
       apiKey?: ApiKey;
     }
   }
 }
-
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute
-
-function cleanupRateLimitStore() {
-  const now = Date.now();
-  const entries = Array.from(rateLimitStore.entries());
-  for (const [key, value] of entries) {
-    if (value.resetAt < now) {
-      rateLimitStore.delete(key);
-    }
-  }
-}
-
-setInterval(cleanupRateLimitStore, 60 * 1000);
 
 export async function apiKeyAuth(req: Request, res: Response, next: NextFunction) {
   const apiKey = req.headers['x-api-key'] as string;
@@ -61,35 +46,34 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
   }
 }
 
-export function apiRateLimit(req: Request, res: Response, next: NextFunction) {
+export async function apiRateLimit(req: Request, res: Response, next: NextFunction) {
   const keyId = req.apiKey?.id;
   if (!keyId) {
     return next();
   }
+  const user = req.apiUser;
+  const tier: SubscriptionTier = user?.subscriptionTier === 'premium' && user.subscriptionStatus === 'active'
+    ? 'premium'
+    : user?.subscriptionTier === 'pro' && user.subscriptionStatus === 'active'
+      ? 'pro'
+      : 'free';
+  const decision = await consumeQuota({
+    req,
+    action: 'developer_api',
+    tier,
+    subjectId: `api-key:${keyId}`,
+  });
+  if (!decision) return next();
 
-  const now = Date.now();
-  let entry = rateLimitStore.get(keyId);
-  
-  if (!entry || entry.resetAt < now) {
-    entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
-    rateLimitStore.set(keyId, entry);
-  }
-
-  entry.count++;
-
-  res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
-  res.setHeader('X-RateLimit-Remaining', Math.max(0, RATE_LIMIT_MAX_REQUESTS - entry.count));
-  res.setHeader('X-RateLimit-Reset', Math.ceil(entry.resetAt / 1000));
-
-  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
-    return res.status(429).json({
-      error: 'Too Many Requests',
-      message: `Rate limit exceeded. Maximum ${RATE_LIMIT_MAX_REQUESTS} requests per minute.`,
-      retryAfter: Math.ceil((entry.resetAt - now) / 1000),
-    });
-  }
-
-  next();
+  res.setHeader('X-RateLimit-Limit', decision.limit);
+  res.setHeader('X-RateLimit-Remaining', decision.remaining);
+  res.setHeader('X-RateLimit-Reset', Math.ceil(decision.resetAt / 1000));
+  if (decision.allowed) return next();
+  return res.status(429).json({
+    error: 'Too Many Requests',
+    message: 'Daily API request quota exceeded.',
+    retryAfter: Math.max(1, Math.ceil((decision.resetAt - Date.now()) / 1000)),
+  });
 }
 
 export const externalApiMiddleware = [apiKeyAuth, apiRateLimit];

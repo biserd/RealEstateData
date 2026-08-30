@@ -1,395 +1,183 @@
-import { getStripeSync, getUncachableStripeClient } from './stripeClient';
-import { stripeService } from './stripeService';
-import { db } from './db';
-import { sql } from 'drizzle-orm';
-import { generateActivationToken } from './auth';
-import { sendActivationEmail, sendTrialStartedNotificationToAdmin } from './emailService';
+import type Stripe from "stripe";
+import { sql } from "drizzle-orm";
+import { db } from "./db";
+import { generateActivationToken } from "./auth";
+import { sendActivationEmail, sendTrialStartedNotificationToAdmin } from "./emailService";
+import { getStripeWebhookSecret, getUncachableStripeClient } from "./stripeClient";
 
-const APP_SLUG = process.env.APP_SLUG || 'realtorsdashboard';
-
+const APP_SLUG = process.env.APP_SLUG || "realtorsdashboard";
 const processedEventIds = new Set<string>();
-const MAX_PROCESSED_EVENTS = 10000;
+const MAX_RECENT_EVENT_IDS = 1_000;
 
-function trackEventId(eventId: string): boolean {
-  if (processedEventIds.has(eventId)) {
-    return false;
-  }
-  if (processedEventIds.size >= MAX_PROCESSED_EVENTS) {
-    const firstKey = processedEventIds.values().next().value;
-    if (firstKey) processedEventIds.delete(firstKey);
-  }
+function rememberEvent(eventId: string): boolean {
+  if (processedEventIds.has(eventId)) return false;
   processedEventIds.add(eventId);
+  if (processedEventIds.size > MAX_RECENT_EVENT_IDS) {
+    const oldest = processedEventIds.values().next().value;
+    if (oldest) processedEventIds.delete(oldest);
+  }
   return true;
 }
 
-function extractOwnerApp(event: any): string | null {
-  const obj = event?.data?.object;
-  if (!obj) return null;
-
-  if (obj.metadata?.app) {
-    return obj.metadata.app;
-  }
-
-  if (event.type?.startsWith('invoice.')) {
-    const lines = obj.lines?.data || [];
-    for (const line of lines) {
-      if (line.metadata?.app) return line.metadata.app;
-    }
-  }
-
-  return null;
+function customerId(value: string | Stripe.Customer | Stripe.DeletedCustomer | null): string | null {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id;
 }
 
-function extractPriceIds(event: any): string[] {
-  const obj = event?.data?.object;
-  if (!obj) return [];
-  const priceIds: string[] = [];
-
-  if (event.type?.startsWith('invoice.')) {
-    const lines = obj.lines?.data || [];
-    for (const line of lines) {
-      if (line.price?.id) priceIds.push(line.price.id);
-      if (line.pricing?.price_details?.price) priceIds.push(line.pricing.price_details.price);
-    }
-  }
-
-  if (event.type?.startsWith('customer.subscription')) {
-    const items = obj.items?.data || [];
-    for (const item of items) {
-      if (item.price?.id) priceIds.push(item.price.id);
-    }
-  }
-
-  if (event.type?.startsWith('checkout.session')) {
-    const lineItems = obj.line_items?.data || [];
-    for (const item of lineItems) {
-      if (item.price?.id) priceIds.push(item.price.id);
-    }
-  }
-
-  return priceIds;
+function subscriptionId(value: string | Stripe.Subscription | null): string | null {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id;
 }
 
-async function shouldProcessBusinessLogic(event: any): Promise<boolean> {
-  const eventId = event.id;
-  const eventType = event.type;
-
-  const ownerApp = extractOwnerApp(event);
-
-  if (ownerApp && ownerApp !== APP_SLUG) {
-    console.log(`[Webhook] Skipping business logic for event ${eventId} (${eventType}) - belongs to app "${ownerApp}"`);
-    return false;
-  }
-
-  if (ownerApp === APP_SLUG) {
-    console.log(`[Webhook] Event ${eventId} (${eventType}) belongs to "${APP_SLUG}"`);
-    return true;
-  }
-
-  const priceIds = extractPriceIds(event);
-  if (priceIds.length > 0) {
-    try {
-      const validPriceIds = await stripeService.getValidPriceIds();
-      const hasMatch = priceIds.some(id => validPriceIds.includes(id));
-      if (!hasMatch) {
-        console.log(`[Webhook] Skipping business logic for event ${eventId} (${eventType}) - price IDs [${priceIds.join(', ')}] don't match this app's products`);
-        return false;
-      }
-      console.log(`[Webhook] Event ${eventId} (${eventType}) matched by price ID fallback`);
-      return true;
-    } catch (err: any) {
-      console.warn(`[Webhook] Could not validate price IDs, processing event anyway: ${err.message}`);
-      return true;
+async function tierForSubscription(subscription: Stripe.Subscription): Promise<"pro" | "premium"> {
+  const stripe = await getUncachableStripeClient();
+  for (const item of subscription.items.data) {
+    const price = item.price;
+    let product = price.product;
+    if (typeof product === "string") {
+      product = await stripe.products.retrieve(product);
+    }
+    if (typeof product === "object" && !product.deleted && product.name === "Premium Plan") {
+      return "premium";
     }
   }
+  return "pro";
+}
 
-  const safeEventTypes = [
-    'product.', 'price.', 'coupon.', 'promotion_code.',
-    'tax_rate.', 'billing_portal.',
-  ];
-  const isSafeEvent = safeEventTypes.some(prefix => eventType?.startsWith(prefix));
-  if (isSafeEvent) {
-    console.log(`[Webhook] Event ${eventId} (${eventType}) is account-level - processing`);
-    return true;
+async function notifyNewTrial(customer: string): Promise<void> {
+  const result = await db.execute(sql`
+    SELECT id, email, first_name, last_name, subscription_tier
+    FROM users
+    WHERE stripe_customer_id = ${customer}
+      AND subscription_status = 'trialing'
+      AND trial_notification_sent_at IS NULL
+      AND email IS NOT NULL
+    LIMIT 1
+  `);
+  if (result.rows.length === 0) return;
+  const user = result.rows[0] as any;
+  const sent = await sendTrialStartedNotificationToAdmin(
+    user.email,
+    user.subscription_tier || "pro",
+    user.first_name,
+    user.last_name,
+  );
+  if (sent) {
+    await db.execute(sql`
+      UPDATE users
+      SET trial_notification_sent_at = NOW()
+      WHERE id = ${user.id} AND trial_notification_sent_at IS NULL
+    `);
+  }
+}
+
+async function applySubscription(subscription: Stripe.Subscription): Promise<void> {
+  const customer = customerId(subscription.customer);
+  if (!customer) return;
+  const tier = await tierForSubscription(subscription);
+  const active = subscription.status === "active" || subscription.status === "trialing";
+  await db.execute(sql`
+    UPDATE users
+    SET
+      stripe_subscription_id = ${active ? subscription.id : null},
+      subscription_tier = ${active ? tier : "free"},
+      subscription_status = ${subscription.status},
+      updated_at = NOW()
+    WHERE stripe_customer_id = ${customer}
+  `);
+  if (subscription.status === "trialing") await notifyNewTrial(customer);
+}
+
+async function applyCheckoutSession(eventSession: Stripe.Checkout.Session): Promise<void> {
+  if (eventSession.metadata?.app && eventSession.metadata.app !== APP_SLUG) return;
+  const stripe = await getUncachableStripeClient();
+  const session = await stripe.checkout.sessions.retrieve(eventSession.id, {
+    expand: ["customer", "subscription", "subscription.items.data.price.product"],
+  });
+  const customer = customerId(session.customer);
+  const subscription =
+    typeof session.subscription === "object" && session.subscription
+      ? session.subscription
+      : session.subscription
+        ? await stripe.subscriptions.retrieve(session.subscription, {
+            expand: ["items.data.price.product"],
+          })
+        : null;
+  const expandedCustomer =
+    session.customer && typeof session.customer === "object" && !session.customer.deleted
+      ? session.customer
+      : null;
+  const email = session.customer_details?.email || expandedCustomer?.email || null;
+  if (!customer || !subscription || !email) return;
+
+  const tier = await tierForSubscription(subscription);
+  const existingCustomer = await db.execute(sql`
+    SELECT id FROM users WHERE stripe_customer_id = ${customer} LIMIT 1
+  `);
+  if (existingCustomer.rows.length > 0) {
+    await applySubscription(subscription);
+    return;
   }
 
-  console.log(`[Webhook] Skipping business logic for event ${eventId} (${eventType}) - no app metadata or matching price IDs`);
-  return false;
+  const existingEmail = await db.execute(sql`
+    SELECT id FROM users WHERE email = ${email} LIMIT 1
+  `);
+  if (existingEmail.rows.length > 0) {
+    const userId = (existingEmail.rows[0] as any).id;
+    await db.execute(sql`
+      UPDATE users
+      SET stripe_customer_id = ${customer},
+          stripe_subscription_id = ${subscription.id},
+          subscription_tier = ${tier},
+          subscription_status = ${subscription.status},
+          updated_at = NOW()
+      WHERE id = ${userId}
+    `);
+    if (subscription.status === "trialing") await notifyNewTrial(customer);
+    return;
+  }
+
+  const { token, hash, expiresAt } = generateActivationToken();
+  const inserted = await db.execute(sql`
+    INSERT INTO users (
+      email, status, activation_token_hash, activation_token_expires_at,
+      stripe_customer_id, stripe_subscription_id, subscription_tier,
+      subscription_status
+    ) VALUES (
+      ${email}, 'pending_activation', ${hash}, ${expiresAt},
+      ${customer}, ${subscription.id}, ${tier}, ${subscription.status}
+    )
+    ON CONFLICT (email) DO NOTHING
+    RETURNING id
+  `);
+  if (inserted.rows.length > 0) {
+    await sendActivationEmail(email, token, tier);
+    if (subscription.status === "trialing") await notifyNewTrial(customer);
+  }
 }
 
 export class WebhookHandlers {
-  static async processWebhook(payload: Buffer, signature: string, uuid: string): Promise<void> {
-    console.log(`[Webhook] Processing webhook with UUID: ${uuid}`);
-    
-    if (!Buffer.isBuffer(payload)) {
-      const errorMsg = 'STRIPE WEBHOOK ERROR: Payload must be a Buffer. ' +
-        'Received type: ' + typeof payload + '. ' +
-        'This usually means express.json() parsed the body before reaching this handler. ' +
-        'FIX: Ensure webhook route is registered BEFORE app.use(express.json()).';
-      console.error(errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    const sync = await getStripeSync();
-    
-    try {
-      console.log(`[Webhook] Calling processWebhook on stripeSync...`);
-      await sync.processWebhook(payload, signature, uuid);
-      console.log(`[Webhook] stripeSync.processWebhook completed successfully`);
-    } catch (error: any) {
-      if (error.message && error.message.includes('Unhandled webhook event')) {
-        console.log(`[Webhook] Ignoring unhandled event type (this is normal): ${error.message}`);
-        return;
-      }
-      console.error(`[Webhook] stripeSync.processWebhook failed:`, error.message);
-      console.error(`[Webhook] Full error:`, error);
-      throw error;
-    }
-
-    let event: any;
-    try {
-      event = JSON.parse(payload.toString('utf8'));
-    } catch {
-      console.warn('[Webhook] Could not parse payload for routing check, running business logic anyway');
-      event = null;
-    }
-
-    if (event) {
-      const eventId = event.id;
-      const eventType = event.type;
-
-      if (eventId && !trackEventId(eventId)) {
-        console.log(`[Webhook] Duplicate event ${eventId} (${eventType}) - skipping business logic`);
-        return;
-      }
-
-      const shouldProcess = await shouldProcessBusinessLogic(event);
-      if (!shouldProcess) {
-        return;
-      }
-    }
-    
-    try {
-      console.log(`[Webhook] Syncing user subscriptions from Stripe tables...`);
-      await syncUserSubscriptions();
-      console.log(`[Webhook] User subscription sync completed`);
-    } catch (error: any) {
-      console.error(`[Webhook] Error syncing user subscriptions:`, error.message);
-    }
-  }
-}
-
-async function syncUserSubscriptions(): Promise<void> {
-  // Find all active subscriptions and update corresponding users
-  const result = await db.execute(sql`
-    WITH active_subs AS (
-      SELECT 
-        s.id as subscription_id,
-        s.customer as customer_id,
-        s.status,
-        p.name as product_name
-      FROM stripe.subscriptions s
-      LEFT JOIN stripe.subscription_items si ON si.subscription = s.id
-      LEFT JOIN stripe.prices pr ON si.price = pr.id
-      LEFT JOIN stripe.products p ON pr.product = p.id
-      WHERE s.status IN ('active', 'trialing')
-    )
-    UPDATE users u
-    SET 
-      stripe_subscription_id = active_subs.subscription_id,
-      subscription_tier = CASE 
-        WHEN active_subs.product_name = 'Premium Plan' THEN 'premium'
-        WHEN active_subs.product_name = 'Pro Plan' THEN 'pro'
-        ELSE 'pro'
-      END,
-      subscription_status = active_subs.status,
-      updated_at = NOW()
-    FROM active_subs
-    WHERE u.stripe_customer_id = active_subs.customer_id
-    RETURNING u.id, u.subscription_tier, u.subscription_status
-  `);
-  
-  if (result.rows.length > 0) {
-    for (const row of result.rows) {
-      console.log(`[Webhook] Updated user ${(row as any).id}: tier=${(row as any).subscription_tier}, status=${(row as any).subscription_status}`);
-    }
-  }
-
-  // Notify admin when a user enters the trialing state for the first time.
-  // Idempotent: trial_notification_sent_at is set after a successful send, so
-  // repeated webhook deliveries won't re-notify.
-  try {
-    const newTrials = await db.execute(sql`
-      SELECT id, email, first_name, last_name, subscription_tier
-      FROM users
-      WHERE subscription_status = 'trialing'
-        AND trial_notification_sent_at IS NULL
-        AND email IS NOT NULL
-    `);
-
-    for (const row of newTrials.rows) {
-      const u = row as any;
-      const sent = await sendTrialStartedNotificationToAdmin(
-        u.email,
-        u.subscription_tier || 'pro',
-        u.first_name,
-        u.last_name,
-      );
-      if (sent) {
-        await db.execute(sql`
-          UPDATE users SET trial_notification_sent_at = NOW() WHERE id = ${u.id}
-        `);
-      }
-    }
-  } catch (error: any) {
-    console.error(`[Webhook] Error sending trial-started notifications:`, error.message);
-  }
-
-  // Also handle canceled subscriptions - find users whose subscriptions are no longer active
-  // Include both 'active' and 'trialing' statuses, and clear stripe_subscription_id
-  const canceledResult = await db.execute(sql`
-    UPDATE users u
-    SET 
-      stripe_subscription_id = NULL,
-      subscription_tier = 'free',
-      subscription_status = 'canceled',
-      updated_at = NOW()
-    WHERE u.stripe_subscription_id IS NOT NULL
-    AND u.subscription_status IN ('active', 'trialing')
-    AND NOT EXISTS (
-      SELECT 1 FROM stripe.subscriptions s 
-      WHERE s.id = u.stripe_subscription_id 
-      AND s.status IN ('active', 'trialing')
-    )
-    RETURNING u.id
-  `);
-  
-  if (canceledResult.rows.length > 0) {
-    for (const row of canceledResult.rows) {
-      console.log(`[Webhook] Canceled subscription for user ${(row as any).id}`);
-    }
-  }
-  
-  // Handle checkout sessions for new customers who don't have accounts yet
-  await processNewCheckoutSessions();
-}
-
-async function processNewCheckoutSessions(): Promise<void> {
-  // Find recent completed checkout sessions that don't have users attached
-  const stripe = await getUncachableStripeClient();
-  
-  // Get checkout sessions from last hour that resulted in subscriptions
-  const sessions = await stripe.checkout.sessions.list({
-    limit: 10,
-    expand: ['data.customer', 'data.subscription', 'data.line_items'],
-  });
-  
-  for (const session of sessions.data) {
-    if (session.payment_status !== 'paid' || !session.subscription) {
-      continue;
-    }
-    
-    const sessionApp = session.metadata?.app;
-    if (sessionApp && sessionApp !== APP_SLUG) {
-      continue;
-    }
-    
-    const customerId = typeof session.customer === 'object' 
-      ? session.customer?.id 
-      : session.customer;
-    const subscriptionId = typeof session.subscription === 'object'
-      ? session.subscription?.id
-      : session.subscription;
-    const customerEmail = session.customer_details?.email;
-    
-    if (!customerId || !subscriptionId || !customerEmail) {
-      continue;
-    }
-    
-    // Check if user already exists with this customer ID
-    const existingByCustomer = await db.execute(
-      sql`SELECT id FROM users WHERE stripe_customer_id = ${customerId}`
+  static async processWebhook(payload: Buffer, signature: string): Promise<void> {
+    if (!Buffer.isBuffer(payload)) throw new Error("Stripe webhook payload must be raw bytes");
+    const stripe = await getUncachableStripeClient();
+    const event = await stripe.webhooks.constructEventAsync(
+      payload,
+      signature,
+      getStripeWebhookSecret(),
     );
-    
-    if (existingByCustomer.rows.length > 0) {
-      continue; // Already linked
-    }
-    
-    // Check if user exists by email
-    const existingByEmail = await db.execute(
-      sql`SELECT id, status FROM users WHERE email = ${customerEmail}`
-    );
-    
-    // Determine tier from subscription
-    let tier: 'pro' | 'premium' = 'pro';
-    const subscription = typeof session.subscription === 'object' ? session.subscription : null;
-    if (subscription) {
-      const items = subscription.items?.data || [];
-      for (const item of items) {
-        const priceId = typeof item.price === 'object' ? item.price.id : item.price;
-        if (priceId) {
-          const premiumCheck = await db.execute(
-            sql`
-              SELECT p.name FROM stripe.prices pr
-              JOIN stripe.products p ON pr.product = p.id
-              WHERE pr.id = ${priceId} AND p.name = 'Premium Plan'
-            `
-          );
-          if (premiumCheck.rows.length > 0) {
-            tier = 'premium';
-            break;
-          }
-        }
-      }
-    }
-    
-    if (existingByEmail.rows.length > 0) {
-      // Link subscription to existing user
-      const userId = (existingByEmail.rows[0] as any).id;
-      await db.execute(
-        sql`UPDATE users SET 
-          stripe_customer_id = ${customerId},
-          stripe_subscription_id = ${subscriptionId},
-          subscription_tier = ${tier},
-          subscription_status = 'active',
-          updated_at = NOW()
-        WHERE id = ${userId}`
-      );
-      console.log(`[Webhook] Linked subscription to existing user by email: ${userId}, tier: ${tier}`);
-    } else {
-      // Create pending activation user
-      console.log(`[Webhook] Creating pending activation user for: ${customerEmail}`);
-      
-      const { token, hash, expiresAt } = generateActivationToken();
-      
-      const newUser = await db.execute(
-        sql`INSERT INTO users (
-          email, 
-          status, 
-          activation_token_hash, 
-          activation_token_expires_at,
-          stripe_customer_id, 
-          stripe_subscription_id, 
-          subscription_tier, 
-          subscription_status
-        ) VALUES (
-          ${customerEmail}, 
-          'pending_activation', 
-          ${hash}, 
-          ${expiresAt},
-          ${customerId}, 
-          ${subscriptionId}, 
-          ${tier}, 
-          'active'
-        ) 
-        ON CONFLICT (email) DO NOTHING
-        RETURNING id`
-      );
+    if (!rememberEvent(event.id)) return;
 
-      if (newUser.rows.length > 0) {
-        console.log(`[Webhook] Created pending user: ${(newUser.rows[0] as any).id}, sending activation email`);
-        await sendActivationEmail(customerEmail, token, tier);
-      }
+    switch (event.type) {
+      case "checkout.session.completed":
+        await applyCheckoutSession(event.data.object);
+        break;
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted":
+        await applySubscription(event.data.object);
+        break;
+      default:
+        break;
     }
   }
 }

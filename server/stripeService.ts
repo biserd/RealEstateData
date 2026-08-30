@@ -1,40 +1,34 @@
-import { storage } from './storage';
-import { getUncachableStripeClient } from './stripeClient';
-import { db } from './db';
-import { sql } from 'drizzle-orm';
+import type Stripe from "stripe";
+import { getUncachableStripeClient } from "./stripeClient";
 
-// Determine if we're in live mode (sk_live_*) or test mode (sk_test_*).
-// STRIPE_SECRET_KEY_REAL is the canonical secret name; STRIPE_SECRET_KEY is a
-// legacy fallback. Falls back to NODE_ENV/REPLIT_DEPLOYMENT when the key prefix
-// can't be inspected.
-function isLiveMode(): boolean {
-  const secretKey = process.env.STRIPE_SECRET_KEY_REAL || process.env.STRIPE_SECRET_KEY;
-  if (secretKey?.startsWith('sk_live_')) return true;
-  if (secretKey?.startsWith('sk_test_')) return false;
-  return process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
+export const TRIAL_PERIOD_DAYS = 14;
+
+function productForPrice(price: Stripe.Price): Stripe.Product | null {
+  return typeof price.product === "object" && !price.product.deleted
+    ? price.product
+    : null;
 }
 
-// Free trial length offered on all paid subscriptions
-export const TRIAL_PERIOD_DAYS = 14;
+function planTier(product: Stripe.Product | null): "pro" | "premium" | null {
+  if (product?.name === "Premium Plan") return "premium";
+  if (product?.name === "Pro Plan") return "pro";
+  return null;
+}
 
 export class StripeService {
   async createCustomer(email: string, userId: string, name?: string) {
     const stripe = await getUncachableStripeClient();
-    return await stripe.customers.create({
-      email,
-      name: name || undefined,
-      metadata: { userId },
-    });
+    return stripe.customers.create({ email, name: name || undefined, metadata: { userId } });
   }
 
   async createCheckoutSession(customerId: string, priceId: string, successUrl: string, cancelUrl: string) {
     const stripe = await getUncachableStripeClient();
-    const appSlug = process.env.APP_SLUG || 'realtorsdashboard';
-    return await stripe.checkout.sessions.create({
+    const appSlug = process.env.APP_SLUG || "realtorsdashboard";
+    return stripe.checkout.sessions.create({
       customer: customerId,
-      payment_method_types: ['card'],
+      payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      mode: 'subscription',
+      mode: "subscription",
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: { app: appSlug },
@@ -45,14 +39,13 @@ export class StripeService {
     });
   }
 
-  // Guest checkout - no account required, Stripe collects email
   async createGuestCheckoutSession(priceId: string, successUrl: string, cancelUrl: string) {
     const stripe = await getUncachableStripeClient();
-    const appSlug = process.env.APP_SLUG || 'realtorsdashboard';
-    return await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+    const appSlug = process.env.APP_SLUG || "realtorsdashboard";
+    return stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      mode: 'subscription',
+      mode: "subscription",
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: { app: appSlug },
@@ -65,169 +58,116 @@ export class StripeService {
 
   async createCustomerPortalSession(customerId: string, returnUrl: string) {
     const stripe = await getUncachableStripeClient();
-    return await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: returnUrl,
-    });
+    return stripe.billingPortal.sessions.create({ customer: customerId, return_url: returnUrl });
   }
 
   async getProduct(productId: string) {
-    const result = await db.execute(
-      sql`SELECT * FROM stripe.products WHERE id = ${productId}`
-    );
-    return result.rows[0] || null;
+    const stripe = await getUncachableStripeClient();
+    const product = await stripe.products.retrieve(productId);
+    return product.deleted ? null : product;
   }
 
   async listProducts(active = true) {
-    const livemode = isLiveMode();
-    const result = await db.execute(
-      sql`SELECT * FROM stripe.products WHERE active = ${active} AND livemode = ${livemode}`
-    );
-    return result.rows;
+    const stripe = await getUncachableStripeClient();
+    const products = await stripe.products.list({ active, limit: 100 });
+    return products.data;
   }
 
   async listProductsWithPrices(active = true) {
-    const livemode = isLiveMode();
-    const result = await db.execute(
-      sql`
-        SELECT 
-          p.id as product_id,
-          p.name as product_name,
-          p.description as product_description,
-          p.active as product_active,
-          p.metadata as product_metadata,
-          pr.id as price_id,
-          pr.unit_amount,
-          pr.currency,
-          pr.recurring,
-          pr.active as price_active,
-          pr.metadata as price_metadata
-        FROM stripe.products p
-        LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true AND pr.livemode = ${livemode}
-        WHERE p.active = ${active} AND p.livemode = ${livemode}
-        ORDER BY p.id, pr.unit_amount
-      `
-    );
-    return result.rows;
+    const stripe = await getUncachableStripeClient();
+    const [productsPage, pricesPage] = await Promise.all([
+      stripe.products.list({ active, limit: 100 }),
+      stripe.prices.list({ active: true, limit: 100, expand: ["data.product"] }),
+    ]);
+    const pricesByProduct = new Map<string, Stripe.Price[]>();
+    for (const price of pricesPage.data) {
+      const productId = typeof price.product === "string" ? price.product : price.product.id;
+      const existing = pricesByProduct.get(productId) || [];
+      existing.push(price);
+      pricesByProduct.set(productId, existing);
+    }
+
+    return productsPage.data.flatMap<Record<string, unknown>>((product) => {
+      const prices = pricesByProduct.get(product.id) || [];
+      if (prices.length === 0) {
+        return [{
+          product_id: product.id,
+          product_name: product.name,
+          product_description: product.description,
+          product_active: product.active,
+          product_metadata: product.metadata,
+          price_id: null,
+          unit_amount: null,
+          currency: null,
+          recurring: null,
+          price_active: null,
+          price_metadata: null,
+        }];
+      }
+      return prices.map((price) => ({
+        product_id: product.id,
+        product_name: product.name,
+        product_description: product.description,
+        product_active: product.active,
+        product_metadata: product.metadata,
+        price_id: price.id,
+        unit_amount: price.unit_amount,
+        currency: price.currency,
+        recurring: price.recurring,
+        price_active: price.active,
+        price_metadata: price.metadata,
+      }));
+    });
   }
 
   async getPrice(priceId: string) {
-    const result = await db.execute(
-      sql`SELECT * FROM stripe.prices WHERE id = ${priceId}`
-    );
-    return result.rows[0] || null;
+    const stripe = await getUncachableStripeClient();
+    return stripe.prices.retrieve(priceId, { expand: ["product"] });
   }
 
   async isValidProPrice(priceId: string): Promise<boolean> {
-    const livemode = isLiveMode();
-    const result = await db.execute(
-      sql`
-        SELECT pr.id 
-        FROM stripe.prices pr
-        JOIN stripe.products p ON pr.product = p.id
-        WHERE pr.id = ${priceId}
-          AND pr.active = true
-          AND p.active = true
-          AND p.name = 'Pro Plan'
-          AND pr.livemode = ${livemode}
-          AND p.livemode = ${livemode}
-      `
-    );
-    return result.rows.length > 0;
+    const result = await this.isValidSubscriptionPrice(priceId);
+    return result.valid && result.tier === "pro";
   }
 
   async isValidPremiumPrice(priceId: string): Promise<boolean> {
-    const livemode = isLiveMode();
-    const result = await db.execute(
-      sql`
-        SELECT pr.id 
-        FROM stripe.prices pr
-        JOIN stripe.products p ON pr.product = p.id
-        WHERE pr.id = ${priceId}
-          AND pr.active = true
-          AND p.active = true
-          AND p.name = 'Premium Plan'
-          AND pr.livemode = ${livemode}
-          AND p.livemode = ${livemode}
-      `
-    );
-    return result.rows.length > 0;
+    const result = await this.isValidSubscriptionPrice(priceId);
+    return result.valid && result.tier === "premium";
   }
 
-  async isValidSubscriptionPrice(priceId: string): Promise<{ valid: boolean; tier: 'pro' | 'premium' | null }> {
-    const livemode = isLiveMode();
-    console.log(`[Stripe] Validating price ${priceId} in ${livemode ? 'LIVE' : 'TEST'} mode`);
-    const result = await db.execute(
-      sql`
-        SELECT pr.id, p.name 
-        FROM stripe.prices pr
-        JOIN stripe.products p ON pr.product = p.id
-        WHERE pr.id = ${priceId}
-          AND pr.active = true
-          AND p.active = true
-          AND p.name IN ('Pro Plan', 'Premium Plan')
-          AND pr.livemode = ${livemode}
-          AND p.livemode = ${livemode}
-      `
-    );
-    if (result.rows.length === 0) {
-      console.log(`[Stripe] Price ${priceId} NOT found in ${livemode ? 'LIVE' : 'TEST'} mode`);
+  async isValidSubscriptionPrice(priceId: string): Promise<{ valid: boolean; tier: "pro" | "premium" | null }> {
+    try {
+      const price = await this.getPrice(priceId);
+      const tier = planTier(productForPrice(price));
+      return { valid: Boolean(price.active && tier), tier };
+    } catch {
       return { valid: false, tier: null };
     }
-    const productName = (result.rows[0] as any).name;
-    return { 
-      valid: true, 
-      tier: productName === 'Premium Plan' ? 'premium' : 'pro' 
-    };
-  }
-  
-  async getValidPriceIds(): Promise<string[]> {
-    const livemode = isLiveMode();
-    const result = await db.execute(
-      sql`
-        SELECT pr.id 
-        FROM stripe.prices pr
-        JOIN stripe.products p ON pr.product = p.id
-        WHERE pr.active = true
-          AND p.active = true
-          AND p.name IN ('Pro Plan', 'Premium Plan')
-          AND pr.livemode = ${livemode}
-          AND p.livemode = ${livemode}
-      `
-    );
-    return result.rows.map((row: any) => row.id);
   }
 
-  async getPricesForPlan(planName: 'Pro Plan' | 'Premium Plan'): Promise<any[]> {
-    const livemode = isLiveMode();
-    const result = await db.execute(
-      sql`
-        SELECT pr.* 
-        FROM stripe.prices pr
-        JOIN stripe.products p ON pr.product = p.id
-        WHERE pr.active = true
-          AND p.active = true
-          AND p.name = ${planName}
-          AND pr.livemode = ${livemode}
-          AND p.livemode = ${livemode}
-        ORDER BY pr.unit_amount ASC
-      `
-    );
-    return result.rows;
+  async getValidPriceIds(): Promise<string[]> {
+    const stripe = await getUncachableStripeClient();
+    const page = await stripe.prices.list({ active: true, limit: 100, expand: ["data.product"] });
+    return page.data.filter((price) => planTier(productForPrice(price)) !== null).map((price) => price.id);
+  }
+
+  async getPricesForPlan(planName: "Pro Plan" | "Premium Plan"): Promise<Stripe.Price[]> {
+    const stripe = await getUncachableStripeClient();
+    const page = await stripe.prices.list({ active: true, limit: 100, expand: ["data.product"] });
+    return page.data
+      .filter((price) => productForPrice(price)?.name === planName)
+      .sort((a, b) => (a.unit_amount || 0) - (b.unit_amount || 0));
   }
 
   async getSubscription(subscriptionId: string) {
-    const result = await db.execute(
-      sql`SELECT * FROM stripe.subscriptions WHERE id = ${subscriptionId}`
-    );
-    return result.rows[0] || null;
+    const stripe = await getUncachableStripeClient();
+    return stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price.product"] });
   }
 
   async getCustomerSubscriptions(customerId: string) {
-    const result = await db.execute(
-      sql`SELECT * FROM stripe.subscriptions WHERE customer = ${customerId} ORDER BY created DESC`
-    );
-    return result.rows;
+    const stripe = await getUncachableStripeClient();
+    const subscriptions = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 100 });
+    return subscriptions.data;
   }
 }
 

@@ -196,7 +196,7 @@ async function sendInstantAlert(
       </div>
       
       <p>
-        <a href="${process.env.REPLIT_DEV_DOMAIN || 'https://realtorsdashboard.com'}/screener" 
+        <a href="${process.env.APP_BASE_URL || 'https://realtorsdashboard.com'}/screener"
            style="display: inline-block; background: #0066cc; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none;">
           View All Matches
         </a>
@@ -204,7 +204,7 @@ async function sendInstantAlert(
       
       <p style="color: #999; font-size: 12px; margin-top: 32px;">
         You're receiving this because you have instant alerts enabled for "${search.name}".
-        <a href="${process.env.REPLIT_DEV_DOMAIN || 'https://realtorsdashboard.com'}/settings">Manage your alerts</a>
+        <a href="${process.env.APP_BASE_URL || 'https://realtorsdashboard.com'}/settings">Manage your alerts</a>
       </p>
     </div>
   `;
@@ -268,11 +268,11 @@ async function sendDailyDigest(userId: string, results: MatchResult[]): Promise<
       </div>
       
       <p>
-        <a href="${process.env.REPLIT_DEV_DOMAIN || 'https://realtorsdashboard.com'}/screener" 
+        <a href="${process.env.APP_BASE_URL || 'https://realtorsdashboard.com'}/screener"
            style="display: inline-block; background: #0066cc; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none;">
           View Properties
         </a>
-        <a href="${process.env.REPLIT_DEV_DOMAIN || 'https://realtorsdashboard.com'}/settings" 
+        <a href="${process.env.APP_BASE_URL || 'https://realtorsdashboard.com'}/settings"
            style="display: inline-block; margin-left: 12px; color: #0066cc; text-decoration: none;">
           Manage Alerts
         </a>
@@ -280,7 +280,7 @@ async function sendDailyDigest(userId: string, results: MatchResult[]): Promise<
       
       <p style="color: #999; font-size: 12px; margin-top: 32px;">
         You're receiving this daily digest because you have saved searches with email notifications enabled.
-        <a href="${process.env.REPLIT_DEV_DOMAIN || 'https://realtorsdashboard.com'}/settings">Manage your alerts</a>
+        <a href="${process.env.APP_BASE_URL || 'https://realtorsdashboard.com'}/settings">Manage your alerts</a>
       </p>
     </div>
   `;

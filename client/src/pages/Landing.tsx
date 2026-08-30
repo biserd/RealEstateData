@@ -123,9 +123,9 @@ export default function Landing() {
   });
 
   const { data: trendingAreas, isLoading: trendingLoading } = useQuery<TrendingArea[]>({
-    queryKey: ["/api/market/up-and-coming", { limit: 6 }],
+    queryKey: ["/api/market/trending-zips", { limit: 6 }],
     queryFn: async () => {
-      const res = await fetch("/api/market/up-and-coming?limit=6");
+      const res = await fetch("/api/market/trending-zips?limit=6");
       if (!res.ok) throw new Error("Failed to fetch trending areas");
       return res.json();
     },

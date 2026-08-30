@@ -5,8 +5,8 @@ import { eq, and, gte, sql } from "drizzle-orm";
 export type ActionType = "search" | "property_unlock" | "pdf_export";
 
 const FREE_TIER_LIMITS = {
-  search: { daily: 5 },
-  property_unlock: { daily: 3 },
+  search: { daily: 100 },
+  property_unlock: { daily: 5 },
   pdf_export: { weekly: 1 },
 } as const;
 
@@ -21,9 +21,7 @@ export class UsageService {
   }
 
   async getUsageCount(userId: string, actionType: ActionType, periodDays: number): Promise<number> {
-    const periodStart = new Date();
-    periodStart.setDate(periodStart.getDate() - periodDays);
-    periodStart.setHours(0, 0, 0, 0);
+    const periodStart = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
     const result = await db
       .select({ count: sql<number>`count(*)` })

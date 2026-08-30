@@ -2,9 +2,10 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
-import connectPg from "connect-pg-simple";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { sql } from "drizzle-orm";
+import { db } from "./db";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
 
@@ -22,6 +23,52 @@ declare global {
 
 const SALT_ROUNDS = 12;
 
+class DrizzleSessionStore extends session.Store {
+  constructor(private readonly ttlMs: number) {
+    super();
+  }
+
+  get(sid: string, callback: (err: unknown, session?: session.SessionData | null) => void): void {
+    void db.execute(sql`
+      SELECT sess FROM sessions
+      WHERE sid = ${sid} AND expire > NOW()
+      LIMIT 1
+    `).then((result: any) => {
+      const value = result.rows?.[0]?.sess;
+      callback(null, typeof value === "string" ? JSON.parse(value) : value ?? null);
+    }).catch((error) => callback(error));
+  }
+
+  set(sid: string, value: session.SessionData, callback?: (err?: unknown) => void): void {
+    const cookieExpiry = value.cookie?.expires ? new Date(value.cookie.expires) : null;
+    const expiresAt = cookieExpiry && Number.isFinite(cookieExpiry.getTime())
+      ? cookieExpiry
+      : new Date(Date.now() + this.ttlMs);
+    void db.execute(sql`
+      INSERT INTO sessions (sid, sess, expire)
+      VALUES (${sid}, ${JSON.stringify(value)}::jsonb, ${expiresAt})
+      ON CONFLICT (sid) DO UPDATE
+      SET sess = EXCLUDED.sess, expire = EXCLUDED.expire
+    `).then(() => callback?.()).catch((error) => callback?.(error));
+  }
+
+  destroy(sid: string, callback?: (err?: unknown) => void): void {
+    void db.execute(sql`DELETE FROM sessions WHERE sid = ${sid}`)
+      .then(() => callback?.())
+      .catch((error) => callback?.(error));
+  }
+
+  touch(sid: string, value: session.SessionData, callback?: (err?: unknown) => void): void {
+    const cookieExpiry = value.cookie?.expires ? new Date(value.cookie.expires) : null;
+    const expiresAt = cookieExpiry && Number.isFinite(cookieExpiry.getTime())
+      ? cookieExpiry
+      : new Date(Date.now() + this.ttlMs);
+    void db.execute(sql`UPDATE sessions SET expire = ${expiresAt} WHERE sid = ${sid}`)
+      .then(() => callback?.())
+      .catch((error) => callback?.(error));
+  }
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
 }
@@ -32,13 +79,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  const sessionStore = new DrizzleSessionStore(sessionTtl);
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,

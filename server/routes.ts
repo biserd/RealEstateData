@@ -13,15 +13,16 @@ import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
 import { sendWelcomeEmail, sendNewUserNotificationToAdmin, sendActivationEmail, sendPasswordResetEmail } from "./emailService";
-import { serveStreetView, serveStaticMap, getCacheStats } from "./services/mapImageCache";
 import { getOrGenerateNarrative } from "./narratives";
 import { usageService, ActionType } from "./usageService";
 import { processDailyDigest, processInstantAlerts, recordPropertyChange } from "./savedSearchService";
+import { consumeQuota, type SubscriptionTier } from "./quota";
+import { requireTurnstile, turnstileConfig } from "./turnstile";
 
 const FREE_TIER_LIMITS = {
-  search: { daily: 5 },
-  property_unlock: { daily: 3 },
-  pdf_export: { weekly: 1 },
+  search: { daily: 30 },
+  property_unlock: { daily: 0 },
+  pdf_export: { weekly: 0 },
 } as const;
 
 function getSessionUsage(req: any, actionType: ActionType): { count: number; resetTime: number } {
@@ -55,6 +56,41 @@ function trackSessionUsage(req: any, actionType: ActionType): void {
 }
 
 async function checkUsageLimit(req: any, res: any, actionType: ActionType, propertyId?: string): Promise<boolean> {
+  const authenticated = req.isAuthenticated();
+  const user = authenticated ? await storage.getUser(req.user.id) : null;
+  const tier: SubscriptionTier = authenticated
+    ? ((user?.subscriptionTier === "pro" || user?.subscriptionTier === "premium") && user.subscriptionStatus === "active"
+        ? user.subscriptionTier
+        : "free")
+    : "anonymous";
+  const decision = await consumeQuota({
+    req,
+    action: actionType,
+    tier,
+    subjectId: authenticated ? `user:${req.user.id}` : `session:${req.sessionID || req.ip}`,
+  });
+
+  if (decision) {
+    res.setHeader("X-RateLimit-Limit", decision.limit);
+    res.setHeader("X-RateLimit-Remaining", decision.remaining);
+    res.setHeader("X-RateLimit-Reset", Math.ceil(decision.resetAt / 1000));
+    if (!decision.allowed) {
+      const requiresSignIn = tier === "anonymous" && actionType !== "search";
+      res.status(requiresSignIn ? 401 : 429).json({
+        message: requiresSignIn
+          ? "Sign in to unlock full property data or export reports."
+          : `Usage limit reached for ${actionType === "search" ? "searches" : actionType === "property_unlock" ? "full property insights" : "PDF exports"}.`,
+        upgrade: !requiresSignIn,
+        upgradeUrl: requiresSignIn ? "/login" : "/pricing",
+        remaining: decision.remaining,
+        limit: decision.limit,
+        resetAt: decision.resetAt,
+      });
+      return false;
+    }
+    return true;
+  }
+
   if (req.isAuthenticated()) {
     const result = await usageService.checkAndTrack(req.user.id, actionType, propertyId);
     if (!result.allowed) {
@@ -106,6 +142,33 @@ async function checkUsageLimit(req: any, res: any, actionType: ActionType, prope
   }
   
   return true;
+}
+
+async function checkAiCredits(req: any, res: any, weight: number): Promise<boolean> {
+  const user = await storage.getUser(req.user.id);
+  const tier: SubscriptionTier = user?.subscriptionTier === "premium" && user.subscriptionStatus === "active"
+    ? "premium"
+    : "pro";
+  const decision = await consumeQuota({
+    req,
+    action: "ai_credit",
+    tier,
+    subjectId: `user:${req.user.id}`,
+    weight,
+  });
+  if (!decision) return true;
+  res.setHeader("X-AI-Credits-Limit", decision.limit);
+  res.setHeader("X-AI-Credits-Remaining", decision.remaining);
+  res.setHeader("X-AI-Credits-Reset", Math.ceil(decision.resetAt / 1000));
+  if (decision.allowed) return true;
+  res.status(429).json({
+    message: "Monthly AI credit limit reached. Credits reset automatically next month.",
+    code: "ai_credit_limit",
+    remaining: decision.remaining,
+    limit: decision.limit,
+    resetAt: decision.resetAt,
+  });
+  return false;
 }
 
 const requirePro = async (req: any, res: any, next: any) => {
@@ -253,7 +316,25 @@ export async function registerRoutes(
     res.send(`User-agent: *
 Allow: /
 
-Content-Signal: ai-train=yes, search=yes, ai-input=yes
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+Content-Signal: ai-train=no, search=yes, ai-input=yes
 
 Sitemap: ${baseUrl}/sitemap.xml
 `);
@@ -480,43 +561,16 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   app.get("/api/og/property/:id.png", async (req, res) => {
     try {
-      const apiKey = process.env.VITE_GOOGLE_MAPS_API_KEY || "";
-      if (!apiKey) return res.status(404).send("Maps key unavailable");
       const property = await storage.getProperty(req.params.id);
-      if (!property || !property.latitude || !property.longitude) {
+      if (!property) {
         return res.status(404).send("Property not found");
       }
-      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${property.latitude},${property.longitude}&zoom=16&size=1200x630&maptype=roadmap&markers=color:red%7C${property.latitude},${property.longitude}&key=${apiKey}`;
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      return res.redirect(302, url);
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      return res.redirect(301, "/favicon.png");
     } catch (e) {
       console.error("OG property error:", e);
       res.status(500).send("OG render failed");
     }
-  });
-
-  // Cached image proxy: Street View Static. Disk cache forever per (lat,lng,size).
-  app.get("/api/img/streetview", async (req, res) => {
-    await serveStreetView(res, req.query.lat, req.query.lng, req.query.w, req.query.h);
-  });
-
-  // Cached image proxy: Static Maps. Disk cache forever per (lat,lng,zoom,size,type,marker).
-  app.get("/api/img/staticmap", async (req, res) => {
-    await serveStaticMap(
-      res,
-      req.query.lat,
-      req.query.lng,
-      req.query.zoom,
-      req.query.w,
-      req.query.h,
-      req.query.marker,
-      req.query.maptype,
-    );
-  });
-
-  app.get("/api/img/cache-stats", async (_req, res) => {
-    const stats = await getCacheStats();
-    res.json(stats);
   });
 
   // Public AI narrative for unit/property pages. Cached in DB for ~365 days.
@@ -543,23 +597,16 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   app.get("/api/og/neighborhood/:geoId.png", async (req, res) => {
     try {
-      const apiKey = process.env.VITE_GOOGLE_MAPS_API_KEY || "";
-      if (!apiKey) return res.status(404).send("Maps key unavailable");
       const geoId = req.params.geoId;
       const result = await db.execute(sql`
-        SELECT latitude, longitude
-        FROM properties
-        WHERE zip_code = ${geoId} AND latitude IS NOT NULL AND longitude IS NOT NULL
-        LIMIT 12
+        SELECT 1
+        FROM market_aggregates
+        WHERE geo_type = 'zip' AND geo_id = ${geoId}
+        LIMIT 1
       `);
       if (result.rows.length === 0) return res.status(404).send("Neighborhood not found");
-      const first = result.rows[0] as any;
-      const markerStr = result.rows
-        .map((r: any) => `${r.latitude},${r.longitude}`)
-        .join("|");
-      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${first.latitude},${first.longitude}&zoom=13&size=1200x630&maptype=roadmap&markers=color:blue%7C${markerStr}&key=${apiKey}`;
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      return res.redirect(302, url);
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      return res.redirect(301, "/favicon.png");
     } catch (e) {
       console.error("OG neighborhood error:", e);
       res.status(500).send("OG render failed");
@@ -678,7 +725,12 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // Auth routes
-  app.post("/api/auth/register", async (req, res) => {
+  app.get("/api/security/turnstile", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300");
+    res.json(turnstileConfig());
+  });
+
+  app.post("/api/auth/register", requireTurnstile("register"), async (req, res) => {
     try {
       const validatedData = registerSchema.parse(req.body);
       
@@ -736,7 +788,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", requireTurnstile("login"), (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
         return res.status(500).json({ message: "Login failed" });
@@ -769,7 +821,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     });
   });
 
-  app.post("/api/auth/forgot-password", async (req, res) => {
+  app.post("/api/auth/forgot-password", requireTurnstile("forgot_password"), async (req, res) => {
     try {
       const { email } = req.body;
       if (!email || typeof email !== "string") {
@@ -1174,17 +1226,10 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  app.get("/api/units/:unitBbl/insights", isAuthenticated, async (req: any, res) => {
+  app.get("/api/units/:unitBbl/insights", isAuthenticated, requirePro, async (req: any, res) => {
     try {
       const { unitBbl } = req.params;
-      
-      const user = req.user;
-      const tier = user?.subscriptionTier || "free";
-      const subStatus = user?.subscriptionStatus;
-      const hasPro = (tier === "pro" || tier === "premium") && subStatus === "active";
-      if (!hasPro) {
-        return res.status(403).json({ message: "Pro subscription required for AI analysis" });
-      }
+      if (!(await checkAiCredits(req, res, 2))) return;
       
       const unit = await storage.getCondoUnit(unitBbl);
       if (!unit) {
@@ -2104,6 +2149,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         geoId as string,
         parseInt(limit as string) || 20
       );
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
       res.json(recentSales);
     } catch (error) {
       console.error("Error fetching recent sales:", error);
@@ -2112,11 +2158,12 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // Up and coming ZIP codes - public read access
-  app.get("/api/market/up-and-coming", async (req, res) => {
+  app.get(["/api/market/up-and-coming", "/api/market/trending-zips"], async (req, res) => {
     try {
       const state = req.query.state as string | undefined;
       const limit = parseInt(req.query.limit as string) || 25;
       const upAndComingZips = await storage.getUpAndComingZips(state, limit);
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=900, stale-while-revalidate=1800");
       res.json(upAndComingZips);
     } catch (error) {
       console.error("Error fetching up and coming ZIPs:", error);
@@ -2170,6 +2217,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.get("/api/stats/platform", async (req, res) => {
     try {
       const stats = await storage.getPlatformStats();
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=600, stale-while-revalidate=1200");
       res.json(stats);
     } catch (error) {
       console.error("Error fetching platform stats:", error);
@@ -2594,6 +2642,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   // AI Chat route - Pro only
   app.post("/api/ai/chat", isAuthenticated, requirePro, async (req: any, res) => {
     try {
+      if (!(await checkAiCredits(req, res, 1))) return;
       const userId = req.user.id;
       const { propertyId, geoId, question } = req.body;
 
@@ -2649,6 +2698,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   // AI Deal Memo generation - Pro only
   app.post("/api/ai/deal-memo/:propertyId", isAuthenticated, requirePro, async (req: any, res) => {
     try {
+      if (!(await checkAiCredits(req, res, 4))) return;
       const { propertyId } = req.params;
       
       // Get property data
@@ -2699,6 +2749,30 @@ Sitemap: ${baseUrl}/sitemap.xml
       // Get market data for this property's ZIP
       const marketData = await storage.getMarketAggregates("zip", property.zipCode, {});
       
+      if (!isPro) {
+        const headlines: string[] = [];
+        if (signals?.transitScore != null) headlines.push(`Transit score: ${signals.transitScore}/100`);
+        if (signals?.buildingHealthScore != null) headlines.push(`Building health score: ${signals.buildingHealthScore}/100`);
+        if (signals?.floodRiskLevel) headlines.push(`Flood risk: ${signals.floodRiskLevel}`);
+        if (marketData[0]?.medianPrice != null) headlines.push(`Area median price: $${Number(marketData[0].medianPrice).toLocaleString()}`);
+        res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
+        res.json({
+          investmentSummary: "Sign in with an active Pro plan for a live AI analysis. This preview uses only stored property and market facts.",
+          headlineInsights: headlines.slice(0, 3),
+          riskAssessment: { level: signals?.floodRiskLevel === "High" ? "High" : "Medium", factors: [] },
+          valueDrivers: [],
+          concerns: [],
+          neighborhoodTrends: "",
+          neighborhoodEvidence: [],
+          buyerProfile: "",
+          whatNow: [],
+          generatedAt: new Date().toISOString(),
+          isPreview: true,
+        });
+        return;
+      }
+
+      if (!(await checkAiCredits(req, res, 2))) return;
       const insights = await generatePropertyInsights(
         property,
         signals ? {
@@ -2717,27 +2791,6 @@ Sitemap: ${baseUrl}/sitemap.xml
         userTier
       );
       
-      // For free users, return a preview (headline insights only, blur rest)
-      if (!isPro) {
-        res.json({
-          investmentSummary: insights.investmentSummary,
-          headlineInsights: insights.headlineInsights,
-          riskAssessment: {
-            level: insights.riskAssessment.level,
-            factors: [], // Hidden for free users
-          },
-          valueDrivers: [], // Hidden for free users
-          concerns: [], // Hidden for free users
-          neighborhoodTrends: "", // Hidden for free users
-          neighborhoodEvidence: [],
-          buyerProfile: "", // Hidden for free users
-          whatNow: [], // Hidden for free users
-          generatedAt: insights.generatedAt,
-          isPreview: true,
-        });
-        return;
-      }
-      
       res.json({ ...insights, isPreview: false });
     } catch (error) {
       console.error("Error generating property insights:", error);
@@ -2748,6 +2801,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   // Investment Scenario Calculator - Pro only
   app.post("/api/ai/scenario/:propertyId", isAuthenticated, requirePro, async (req: any, res) => {
     try {
+      if (!(await checkAiCredits(req, res, 2))) return;
       const { propertyId } = req.params;
       const inputs: ScenarioInputs = req.body;
       
@@ -3294,9 +3348,14 @@ Sitemap: ${baseUrl}/sitemap.xml
         try {
           const subscription = await stripeService.getSubscription(user.stripeSubscriptionId);
           if (subscription) {
+            const periods = subscription.items.data;
             subscriptionDetails = {
-              currentPeriodEnd: subscription.current_period_end,
-              currentPeriodStart: subscription.current_period_start,
+              currentPeriodEnd: periods.length
+                ? Math.max(...periods.map((item) => item.current_period_end))
+                : null,
+              currentPeriodStart: periods.length
+                ? Math.min(...periods.map((item) => item.current_period_start))
+                : null,
               cancelAtPeriodEnd: subscription.cancel_at_period_end,
               cancelAt: subscription.cancel_at,
               canceledAt: subscription.canceled_at,
@@ -3815,7 +3874,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.post("/api/notifications/daily-digest", async (req, res) => {
     try {
       const cronSecret = req.headers["x-cron-secret"];
-      if (cronSecret !== process.env.CRON_SECRET && process.env.NODE_ENV !== "development") {
+      if (cronSecret !== process.env.CRON_SECRET && String(process.env.NODE_ENV) !== "development") {
         return res.status(403).json({ message: "Unauthorized" });
       }
 
@@ -3833,7 +3892,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.post("/api/notifications/instant-alerts", async (req, res) => {
     try {
       const cronSecret = req.headers["x-cron-secret"];
-      if (cronSecret !== process.env.CRON_SECRET && process.env.NODE_ENV !== "development") {
+      if (cronSecret !== process.env.CRON_SECRET && String(process.env.NODE_ENV) !== "development") {
         return res.status(403).json({ message: "Unauthorized" });
       }
 

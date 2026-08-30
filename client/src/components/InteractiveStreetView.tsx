@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Compass } from "lucide-react";
+import { useState } from "react";
+import { Compass, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MapProvider, useMap } from "@/components/MapProvider";
 import { StreetViewImage } from "@/components/StreetViewImage";
 import { Button } from "@/components/ui/button";
 
@@ -13,9 +12,9 @@ interface InteractiveStreetViewProps {
   rounded?: boolean;
 }
 
-// P-03: Until the visitor clicks "Explore", render only the cached static
-// Street View image (no Maps JS). Once activated, mount a local MapProvider
-// so the panorama bundle is fetched on demand for that single component.
+// The default state is application-rendered and makes no Google request. After
+// an explicit click, use Maps Embed Street View instead of a billed Dynamic
+// Street View JavaScript panorama.
 export function InteractiveStreetView(props: InteractiveStreetViewProps) {
   const [activated, setActivated] = useState(false);
 
@@ -23,11 +22,7 @@ export function InteractiveStreetView(props: InteractiveStreetViewProps) {
     return <StaticStreetView {...props} onActivate={() => setActivated(true)} />;
   }
 
-  return (
-    <MapProvider>
-      <ActivePanorama {...props} />
-    </MapProvider>
-  );
+  return <EmbeddedPanorama {...props} />;
 }
 
 interface StaticStreetViewProps extends InteractiveStreetViewProps {
@@ -78,61 +73,20 @@ function StaticStreetView({
   );
 }
 
-function ActivePanorama({
+function EmbeddedPanorama({
   lat,
   lng,
   address,
   className,
   rounded = false,
 }: InteractiveStreetViewProps) {
-  const { isLoaded } = useMap();
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const panoRef = useRef<google.maps.StreetViewPanorama | null>(null);
-  const [noPanorama, setNoPanorama] = useState(false);
-
   const hasCoords = isValidLatLng(lat, lng);
+  const embedKey = import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY || "";
 
-  useEffect(() => {
-    if (!isLoaded || !hasCoords || !containerRef.current) return;
-    const position = { lat: Number(lat), lng: Number(lng) };
-
-    const svService = new google.maps.StreetViewService();
-    svService.getPanorama(
-      { location: position, radius: 50, source: google.maps.StreetViewSource.OUTDOOR },
-      (data, status) => {
-        if (status !== google.maps.StreetViewStatus.OK || !data?.location) {
-          setNoPanorama(true);
-          return;
-        }
-        const heading = google.maps.geometry?.spherical
-          ? google.maps.geometry.spherical.computeHeading(
-              data.location.latLng!,
-              new google.maps.LatLng(position),
-            )
-          : 0;
-
-        panoRef.current = new google.maps.StreetViewPanorama(containerRef.current!, {
-          position: data.location.latLng!,
-          pov: { heading, pitch: 0 },
-          zoom: 0,
-          addressControl: false,
-          fullscreenControl: true,
-          motionTracking: false,
-          motionTrackingControl: false,
-          enableCloseButton: false,
-          panControl: true,
-          zoomControl: true,
-        });
-      },
-    );
-
-    return () => {
-      panoRef.current = null;
-      if (containerRef.current) containerRef.current.innerHTML = "";
-    };
-  }, [isLoaded, hasCoords, lat, lng]);
-
-  if (noPanorama) {
+  if (!hasCoords || !embedKey) {
+    const mapsUrl = hasCoords
+      ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${Number(lat)},${Number(lng)}`
+      : null;
     return (
       <div
         className={cn(
@@ -151,20 +105,45 @@ function ActivePanorama({
           rounded={false}
           className="w-full h-full"
         />
+        {mapsUrl && (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-3 right-3"
+            data-testid="link-streetview-external"
+          >
+            <Button size="sm" variant="default">
+              <ExternalLink className="h-4 w-4" />
+              Open Street View
+            </Button>
+          </a>
+        )}
       </div>
     );
   }
 
+  const params = new URLSearchParams({
+    key: embedKey,
+    location: `${Number(lat)},${Number(lng)}`,
+    heading: "0",
+    pitch: "0",
+    fov: "80",
+  });
+
   return (
-    <div
-      ref={containerRef}
+    <iframe
+      src={`https://www.google.com/maps/embed/v1/streetview?${params.toString()}`}
       className={cn(
-        "w-full h-full",
+        "h-full w-full border-0",
         rounded && "rounded-lg overflow-hidden",
         className,
       )}
-      data-testid="streetview-panorama-interactive"
-      aria-label={address ? `Interactive street view of ${address}` : "Interactive street view"}
+      loading="lazy"
+      referrerPolicy="strict-origin-when-cross-origin"
+      allowFullScreen
+      title={address ? `Interactive street view of ${address}` : "Interactive street view"}
+      data-testid="streetview-embed-interactive"
     />
   );
 }

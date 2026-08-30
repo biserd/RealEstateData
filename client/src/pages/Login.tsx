@@ -14,6 +14,7 @@ import { SEO } from "@/components/SEO";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -26,6 +27,9 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
+  const [challengeVersion, setChallengeVersion] = useState(0);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -37,7 +41,7 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      const response = await apiRequest("POST", "/api/auth/login", data);
+      const response = await apiRequest("POST", "/api/auth/login", { ...data, turnstileToken });
       return response.json();
     },
     onSuccess: () => {
@@ -49,6 +53,8 @@ export default function Login() {
       setLocation("/");
     },
     onError: (error: Error) => {
+      setTurnstileToken(null);
+      setChallengeVersion((version) => version + 1);
       const message = error.message.includes("401") 
         ? "Invalid email or password"
         : "Login failed. Please try again.";
@@ -147,10 +153,17 @@ export default function Login() {
                   </Link>
                 </div>
 
+                <TurnstileWidget
+                  key={challengeVersion}
+                  action="login"
+                  onToken={setTurnstileToken}
+                  onEnabledChange={setTurnstileEnabled}
+                />
+
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={loginMutation.isPending}
+                  disabled={loginMutation.isPending || (turnstileEnabled && !turnstileToken)}
                   data-testid="button-login-submit"
                 >
                   {loginMutation.isPending ? (

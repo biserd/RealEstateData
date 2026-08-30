@@ -48,7 +48,7 @@ export default function UpAndComingZips() {
   const [trendFilter, setTrendFilter] = useState<string>("all");
 
   const { data: rawZips, isLoading, error } = useQuery<UpAndComingZip[]>({
-    queryKey: ["/api/market/up-and-coming", stateFilter],
+    queryKey: ["/api/market/trending-zips", stateFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (stateFilter !== "all") {
@@ -56,7 +56,7 @@ export default function UpAndComingZips() {
       }
       params.append("limit", "50");
       
-      const res = await fetch(`/api/market/up-and-coming?${params.toString()}`, {
+      const res = await fetch(`/api/market/trending-zips?${params.toString()}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch trending areas");
