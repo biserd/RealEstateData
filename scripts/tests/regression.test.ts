@@ -199,8 +199,9 @@ test("manual dataset publication cannot leave a day-old browser API response", (
   for (const pageSource of criticalPages) assert.match(pageSource, /cache: "no-store"/);
 });
 
-test("HTML documents prevent zone-level JavaScript detection injection", () => {
+test("HTML and public JSON have transport protections for zone-level rewriting", () => {
   const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
+  const transportSource = readFileSync(new URL("../../client/src/lib/apiTransport.ts", import.meta.url), "utf8");
   assert.match(workerSource, /function protectDocumentResponse/);
   assert.match(workerSource, /cache-control[^\n]+no-transform/);
   assert.match(workerSource, /private, no-store, max-age=0, must-revalidate, no-transform/);
@@ -209,6 +210,13 @@ test("HTML documents prevent zone-level JavaScript detection injection", () => {
   assert.match(workerSource, /hostname === "realtorsdashboard\.com"/);
   assert.match(workerSource, /headers\.set\("alt-svc", "clear"\)/);
   assert.match(workerSource, /entityPage \? "no-store, no-transform"/);
+  assert.match(workerSource, /PUBLIC_SITE_ORIGINS/);
+  assert.match(workerSource, /access-control-allow-origin/);
+  assert.match(transportSource, /realtors-dashboard\.biser-d\.workers\.dev/);
+  assert.match(transportSource, /credentials: "omit"/);
+  assert.match(transportSource, /method !== "GET"/);
+  assert.doesNotMatch(transportSource, /\/api\/auth/);
+  assert.doesNotMatch(transportSource, /\/api\/stripe/);
 });
 
 test("published ranking retries transient failures without reloading the application", () => {

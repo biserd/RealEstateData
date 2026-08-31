@@ -37,6 +37,54 @@ function isBackendPath(pathname: string): boolean {
 }
 
 const AI_CRAWLER_PATTERN = /(?:GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|CCBot|Google-Extended|PerplexityBot|Bytespider|Amazonbot)/i;
+const PUBLIC_SITE_ORIGINS = new Set([
+  "https://realtorsdashboard.com",
+  "https://www.realtorsdashboard.com",
+]);
+
+function isPublicDataApiPath(pathname: string): boolean {
+  return pathname === "/api/health"
+    || pathname === "/api/stats/platform"
+    || pathname === "/api/opportunities/top"
+    || pathname === "/api/units/top-opportunities"
+    || pathname.startsWith("/api/units/resolve/")
+    || /^\/api\/units\/[^/]+\/(?:sales|opportunity)$/.test(pathname)
+    || pathname.startsWith("/api/market/")
+    || pathname.startsWith("/api/neighborhood/")
+    || pathname === "/api/properties/area"
+    || pathname === "/api/properties/screener"
+    || pathname === "/api/search/geo"
+    || pathname === "/api/search/unified"
+    || pathname.startsWith("/api/buildings/")
+    || pathname.startsWith("/api/browse/")
+    || pathname.startsWith("/api/seo/")
+    || pathname.startsWith("/api/property/resolve/")
+    || pathname.startsWith("/api/calculator/property/")
+    || pathname === "/api/products";
+}
+
+function publicDataCorsOrigin(request: Request, pathname: string): string | null {
+  const url = new URL(request.url);
+  const origin = request.headers.get("origin");
+  if (!url.hostname.endsWith(".workers.dev") || !origin || !PUBLIC_SITE_ORIGINS.has(origin) || !isPublicDataApiPath(pathname)) {
+    return null;
+  }
+  return origin;
+}
+
+function withPublicDataCors(response: Response, origin: string | null): Response {
+  if (!origin) return response;
+  const headers = new Headers(response.headers);
+  headers.set("access-control-allow-origin", origin);
+  headers.set("access-control-allow-methods", "GET, HEAD, OPTIONS");
+  headers.set("access-control-allow-headers", "Content-Type");
+  headers.append("vary", "Origin");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 function isBlockedApiCrawler(request: Request, pathname: string): boolean {
   if (!pathname.startsWith("/api/") || !AI_CRAWLER_PATTERN.test(request.headers.get("user-agent") || "")) {
@@ -111,9 +159,9 @@ function clientApiHeaders(source: Headers): Headers {
   const headers = new Headers(source);
   // Keep dynamic JSON out of browser caches. Edge reuse is handled explicitly
   // through Cache API entries below and is unaffected by this client policy.
-  // `no-transform` is also required on the public custom domain: zone-level
-  // browser features must not rewrite API payloads that the client parses as
-  // JSON. The direct workers.dev hostname does not pass through those features.
+  // Keep an explicit no-transform directive as defense in depth for JSON.
+  // The client also has a narrowly scoped read-only workers.dev fallback for
+  // public data because Free-plan JavaScript Detections cannot be disabled.
   headers.set("cache-control", "private, no-store, max-age=0, must-revalidate, no-transform");
   return headers;
 }
@@ -218,12 +266,9 @@ function clearCachedHttp3Route(request: Request, headers: Headers): void {
 
 function protectDocumentResponse(request: Request, response: Response, cacheControl: string): Response {
   const headers = new Headers(response.headers);
-  // The public zone previously injected Cloudflare JavaScript Detections into
-  // HTML documents. Some legitimate browsers then received bot challenges for
-  // the page's same-origin JSON requests, while the direct workers.dev hostname
-  // remained healthy. `no-transform` keeps edge services from rewriting the
-  // application shell; API, asset, DDoS, and Worker rate-limit behavior is
-  // unchanged.
+  // Keep no-transform as defense in depth even though Free-plan JavaScript
+  // Detections may still inject at the zone edge. Public-data transport has a
+  // separate workers.dev fallback; auth, writes, and private APIs do not.
   headers.set("cache-control", `${cacheControl}, no-transform`);
   clearCachedHttp3Route(request, headers);
   return new Response(response.body, {
@@ -292,15 +337,20 @@ async function serveDocument(request: Request): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const corsOrigin = publicDataCorsOrigin(request, url.pathname);
+
+    if (request.method === "OPTIONS" && corsOrigin) {
+      return withPublicDataCors(new Response(null, { status: 204 }), corsOrigin);
+    }
 
     if (url.pathname === "/api/health") {
-      return Response.json({
+      return withPublicDataCors(Response.json({
         ok: true,
         runtime: "cloudflare-workers",
         databaseConfigured,
         emailConfigured: Boolean(bindings.EMAIL),
         aiConfigured: isWorkersAIConfigured(),
-      });
+      }), corsOrigin);
     }
 
     if (isBackendPath(url.pathname)) {
@@ -321,7 +371,7 @@ export default {
       if (!expressHandler.fetch) {
         return Response.json({ message: "Express adapter is unavailable" }, { status: 500 });
       }
-      return fetchBackendWithCache(request, env, ctx, url.pathname);
+      return withPublicDataCors(await fetchBackendWithCache(request, env, ctx, url.pathname), corsOrigin);
     }
 
     if (isDocumentRequest(request)) return serveDocument(request);
