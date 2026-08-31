@@ -30,7 +30,7 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
-const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v4";
+const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v5";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
@@ -236,16 +236,28 @@ async function fetchBackendWithCache(
   // Worker cache still absorbs repeated requests at the edge for `ttl` seconds.
   headers.set("cache-control", `public, max-age=0, must-revalidate, s-maxage=${ttl}, stale-while-revalidate=${ttl * 2}`);
   headers.set("x-rd-cache", "MISS");
-  const cacheable = new Response(response.body, { status: response.status, headers });
-  ctx.waitUntil(cache.put(key, cacheable.clone()));
+  // Buffer once before writing multiple Cache API objects. Repeatedly teeing the
+  // Node adapter's streaming body produced an intermittent one-byte truncation
+  // on the custom-domain cache while the direct workers.dev cache stayed valid.
+  const payload = await response.arrayBuffer();
+  ctx.waitUntil(cache.put(key, new Response(payload.slice(0), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })));
   if (snapshotKey) {
-    const snapshotHeaders = new Headers(cacheable.headers);
+    const snapshotHeaders = new Headers(headers);
     snapshotHeaders.set("cache-control", "public, max-age=604800");
-    ctx.waitUntil(cache.put(snapshotKey, new Response(cacheable.clone().body, { status: cacheable.status, headers: snapshotHeaders })));
+    ctx.waitUntil(cache.put(snapshotKey, new Response(payload.slice(0), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: snapshotHeaders,
+    })));
   }
-  return new Response(cacheable.body, {
-    status: cacheable.status,
-    headers: clientApiHeaders(cacheable.headers),
+  return new Response(payload, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: clientApiHeaders(headers),
   });
 }
 

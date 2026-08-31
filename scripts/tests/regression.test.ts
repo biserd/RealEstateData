@@ -192,7 +192,10 @@ test("manual dataset publication cannot leave a day-old browser API response", (
     "../../client/src/pages/InvestmentCalculator.tsx",
     "../../client/src/pages/Tools.tsx",
   ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
-  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v4"/);
+  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v5"/);
+  assert.match(workerSource, /const payload = await response\.arrayBuffer\(\)/);
+  assert.match(workerSource, /payload\.slice\(0\)/);
+  assert.doesNotMatch(workerSource, /cache\.put\(key, cacheable\.clone\(\)\)/);
   assert.match(workerSource, /max-age=0, must-revalidate, s-maxage=\$\{ttl\}/);
   assert.match(workerSource, /private, no-store, max-age=0, must-revalidate/);
   assert.doesNotMatch(workerSource, /trending-zips"\) return 900/);
