@@ -10,6 +10,7 @@ export function getDatabaseEnvironment(): DatabaseEnvironment | null {
 }
 
 export function databaseIdentity(): { environment: DatabaseEnvironment | null; host: string; database: string } {
+  if (process.env.D1_DATABASE_ID) return { environment: getDatabaseEnvironment(), host: "cloudflare-d1", database: process.env.D1_DATABASE_ID };
   const raw = process.env.DATABASE_URL;
   if (!raw) return { environment: getDatabaseEnvironment(), host: "not-configured", database: "not-configured" };
   try {
@@ -26,7 +27,8 @@ export function databaseIdentity(): { environment: DatabaseEnvironment | null; h
 
 export function assertDatabaseWriteAllowed(writeRequested: boolean): void {
   if (!writeRequested) return;
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for a database write.");
+  if (!process.env.D1_DATABASE_ID) throw new Error("Run database writes through scripts/run-d1.ts with an explicit D1 target.");
+  if (process.env.D1_DATABASE_ID === "local-read-only-snapshot") throw new Error("The migration snapshot is read-only.");
 
   const environment = getDatabaseEnvironment();
   if (!environment) {

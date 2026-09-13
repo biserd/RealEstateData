@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "realtors-dashboard-data-tools",
+  "account_id": "73d71a2bef58f7469ecb48e2b8e84c0e",
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "realtors-dashboard-production",
+    "database_id": "9329644b-3c17-4ddd-82d7-e51f1a544768",
+    "remote": true,
+    "migrations_dir": "migrations/d1"
+  }]
+}

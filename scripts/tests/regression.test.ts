@@ -137,14 +137,14 @@ test("ZIP fallback inference is conservative and preserves tri-state identity", 
 
 test("production writes require an explicit confirmation and recent backup", () => {
   const original = {
-    DATABASE_URL: process.env.DATABASE_URL,
+    D1_DATABASE_ID: process.env.D1_DATABASE_ID,
     DATABASE_ENV: process.env.DATABASE_ENV,
     CONFIRM_PRODUCTION_WRITE: process.env.CONFIRM_PRODUCTION_WRITE,
     BACKUP_VERIFIED_AT: process.env.BACKUP_VERIFIED_AT,
   };
 
   try {
-    process.env.DATABASE_URL = "postgresql://example.invalid/app";
+    process.env.D1_DATABASE_ID = "test-d1-database";
     process.env.DATABASE_ENV = "production";
     delete process.env.CONFIRM_PRODUCTION_WRITE;
     delete process.env.BACKUP_VERIFIED_AT;
@@ -192,7 +192,7 @@ test("manual dataset publication cannot leave a day-old browser API response", (
     "../../client/src/pages/InvestmentCalculator.tsx",
     "../../client/src/pages/Tools.tsx",
   ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
-  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v5"/);
+  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-09-13-d1-v1"/);
   assert.match(workerSource, /const payload = await response\.arrayBuffer\(\)/);
   assert.match(workerSource, /payload\.slice\(0\)/);
   assert.doesNotMatch(workerSource, /cache\.put\(key, cacheable\.clone\(\)\)/);
@@ -276,7 +276,7 @@ test("password reset failures reach a safe recovery screen", () => {
   assert.match(routes, /await sendPasswordResetEmail\(user\.email, token\)/);
 });
 
-test("unit opportunity scoring uses bounded concurrency for Neon reads", () => {
+test("unit opportunity scoring uses bounded concurrency for database reads", () => {
   const storage = readFileSync(new URL("../../server/storage.ts", import.meta.url), "utf8");
   assert.match(storage, /const batchSize = 6/);
   assert.match(storage, /Promise\.all\(batch\.map\(evaluateUnit\)\)/);

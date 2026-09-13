@@ -23,7 +23,7 @@ declare global {
 
 const SALT_ROUNDS = 12;
 
-class DrizzleSessionStore extends session.Store {
+export class DrizzleSessionStore extends session.Store {
   constructor(private readonly ttlMs: number) {
     super();
   }
@@ -31,7 +31,7 @@ class DrizzleSessionStore extends session.Store {
   get(sid: string, callback: (err: unknown, session?: session.SessionData | null) => void): void {
     void db.execute(sql`
       SELECT sess FROM sessions
-      WHERE sid = ${sid} AND expire > NOW()
+      WHERE sid = ${sid} AND expire > (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
       LIMIT 1
     `).then((result: any) => {
       const value = result.rows?.[0]?.sess;
@@ -46,7 +46,7 @@ class DrizzleSessionStore extends session.Store {
       : new Date(Date.now() + this.ttlMs);
     void db.execute(sql`
       INSERT INTO sessions (sid, sess, expire)
-      VALUES (${sid}, ${JSON.stringify(value)}::jsonb, ${expiresAt})
+      VALUES (${sid}, ${JSON.stringify(value)}, ${expiresAt})
       ON CONFLICT (sid) DO UPDATE
       SET sess = EXCLUDED.sess, expire = EXCLUDED.expire
     `).then(() => callback?.()).catch((error) => callback?.(error));

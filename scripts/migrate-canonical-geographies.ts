@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { propertyRecordJson } from "./lib/property-record-json";
 import { db } from "../server/db";
 import { assertDatabaseWriteAllowed, databaseIdentity } from "./lib/database-safety";
 
@@ -14,10 +15,10 @@ async function scalarCount(statement: ReturnType<typeof sql>): Promise<number> {
 async function main() {
   assertDatabaseWriteAllowed(apply);
   const [validStateZipPairs, contradictions, unresolvedSales, unresolvedUnits] = await Promise.all([
-    scalarCount(sql`SELECT count(*) FROM (SELECT DISTINCT state, zip_code FROM properties WHERE state IN ('NY','NJ','CT') AND zip_code ~ '^[0-9]{5}$') pairs`),
+    scalarCount(sql`SELECT count(*) FROM (SELECT DISTINCT state, zip_code FROM properties WHERE state IN ('NY','NJ','CT') AND zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]') pairs`),
     scalarCount(sql`
       SELECT count(*) FROM properties
-      WHERE state IN ('NY','NJ','CT') AND zip_code ~ '^[0-9]{5}$'
+      WHERE state IN ('NY','NJ','CT') AND zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]'
         AND CASE
           WHEN zip_code LIKE '06%' THEN 'CT'
           WHEN zip_code LIKE '07%' OR zip_code LIKE '08%' THEN 'NJ'
@@ -48,13 +49,13 @@ async function main() {
       ('state:NY', 'state', 'NY', 'New York'),
       ('state:NJ', 'state', 'NJ', 'New Jersey'),
       ('state:CT', 'state', 'CT', 'Connecticut')
-    ON CONFLICT (id) DO UPDATE SET canonical_name = EXCLUDED.canonical_name, updated_at = now()
+    ON CONFLICT (id) DO UPDATE SET canonical_name = EXCLUDED.canonical_name, updated_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
   `);
   await db.execute(sql`
     INSERT INTO canonical_geographies (id, type, state, zip_code, canonical_name)
     SELECT DISTINCT 'zip:' || state || ':' || zip_code, 'zip', state, zip_code, 'ZIP ' || zip_code
     FROM properties
-    WHERE state IN ('NY','NJ','CT') AND zip_code ~ '^[0-9]{5}$'
+    WHERE state IN ('NY','NJ','CT') AND zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]'
       AND CASE
         WHEN zip_code LIKE '06%' THEN 'CT'
         WHEN zip_code LIKE '07%' OR zip_code LIKE '08%' THEN 'NJ'
@@ -65,9 +66,9 @@ async function main() {
   `);
   await db.execute(sql`
     INSERT INTO data_quality_quarantine (source_table, source_id, reason, severity, record)
-    SELECT 'properties', id, 'state_zip_contradiction', 'critical', to_jsonb(properties)
+    SELECT 'properties', id, 'state_zip_contradiction', 'critical', ${propertyRecordJson("properties")}
     FROM properties
-    WHERE state IN ('NY','NJ','CT') AND zip_code ~ '^[0-9]{5}$'
+    WHERE state IN ('NY','NJ','CT') AND zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]'
       AND CASE
         WHEN zip_code LIKE '06%' THEN 'CT'
         WHEN zip_code LIKE '07%' OR zip_code LIKE '08%' THEN 'NJ'
@@ -75,31 +76,31 @@ async function main() {
         ELSE NULL
       END IS DISTINCT FROM state
     ON CONFLICT (source_table, source_id, reason) DO UPDATE
-      SET record = EXCLUDED.record, severity = 'critical', quarantined_at = now()
+      SET record = EXCLUDED.record, severity = 'critical', quarantined_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
   `);
   await db.execute(sql`
     UPDATE properties
     SET geography_id = 'zip:' || state || ':' || zip_code
-    WHERE state IN ('NY','NJ','CT') AND zip_code ~ '^[0-9]{5}$'
+    WHERE state IN ('NY','NJ','CT') AND zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]'
       AND EXISTS (SELECT 1 FROM canonical_geographies geography WHERE geography.id = 'zip:' || properties.state || ':' || properties.zip_code)
   `);
   await db.execute(sql`
-    UPDATE sales sale SET geography_id = property.geography_id
+    UPDATE sales AS sale SET geography_id = property.geography_id
     FROM properties property
     WHERE sale.property_id = property.id AND property.geography_id IS NOT NULL
   `);
   await db.execute(sql`
-    UPDATE condo_units unit SET geography_id = geography.id
+    UPDATE condo_units AS unit SET geography_id = geography.id
     FROM canonical_geographies geography
     WHERE geography.type = 'zip' AND geography.state = 'NY' AND geography.zip_code = unit.zip_code
   `);
   await db.execute(sql`
-    UPDATE buildings building SET geography_id = geography.id
+    UPDATE buildings AS building SET geography_id = geography.id
     FROM canonical_geographies geography
     WHERE geography.type = 'zip' AND geography.state = 'NY' AND geography.zip_code = building.zip_code
   `);
   await db.execute(sql`
-    UPDATE market_aggregates aggregate SET geography_id = geography.id
+    UPDATE market_aggregates AS aggregate SET geography_id = geography.id
     FROM canonical_geographies geography
     WHERE aggregate.geo_type = 'zip' AND geography.type = 'zip'
       AND aggregate.state = geography.state AND aggregate.geo_id = geography.zip_code
@@ -107,21 +108,21 @@ async function main() {
 
   const reconciliation = await db.execute(sql`
     SELECT state, zip_code,
-      count(*)::int AS properties,
-      count(*) FILTER (WHERE geography_id IS NOT NULL)::int AS linked_properties,
+      CAST(count(*) AS INTEGER) AS properties,
+      count(*) FILTER (WHERE geography_id IS NOT NULL) AS linked_properties,
       count(*) FILTER (WHERE EXISTS (
         SELECT 1 FROM data_quality_quarantine q
         WHERE q.source_table = 'properties' AND q.source_id = properties.id
-      ))::int AS quarantined_properties
+      )) AS quarantined_properties
     FROM properties
-    WHERE state IN ('NY','NJ','CT') AND zip_code ~ '^[0-9]{5}$'
+    WHERE state IN ('NY','NJ','CT') AND zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]'
     GROUP BY state, zip_code
     ORDER BY state, zip_code
   `);
   console.log(JSON.stringify({ reconciliation: reconciliation.rows }, null, 2));
 }
 
-main().catch((error) => {
+await main().catch((error) => {
   console.error(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
   process.exitCode = 1;
 });

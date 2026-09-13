@@ -1,8 +1,8 @@
 # Local Worker secrets. Copy to .dev.vars and fill locally; never commit values.
-DATABASE_URL=postgresql://user:password@host/database
+# Local D1 is provisioned by Wrangler's DB binding; no connection string.
 DATABASE_ENV=development
 # Command-scoped for applied production maintenance only; do not keep these in
-# Worker variables. BACKUP_VERIFIED_AT must name a verified backup/Neon branch
+# Worker variables. BACKUP_VERIFIED_AT must name a verified recoverable backup
 # created within the prior 24 hours.
 # CONFIRM_PRODUCTION_WRITE=YES
 # BACKUP_VERIFIED_AT=2026-08-30T00:00:00.000Z

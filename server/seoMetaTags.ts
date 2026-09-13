@@ -1,3 +1,4 @@
+import { percentile, roundedInteger } from "../shared/sqliteAnalytics";
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
@@ -569,22 +570,21 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
             SELECT 1 FROM sales sibling_sale
             WHERE sibling_sale.unit_bbl = cu.unit_bbl
               AND sibling_sale.sale_price BETWEEN 100000 AND 100000000
-              AND sibling_sale.sale_date >= NOW() - INTERVAL '120 months'
+              AND sibling_sale.sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-120 months') || '000Z')
           )
         ORDER BY cu.unit_designation NULLS LAST
         LIMIT 6
       `),
       db.execute(sql`
         SELECT
-          COUNT(*) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000)::int AS sale_count,
-          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price)
-            FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS median_price,
+          COUNT(*) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS sale_count,
+          ${percentile(sql`sale_price`, 0.5, sql`sale_price BETWEEN 100000 AND 100000000`)} AS median_price,
           MIN(sale_price) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS min_price,
           MAX(sale_price) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS max_price,
           MAX(sale_date) FILTER (WHERE sale_price BETWEEN 100000 AND 100000000) AS last_sale
         FROM sales
         WHERE base_bbl = ${row.base_bbl}
-          AND sale_date >= NOW() - INTERVAL '36 months'
+          AND sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-36 months') || '000Z')
       `),
     ]);
 
@@ -881,11 +881,9 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       row.zip_code
         ? db.execute(sql`
             SELECT
-              COUNT(*) FILTER (WHERE last_sale_price > 0)::int AS sale_count,
-              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY last_sale_price)
-                FILTER (WHERE last_sale_price > 0) AS median_price,
-              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)
-                FILTER (WHERE estimated_value > 0) AS median_estimate
+              COUNT(*) FILTER (WHERE last_sale_price > 0) AS sale_count,
+              ${percentile(sql`last_sale_price`, 0.5, sql`last_sale_price > 0`)} AS median_price,
+              ${percentile(sql`estimated_value`, 0.5, sql`estimated_value > 0`)} AS median_estimate
             FROM properties WHERE zip_code = ${row.zip_code}
               AND ${publicPropertyPageSql('properties')}
           `)
@@ -1107,8 +1105,8 @@ async function getBuildingMeta(rawBaseBbl: string): Promise<PageMeta | null> {
     const baseBbl = rawBaseBbl.match(/(\d{10})$/)?.[1] || rawBaseBbl;
     const result = await db.execute(sql`
       SELECT base_bbl, building_display_address, borough, zip_code, latitude, longitude,
-        COUNT(*) FILTER (WHERE unit_classification = 'residential')::int AS res_units,
-        COUNT(*)::int AS total_units
+        COUNT(*) FILTER (WHERE unit_classification = 'residential') AS res_units,
+        CAST(COUNT(*) AS INTEGER) AS total_units
       FROM condo_units
       WHERE base_bbl = ${baseBbl}
         AND ${publicUnitPageSql('condo_units')}
@@ -1176,7 +1174,7 @@ async function getNeighborhoodMeta(geoId: string, geoType: string): Promise<Page
       SELECT geography.zip_code, geography.canonical_name, geography.state,
         snapshot.median_price, snapshot.median_price_per_sqft, snapshot.transaction_count,
         snapshot.period_start, snapshot.period_end, version.published_at,
-        COUNT(property.id)::int AS public_property_count
+        CAST(COUNT(property.id) AS INTEGER) AS public_property_count
       FROM current_market_snapshots snapshot
       JOIN canonical_geographies geography ON geography.id = snapshot.geography_id
       JOIN current_published_dataset version ON version.id = snapshot.dataset_version_id
@@ -1225,8 +1223,8 @@ async function getBrowseStateMeta(state: string): Promise<PageMeta | null> {
     const upperState = state.toUpperCase();
     const stateName = STATE_NAMES[upperState] || upperState;
     const result = await db.execute(sql`
-      SELECT COUNT(*)::int as total,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median
+      SELECT CAST(COUNT(*) AS INTEGER) as total,
+        ${roundedInteger(percentile(sql`estimated_value`, 0.5))} as median
       FROM properties WHERE state = ${upperState} AND ${publicPropertyPageSql('properties')}
     `);
     const row = result.rows[0] as any;
@@ -1270,8 +1268,8 @@ async function getBrowseCityMeta(state: string, city: string): Promise<PageMeta 
     const upperState = state.toUpperCase();
     const stateName = STATE_NAMES[upperState] || upperState;
     const result = await db.execute(sql`
-      SELECT COUNT(*)::int as total,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median
+      SELECT CAST(COUNT(*) AS INTEGER) as total,
+        ${roundedInteger(percentile(sql`estimated_value`, 0.5))} as median
       FROM properties WHERE state = ${upperState} AND LOWER(city) = LOWER(${city})
         AND ${publicPropertyPageSql('properties')}
     `);

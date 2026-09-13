@@ -64,7 +64,10 @@ async function checkJsonData(url: string, validate: (body: any) => boolean, expe
 }
 
 function extractLocs(xml: string): string[] {
-  return Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), (match) => match[1].replace(/&amp;/g, "&"));
+  return Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), (match) => {
+    const canonical = new URL(match[1].replace(/&amp;/g, "&"));
+    return `${baseUrl}${canonical.pathname}${canonical.search}`;
+  });
 }
 
 function evenlySample<T>(items: T[], count: number): T[] {

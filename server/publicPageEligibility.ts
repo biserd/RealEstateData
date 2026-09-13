@@ -9,9 +9,9 @@ function triStateZip(alias: SQL, column = "zip_code"): SQL {
   const zip = sql`${alias}.${sql.raw(column)}`;
   const state = sql`${alias}.state`;
   return sql`(
-    (${state} = 'NY' AND (${zip} ~ '^(10|11|12|13|14)[0-9]{3}$' OR ${zip} IN ('00501', '00544', '06390')))
-    OR (${state} = 'NJ' AND ${zip} ~ '^0[7-8][0-9]{3}$')
-    OR (${state} = 'CT' AND ${zip} ~ '^0[6][0-9]{3}$' AND ${zip} <> '06390')
+    (${state} = 'NY' AND (${zip} GLOB '1[0-4][0-9][0-9][0-9]' OR ${zip} IN ('00501', '00544', '06390')))
+    OR (${state} = 'NJ' AND ${zip} GLOB '0[7-8][0-9][0-9][0-9]')
+    OR (${state} = 'CT' AND ${zip} GLOB '06[0-9][0-9][0-9]' AND ${zip} <> '06390')
   )`;
 }
 
@@ -19,9 +19,9 @@ function triStateZip(alias: SQL, column = "zip_code"): SQL {
 export function publicPropertyPageSql(alias = "p"): SQL {
   const p = tableAlias(alias);
   return sql`
-    NULLIF(BTRIM(${p}.address), '') IS NOT NULL
-    AND NULLIF(BTRIM(${p}.city), '') IS NOT NULL
-    AND ${p}.zip_code ~ '^[0-9]{5}$'
+    NULLIF(TRIM(${p}.address), '') IS NOT NULL
+    AND NULLIF(TRIM(${p}.city), '') IS NOT NULL
+    AND ${p}.zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]'
     AND ${triStateZip(p)}
     AND ${p}.latitude BETWEEN 38 AND 46
     AND ${p}.longitude BETWEEN -80 AND -69
@@ -47,7 +47,7 @@ export function publicPropertyPageSql(alias = "p"): SQL {
       SELECT 1 FROM sales verified_sale
       WHERE verified_sale.property_id = ${p}.id
         AND verified_sale.sale_price BETWEEN 50000 AND 100000000
-        AND verified_sale.sale_date >= NOW() - INTERVAL '120 months'
+        AND verified_sale.sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-120 months') || '000Z')
         AND (
           verified_sale.source_id IS NOT NULL
           OR verified_sale.match_method IS NOT NULL
@@ -69,10 +69,10 @@ export function publicUnitPageSql(alias = "cu"): SQL {
   const cu = tableAlias(alias);
   return sql`
     ${cu}.unit_type_hint = 'residential'
-    AND ${cu}.unit_bbl ~ '^[1-5][0-9]{9}$'
-    AND ${cu}.base_bbl ~ '^[1-5][0-9]{9}$'
-    AND NULLIF(BTRIM(${cu}.building_display_address), '') IS NOT NULL
-    AND NULLIF(BTRIM(${cu}.unit_designation), '') IS NOT NULL
+    AND ${cu}.unit_bbl GLOB '[1-5][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+    AND ${cu}.base_bbl GLOB '[1-5][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+    AND NULLIF(TRIM(${cu}.building_display_address), '') IS NOT NULL
+    AND NULLIF(TRIM(${cu}.unit_designation), '') IS NOT NULL
     AND ${cu}.latitude BETWEEN 40 AND 41
     AND ${cu}.longitude BETWEEN -75 AND -73
     AND EXISTS (
@@ -96,7 +96,7 @@ export function publicUnitPageSql(alias = "cu"): SQL {
       SELECT 1 FROM sales verified_unit_sale
       WHERE verified_unit_sale.unit_bbl = ${cu}.unit_bbl
         AND verified_unit_sale.sale_price BETWEEN 100000 AND 100000000
-        AND verified_unit_sale.sale_date >= NOW() - INTERVAL '120 months'
+        AND verified_unit_sale.sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-120 months') || '000Z')
         AND (
           verified_unit_sale.source_id IS NOT NULL
           OR verified_unit_sale.match_method IS NOT NULL

@@ -1,5 +1,7 @@
+import { d1BatchSize } from "../server/d1Writes";
 import { eq, gte, sql } from "drizzle-orm";
-import { boolean, integer, pgTable, real, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { integer, sqliteTable, real, text } from "drizzle-orm/sqlite-core";
+import { timestamp } from "../shared/sqliteTypes";
 import { db } from "../server/db";
 import { properties, sales, sourceCatalog } from "../shared/schema";
 import { assertSourceMayPublish } from "../pipeline/contracts";
@@ -25,52 +27,52 @@ const CONDO_UNITS_SOURCE = sourceById("nyc-condo-units");
 // These migration-only table shapes keep the deployed application compatible
 // with the legacy production schema. They are used only by the explicit manual
 // refresh command, after 0001_versioned_data_platform.sql has been applied.
-const versionedProperties = pgTable("properties", {
-  id: varchar("id").primaryKey(),
-  bbl: varchar("bbl"),
-  bblNormalized: varchar("bbl_normalized"),
-  state: varchar("state").notNull(),
-  geographyId: varchar("geography_id"),
+const versionedProperties = sqliteTable("properties", {
+  id: text("id").primaryKey(),
+  bbl: text("bbl"),
+  bblNormalized: text("bbl_normalized"),
+  state: text("state").notNull(),
+  geographyId: text("geography_id"),
 });
 
-const versionedCondoUnits = pgTable("condo_units", {
-  unitBbl: varchar("unit_bbl").primaryKey(),
-  baseBbl: varchar("base_bbl").notNull(),
-  condoNumber: varchar("condo_number"),
-  unitDesignation: varchar("unit_designation"),
-  unitTypeHint: varchar("unit_type_hint"),
-  buildingPropertyId: varchar("building_property_id"),
+const versionedCondoUnits = sqliteTable("condo_units", {
+  unitBbl: text("unit_bbl").primaryKey(),
+  baseBbl: text("base_bbl").notNull(),
+  condoNumber: text("condo_number"),
+  unitDesignation: text("unit_designation"),
+  unitTypeHint: text("unit_type_hint"),
+  buildingPropertyId: text("building_property_id"),
   buildingDisplayAddress: text("building_display_address"),
   unitDisplayAddress: text("unit_display_address"),
-  slug: varchar("slug"),
-  borough: varchar("borough"),
-  zipCode: varchar("zip_code"),
-  geographyId: varchar("geography_id"),
+  slug: text("slug"),
+  borough: text("borough"),
+  zipCode: text("zip_code"),
+  geographyId: text("geography_id"),
   latitude: real("latitude"),
   longitude: real("longitude"),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").default(sql`(strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')`),
 });
 
-const versionedSales = pgTable("sales", {
-  propertyId: varchar("property_id"),
+const versionedSales = sqliteTable("sales", {
+  propertyId: text("property_id"),
   salePrice: integer("sale_price").notNull(),
   saleDate: timestamp("sale_date").notNull(),
-  armsLength: boolean("arms_length"),
-  deedType: varchar("deed_type"),
-  geographyId: varchar("geography_id"),
-  sourceId: varchar("source_id"),
-  sourceRecordId: varchar("source_record_id"),
-  sourceFingerprint: varchar("source_fingerprint"),
-  packageSale: boolean("package_sale"),
-  unitBbl: varchar("unit_bbl"),
-  baseBbl: varchar("base_bbl"),
-  matchMethod: varchar("match_method"),
-  rawBorough: varchar("raw_borough"),
-  rawBlock: varchar("raw_block"),
-  rawLot: varchar("raw_lot"),
+  armsLength: integer("arms_length", { mode: "boolean" }),
+  deedType: text("deed_type"),
+  geographyId: text("geography_id"),
+  sourceId: text("source_id"),
+  sourceRecordId: text("source_record_id"),
+  sourceFingerprint: text("source_fingerprint"),
+  packageSale: integer("package_sale", { mode: "boolean" }),
+  unitBbl: text("unit_bbl"),
+  baseBbl: text("base_bbl"),
+  matchMethod: text("match_method"),
+  rawBorough: text("raw_borough"),
+  rawBlock: text("raw_block"),
+  rawLot: text("raw_lot"),
   rawAddress: text("raw_address"),
-  rawAptNumber: varchar("raw_apt_number"),
-  unresolvedReason: varchar("unresolved_reason"),
+  rawAptNumber: text("raw_apt_number"),
+  unresolvedReason: text("unresolved_reason"),
 });
 
 const apply = process.argv.includes("--apply");
@@ -140,8 +142,8 @@ async function syncCondoReference(): Promise<{ fetched: number; valid: number; w
   }
 
   let written = 0;
-  for (let i = 0; i < valid.length; i += 500) {
-    const values: Array<typeof versionedCondoUnits.$inferInsert> = valid.slice(i, i + 500).map((record) => {
+  for (let i = 0; i < valid.length; i += d1BatchSize(versionedCondoUnits)) {
+    const values: Array<typeof versionedCondoUnits.$inferInsert> = valid.slice(i, i + d1BatchSize(versionedCondoUnits)).map((record) => {
       const unitBbl = String(record.unit_bbl);
       const baseBbl = String(record.condo_base_bbl);
       const unitDesignation = normalizeUnitDesignation(record.unit_designation);
@@ -265,18 +267,18 @@ async function syncRollingSales(): Promise<{ fetched: number; valid: number; new
   }
 
   if (apply) {
-    for (let i = 0; i < values.length; i += 500) await db.insert(versionedSales).values(values.slice(i, i + 500));
+    for (let i = 0; i < values.length; i += d1BatchSize(versionedSales)) await db.insert(versionedSales).values(values.slice(i, i + d1BatchSize(versionedSales)));
     await db.execute(sql`
-      UPDATE properties p SET
+      UPDATE properties AS p SET
         last_sale_price = latest.sale_price,
         last_sale_date = latest.sale_date,
-        updated_at = NOW()
+        updated_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
       FROM (
-        SELECT DISTINCT ON (property_id) property_id, sale_price, sale_date
-        FROM sales
-        WHERE property_id IS NOT NULL
-          AND match_method LIKE 'nyc_rolling_%'
-        ORDER BY property_id, sale_date DESC
+        SELECT property_id, sale_price, sale_date FROM (
+          SELECT property_id, sale_price, sale_date,
+            row_number() OVER (PARTITION BY property_id ORDER BY sale_date DESC, id DESC) AS sale_rank
+          FROM sales WHERE property_id IS NOT NULL AND match_method LIKE 'nyc_rolling_%'
+        ) WHERE sale_rank=1
       ) latest
       WHERE p.id = latest.property_id
         AND (p.last_sale_date IS NULL OR latest.sale_date >= p.last_sale_date)
@@ -315,7 +317,7 @@ async function main() {
   if (!apply) console.log("Dry run only. Re-run with --apply after reviewing counts; add --include-reference for the monthly 307K-unit snapshot.");
 }
 
-main().catch((error) => {
+await main().catch((error) => {
   console.error(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
   process.exitCode = 1;
 });

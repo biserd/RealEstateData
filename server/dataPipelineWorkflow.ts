@@ -71,9 +71,9 @@ async function ensureRefreshRun(params: DataRefreshWorkflowParams, watermark: st
   }).onConflictDoUpdate({ target: schema.sourceCatalog.id, set: { adapterVersion: source.adapterVersion, updatedAt: new Date() } });
   const result = await db.execute(sql`
     INSERT INTO refresh_runs (environment, source_id, source_watermark, status, counts)
-    VALUES (${params.environment}, ${params.sourceId}, ${watermark}, 'discovered', ${JSON.stringify({ requestedBy: params.requestedBy, dryRun: params.dryRun })}::jsonb)
+    VALUES (${params.environment}, ${params.sourceId}, ${watermark}, 'discovered', ${JSON.stringify({ requestedBy: params.requestedBy, dryRun: params.dryRun })})
     ON CONFLICT (environment, source_id, source_watermark)
-    DO UPDATE SET counts = refresh_runs.counts || EXCLUDED.counts
+    DO UPDATE SET counts = json_patch(refresh_runs.counts, EXCLUDED.counts)
     RETURNING id
   `);
   return String((result.rows[0] as { id: string }).id);
@@ -148,7 +148,7 @@ export async function handleDataPipelineQueue(batch: MessageBatch<PipelineQueueM
       if (rows.length === job.pageSize) {
         await bindings.DATA_PIPELINE_QUEUE.send({ ...job, offset: job.offset + job.pageSize });
       } else {
-        await db.execute(sql`UPDATE refresh_runs SET status = 'parsing', counts = counts || ${JSON.stringify({ acquiredThroughOffset: job.offset, finalPageRows: rows.length })}::jsonb WHERE id = ${job.runId}`);
+        await db.execute(sql`UPDATE refresh_runs SET status = 'parsing', counts = json_patch(counts, ${JSON.stringify({ acquiredThroughOffset: job.offset, finalPageRows: rows.length })}) WHERE id = ${job.runId}`);
       }
       message.ack();
     } catch (error) {

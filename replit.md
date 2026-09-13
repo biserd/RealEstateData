@@ -16,11 +16,11 @@ The frontend uses React 18+, TypeScript, Vite, Wouter for routing, and TanStack 
 
 ### Backend
 
-The backend is built with Express.js and TypeScript on Node.js. It features a RESTful JSON API, robust export functionalities, and a monorepo structure. Authentication uses Passport Local Strategy with bcrypt for hashing and PostgreSQL for session storage.
+The backend is built with Express.js and TypeScript on Node.js. It features a RESTful JSON API, robust export functionalities, and a monorepo structure. Authentication uses Passport Local Strategy with bcrypt for hashing and Cloudflare D1 for session storage.
 
 ### Database
 
-The platform uses Drizzle ORM with PostgreSQL (Neon serverless driver) and a schema-first approach. Key data models include Users, Properties (with geographic segmentation and opportunity scoring), Sales, Market Aggregates, and AI Chats. Properties are geographically indexed, and market statistics are pre-computed.
+The platform uses Drizzle ORM with Cloudflare D1 (SQLite driver) and a schema-first approach. Key data models include Users, Properties (with geographic segmentation and opportunity scoring), Sales, Market Aggregates, and AI Chats. Properties are geographically indexed, and market statistics are pre-computed.
 
 ### AI Integration
 
@@ -67,7 +67,7 @@ The guides hub at `/guides` and 8 long-form articles at `/guides/:slug` make up 
 ## External Dependencies
 
 -   **AI Services:** Cloudflare Workers AI (`@cf/zai-org/glm-5.3-flash`)
--   **Database:** Neon Serverless PostgreSQL
+-   **Database:** Cloudflare D1 SQLite
 -   **Payments:** Direct Stripe API calls and signed webhooks
 -   **Authentication:** Passport Local Strategy (bcryptjs for password hashing)
 -   **Geocoding:** NYC Geoclient API

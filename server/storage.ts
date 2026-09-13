@@ -1,4 +1,6 @@
-import { eq, and, desc, gte, lte, inArray, sql, or, ilike, isNotNull } from "drizzle-orm";
+import { percentile, roundedInteger, mostFrequent } from "../shared/sqliteAnalytics";
+import { eq, and, desc, gte, lte, sql, or, like, isNotNull } from "drizzle-orm";
+import { d1InArray as inArray } from "./d1Writes";
 import { db } from "./db";
 import {
   users,
@@ -83,7 +85,7 @@ function publicOpportunityPropertyPredicate() {
       ${properties.pricePerSqft} >= 50
       OR (
         ${properties.pricePerSqft} IS NULL
-        AND (${properties.estimatedValue}::numeric / NULLIF(${properties.sqft}, 0)) >= 50
+        AND (CAST(${properties.estimatedValue} AS REAL) / NULLIF(${properties.sqft}, 0)) >= 50
       )
     )
   `;
@@ -105,16 +107,16 @@ async function publishedMarketAggregates(geoType: string, geoId: string): Promis
     if (geoType === "state") {
       const result = await db.execute(sql`
         SELECT
-          ${`state-v2-${geoId}`}::text AS id,
-          ${geoId}::text AS geo_id,
-          ${geoId === "NY" ? "New York" : geoId === "NJ" ? "New Jersey" : geoId === "CT" ? "Connecticut" : geoId}::text AS geo_name,
-          ${geoId}::text AS state,
-          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.median_price)::int AS median_price,
-          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.median_price_per_sqft)::real AS median_price_per_sqft,
-          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.p25_price)::int AS p25_price,
-          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.p75_price)::int AS p75_price,
-          sum(snapshot.transaction_count)::int AS transaction_count,
-          percentile_cont(0.5) WITHIN GROUP (ORDER BY snapshot.trend_percent)::real AS trend_percent,
+          ${`state-v2-${geoId}`} AS id,
+          ${geoId} AS geo_id,
+          ${geoId === "NY" ? "New York" : geoId === "NJ" ? "New Jersey" : geoId === "CT" ? "Connecticut" : geoId} AS geo_name,
+          ${geoId} AS state,
+          ${roundedInteger(percentile(sql`snapshot.median_price`, 0.5))} AS median_price,
+          CAST(${percentile(sql`snapshot.median_price_per_sqft`, 0.5)} AS REAL) AS median_price_per_sqft,
+          ${roundedInteger(percentile(sql`snapshot.p25_price`, 0.5))} AS p25_price,
+          ${roundedInteger(percentile(sql`snapshot.p75_price`, 0.5))} AS p75_price,
+          CAST(sum(snapshot.transaction_count) AS INTEGER) AS transaction_count,
+          CAST(${percentile(sql`snapshot.trend_percent`, 0.5)} AS REAL) AS trend_percent,
           max(snapshot.computed_at) AS computed_at,
           max(snapshot.dataset_version_id) AS dataset_version_id
         FROM current_market_snapshots snapshot
@@ -187,13 +189,13 @@ async function publishedUpAndComing(state: string | undefined, limit: number): P
         ranking.confidence_score, geography.zip_code, geography.canonical_name, geography.state,
         snapshot.trend_percent, snapshot.median_price, snapshot.median_price_per_sqft,
         snapshot.transaction_count,
-        count(properties.id) FILTER (WHERE properties.id IS NOT NULL)::int AS property_count,
-        round(avg(properties.opportunity_score))::int AS avg_opportunity_score
+        count(properties.id) FILTER (WHERE properties.id IS NOT NULL) AS property_count,
+        CAST(round(avg(properties.opportunity_score)) AS INTEGER) AS avg_opportunity_score
       FROM current_ranking_snapshots ranking
       JOIN canonical_geographies geography ON geography.id = ranking.geography_id
       JOIN current_market_snapshots snapshot ON snapshot.geography_id = ranking.geography_id
       LEFT JOIN properties ON properties.geography_id = ranking.geography_id AND ${publicOpportunityPropertyPredicate()}
-      WHERE geography.type = 'zip' AND (${state || null}::text IS NULL OR geography.state = ${state || null})
+      WHERE geography.type = 'zip' AND (${state || null} IS NULL OR geography.state = ${state || null})
       GROUP BY ranking.rank, ranking.total_score, ranking.price_trend_score,
         ranking.transaction_velocity_score, ranking.liquidity_score, ranking.comp_depth_score,
         ranking.confidence_score, geography.zip_code, geography.canonical_name, geography.state,
@@ -249,7 +251,7 @@ export interface IStorage {
   setResetToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void>;
   getUserByResetToken(tokenHash: string): Promise<User | undefined>;
   resetPassword(userId: string, passwordHash: string): Promise<User | undefined>;
-  
+
   // Property operations
   getProperty(id: string): Promise<Property | undefined>;
   getPropertyByIdOrSlug(idOrSlug: string): Promise<Property | undefined>;
@@ -264,7 +266,7 @@ export interface IStorage {
   getPropertiesForSitemapPaginated(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property | undefined>;
-  
+
   getStateStats(state: string): Promise<{ totalProperties: number; cities: { city: string; count: number; medianPrice: number }[]; medianPrice: number; propertyTypes: { type: string; count: number }[] }>;
   getCityStats(state: string, city: string): Promise<{ totalProperties: number; zips: { zipCode: string; count: number; medianPrice: number }[]; medianPrice: number; propertyTypes: { type: string; count: number }[] }>;
   getPropertiesByState(state: string, limit: number, offset: number): Promise<Property[]>;
@@ -288,12 +290,12 @@ export interface IStorage {
     lastSaleDate: string | null;
   }>>;
   createSale(sale: InsertSale): Promise<Sale>;
-  
+
   // Market aggregate operations
   getMarketAggregates(geoType: string, geoId: string, filters?: any): Promise<MarketAggregate[]>;
   getMarketOverview(): Promise<MarketAggregate[]>;
   createMarketAggregate(aggregate: InsertMarketAggregate): Promise<MarketAggregate>;
-  
+
   // Geo search
   searchGeo(query: string): Promise<Array<{ type: string; id: string; name: string; state: string }>>;
   searchUnified(query: string, entityFilter?: "all" | "buildings" | "units"): Promise<{
@@ -301,55 +303,55 @@ export interface IStorage {
     units: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null; slug: string | null }>;
     locations: Array<{ type: string; id: string; name: string; state: string }>;
   }>;
-  
+
   // Coverage matrix operations
   getCoverageMatrix(state?: string): Promise<CoverageMatrix[]>;
   createCoverageMatrix(coverage: InsertCoverageMatrix): Promise<CoverageMatrix>;
-  
+
   // Watchlist operations
   getWatchlists(userId: string): Promise<Watchlist[]>;
   getWatchlist(id: string): Promise<Watchlist | undefined>;
   createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist>;
   deleteWatchlist(id: string): Promise<void>;
-  
+
   // Watchlist property operations
   getWatchlistProperties(watchlistId: string): Promise<Property[]>;
   addPropertyToWatchlist(data: InsertWatchlistProperty): Promise<WatchlistProperty>;
   removePropertyFromWatchlist(watchlistId: string, propertyId: string): Promise<void>;
-  
+
   // Alert operations
   getAlerts(userId: string): Promise<Alert[]>;
   createAlert(alert: InsertAlert): Promise<Alert>;
   updateAlert(id: string, alert: Partial<InsertAlert>): Promise<Alert | undefined>;
   deleteAlert(id: string, userId: string): Promise<void>;
-  
+
   // Notification operations
   getNotifications(userId: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: string): Promise<void>;
-  
+
   // Comps operations
   getComps(propertyId: string): Promise<(Comp & { property: Property })[]>;
   createComp(comp: InsertComp): Promise<Comp>;
-  
+
   // Data source operations
   getDataSources(): Promise<DataSource[]>;
   createDataSource(source: InsertDataSource): Promise<DataSource>;
-  
+
   // AI chat operations
   getAiChats(userId: string): Promise<AiChat[]>;
   createAiChat(chat: InsertAiChat): Promise<AiChat>;
-  
+
   // Up and coming ZIP codes
   getUpAndComingZips(state?: string, limit?: number): Promise<UpAndComingZip[]>;
-  
+
   // NYC Deep Coverage - Property Signals
   getPropertySignals(propertyId: string): Promise<PropertySignalSummary | undefined>;
   getPropertySignalsByBbl(bbl: string): Promise<PropertySignalSummary | undefined>;
   createOrUpdatePropertySignals(signals: InsertPropertySignalSummary): Promise<PropertySignalSummary>;
   getPropertiesWithDeepCoverage(geoType: string, geoId: string, limit?: number): Promise<(Property & { signals?: PropertySignalSummary })[]>;
   getDeepCoverageCounts(geoType: string, geoId: string): Promise<{ totalProperties: number; withSignals: number }>;
-  
+
   // Platform statistics
   getPlatformStats(): Promise<{
     properties: number;
@@ -359,7 +361,7 @@ export interface IStorage {
     aiChats: number;
     dataSources: number;
   }>;
-  
+
   // API Key operations
   getApiKey(id: string): Promise<ApiKey | undefined>;
   getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined>;
@@ -369,7 +371,7 @@ export interface IStorage {
   updateApiKey(id: string, data: Partial<InsertApiKey>): Promise<ApiKey | undefined>;
   revokeApiKey(id: string): Promise<void>;
   incrementApiKeyUsage(id: string): Promise<void>;
-  
+
   // Saved Search operations
   getSavedSearches(userId: string): Promise<SavedSearch[]>;
   getSavedSearch(id: string): Promise<SavedSearch | undefined>;
@@ -378,17 +380,17 @@ export interface IStorage {
   deleteSavedSearch(id: string, userId: string): Promise<void>;
   getActiveSavedSearchesByFrequency(frequency: string): Promise<SavedSearch[]>;
   updateSavedSearchMatchCount(id: string, count: number): Promise<void>;
-  
+
   // Property Change operations
   createPropertyChange(change: InsertPropertyChange): Promise<PropertyChange>;
   getUnprocessedChanges(forDigest: boolean, limit?: number): Promise<PropertyChange[]>;
   markChangesProcessed(ids: string[], forDigest: boolean): Promise<void>;
   getRecentChangesForProperty(propertyId: string, since: Date): Promise<PropertyChange[]>;
-  
+
   // Saved Search Notification operations
   createSavedSearchNotification(notification: InsertSavedSearchNotification): Promise<SavedSearchNotification>;
   getRecentNotificationsForSearch(searchId: string, limit?: number): Promise<SavedSearchNotification[]>;
-  
+
   // Condo Units search
   searchCondoUnits(params: {
     borough?: string;
@@ -409,7 +411,7 @@ export interface IStorage {
     latitude: number | null;
     longitude: number | null;
   }>>;
-  
+
   // Building and Unit sales queries
   getSalesForBuilding(baseBbl: string, limit?: number): Promise<Array<{
     id: string;
@@ -419,7 +421,7 @@ export interface IStorage {
     rawAddress: string | null;
     rawAptNumber: string | null;
   }>>;
-  
+
   getSalesForUnit(unitBbl: string): Promise<Array<{
     id: string;
     salePrice: number;
@@ -427,7 +429,7 @@ export interface IStorage {
     rawAddress: string | null;
     rawAptNumber: string | null;
   }>>;
-  
+
   // Buildings operations
   getBuilding(baseBbl: string): Promise<Building | undefined>;
   getBuildingsWithUnits(limit?: number, offset?: number): Promise<Building[]>;
@@ -463,7 +465,7 @@ export interface IStorage {
       vsAreaPct: number | null;
     };
   }>;
-  
+
   // Condo Unit operations
   getCondoUnit(unitBbl: string): Promise<{
     unitBbl: string;
@@ -480,7 +482,7 @@ export interface IStorage {
     baths: number | null;
     sqft: number | null;
   } | undefined>;
-  
+
   getCondoUnitsForBuilding(baseBbl: string, params?: {
     unitTypes?: string[];
     limit?: number;
@@ -491,7 +493,7 @@ export interface IStorage {
     unitTypeHint: string | null;
     unitDisplayAddress: string | null;
   }>>;
-  
+
   getUnitOpportunityData(unitBbl: string): Promise<{
     unitBbl: string;
     baseBbl: string;
@@ -605,7 +607,7 @@ export interface IStorage {
   } | undefined>;
 
   updateUnitSlug(unitBbl: string, slug: string): Promise<void>;
-  
+
   // Unit sitemap operations
   getUnitCountForSitemap(): Promise<number>;
   getUnitCountForSitemapEligible(): Promise<number>;
@@ -744,7 +746,7 @@ export class DatabaseStorage implements IStorage {
 
   async getProperties(filters: ScreenerFilters, limit = 50, offset = 0): Promise<Property[]> {
     const conditions: any[] = [publicOpportunityPropertyPredicate()];
-    
+
     if (filters.state) {
       conditions.push(eq(properties.state, filters.state));
     }
@@ -773,7 +775,7 @@ export class DatabaseStorage implements IStorage {
     const query = conditions.length > 0
       ? db.select().from(properties).where(and(...conditions))
       : db.select().from(properties);
-    
+
     return await query
       .orderBy(desc(properties.opportunityScore))
       .limit(limit)
@@ -786,18 +788,19 @@ export class DatabaseStorage implements IStorage {
   // buildings (4000-6000 sqft, year_built 1870-1920) instead of real units.
   async getCondoUnitsAsProperties(zipCodes: string[], limit = 50, offset = 0): Promise<Property[]> {
     if (!zipCodes || zipCodes.length === 0) return [];
-    const zipList = sql.join(zipCodes.map((z) => sql`${z}`), sql`, `);
+    const zipList = sql`SELECT value FROM json_each(${JSON.stringify(zipCodes)})`;
     const result: any = await db.execute(sql`
-      WITH latest_sale AS (
-        SELECT DISTINCT ON (s.unit_bbl)
-          s.unit_bbl, s.sale_price, s.sale_date
+      WITH ranked_sales AS (
+        SELECT s.unit_bbl, s.sale_price, s.sale_date,
+          row_number() OVER (PARTITION BY s.unit_bbl ORDER BY s.sale_date DESC, s.id DESC) AS sale_rank
         FROM sales s
         JOIN condo_units cu ON cu.unit_bbl = s.unit_bbl
         WHERE cu.zip_code IN (${zipList})
           AND s.unit_bbl IS NOT NULL
           AND s.sale_price >= 100000
-          AND s.sale_date >= NOW() - INTERVAL '36 months'
-        ORDER BY s.unit_bbl, s.sale_date DESC
+          AND s.sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-36 months') || '000Z')
+      ), latest_sale AS (
+        SELECT unit_bbl, sale_price, sale_date FROM ranked_sales WHERE sale_rank = 1
       )
       SELECT
         cu.unit_bbl                                AS id,
@@ -812,25 +815,25 @@ export class DatabaseStorage implements IStorage {
         p.neighborhood                             AS neighborhood,
         cu.latitude                                AS latitude,
         cu.longitude                               AS longitude,
-        NULL::int                                  AS grid_lat,
-        NULL::int                                  AS grid_lng,
+        CAST(NULL AS INTEGER)                                  AS grid_lat,
+        CAST(NULL AS INTEGER)                                  AS grid_lng,
         'Condo'                                    AS property_type,
         cu.beds                                    AS beds,
         cu.baths                                   AS baths,
         cu.sqft                                    AS sqft,
-        NULL::int                                  AS lot_size,
+        CAST(NULL AS INTEGER)                                  AS lot_size,
         p.year_built                               AS year_built,
         ls.sale_price                              AS last_sale_price,
         ls.sale_date                               AS last_sale_date,
         ls.sale_price                              AS estimated_value,
         CASE WHEN cu.sqft IS NOT NULL AND cu.sqft >= 100
-             THEN (ls.sale_price::numeric / cu.sqft)::real
+             THEN CAST((CAST(ls.sale_price AS REAL) / cu.sqft) AS REAL)
              ELSE NULL
         END                                        AS price_per_sqft,
         p.opportunity_score                        AS opportunity_score,
         p.confidence_level                         AS confidence_level,
-        NULL::text                                 AS image_url,
-        ARRAY['ACRIS','condo_units']::text[]       AS data_sources,
+        NULL                                 AS image_url,
+        json_array('ACRIS','condo_units')       AS data_sources,
         cu.created_at                              AS created_at,
         cu.updated_at                              AS updated_at
       FROM latest_sale ls
@@ -868,7 +871,7 @@ export class DatabaseStorage implements IStorage {
       opportunityScore: r.opportunity_score,
       confidenceLevel: r.confidence_level,
       imageUrl: r.image_url,
-      dataSources: r.data_sources,
+      dataSources: typeof r.data_sources === "string" ? JSON.parse(r.data_sources) : r.data_sources,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     })) as Property[];
@@ -876,7 +879,7 @@ export class DatabaseStorage implements IStorage {
 
   async getPropertiesByArea(geoType: string, geoId: string, limit = 50): Promise<Property[]> {
     let condition;
-    
+
     switch (geoType.toLowerCase()) {
       case "zip":
         condition = eq(properties.zipCode, geoId);
@@ -924,7 +927,7 @@ export class DatabaseStorage implements IStorage {
 
   async getPropertyCountForSitemap(): Promise<number> {
     const result = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(properties);
     return result[0]?.count ?? 0;
   }
@@ -946,7 +949,7 @@ export class DatabaseStorage implements IStorage {
   // Pages without these read as templates and trigger crawled-not-indexed.
   async getPropertyCountForSitemapEligible(): Promise<number> {
     const result: any = await db.execute(sql`
-      SELECT COUNT(*)::int AS count
+      SELECT CAST(COUNT(*) AS INTEGER) AS count
       FROM properties p
       WHERE ${publicPropertyPageSql("p")}
     `);
@@ -987,26 +990,26 @@ export class DatabaseStorage implements IStorage {
 
   async getStateStats(state: string) {
     const upperState = state.toUpperCase();
-    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, upperState), publicPropertyPredicate()));
-    const [medianResult] = await db.select({ median: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int` }).from(properties).where(and(eq(properties.state, upperState), gte(properties.estimatedValue, 1), publicPropertyPredicate()));
-    
+    const [totalResult] = await db.select({ count: sql<number>`CAST(count(*) AS INTEGER)` }).from(properties).where(and(eq(properties.state, upperState), publicPropertyPredicate()));
+    const [medianResult] = await db.select({ median: sql<number>`${roundedInteger(percentile(sql`estimated_value`, 0.5))}` }).from(properties).where(and(eq(properties.state, upperState), gte(properties.estimatedValue, 1), publicPropertyPredicate()));
+
     const cityRows = await db.execute(sql`
-      SELECT city, COUNT(*)::int as count, 
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median_price
+      SELECT city, CAST(COUNT(*) AS INTEGER) as count,
+        ${roundedInteger(percentile(sql`estimated_value`, 0.5))} as median_price
       FROM properties
       WHERE state = ${upperState} AND city IS NOT NULL AND estimated_value > 0
         AND ${publicPropertyPredicate()}
       GROUP BY city ORDER BY count DESC LIMIT 50
     `);
-    
+
     const typeRows = await db.execute(sql`
-      SELECT property_type as type, COUNT(*)::int as count
+      SELECT property_type as type, CAST(COUNT(*) AS INTEGER) as count
       FROM properties
       WHERE state = ${upperState} AND property_type IS NOT NULL
         AND ${publicPropertyPredicate()}
       GROUP BY property_type ORDER BY count DESC
     `);
-    
+
     return {
       totalProperties: totalResult?.count || 0,
       medianPrice: medianResult?.median || 0,
@@ -1017,26 +1020,26 @@ export class DatabaseStorage implements IStorage {
 
   async getCityStats(state: string, city: string) {
     const upperState = state.toUpperCase();
-    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city), publicPropertyPredicate()));
-    const [medianResult] = await db.select({ median: sql<number>`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city), gte(properties.estimatedValue, 1), publicPropertyPredicate()));
-    
+    const [totalResult] = await db.select({ count: sql<number>`CAST(count(*) AS INTEGER)` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city), publicPropertyPredicate()));
+    const [medianResult] = await db.select({ median: sql<number>`${roundedInteger(percentile(sql`estimated_value`, 0.5))}` }).from(properties).where(and(eq(properties.state, upperState), eq(properties.city, city), gte(properties.estimatedValue, 1), publicPropertyPredicate()));
+
     const zipRows = await db.execute(sql`
-      SELECT zip_code, COUNT(*)::int as count,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_value)::int as median_price
+      SELECT zip_code, CAST(COUNT(*) AS INTEGER) as count,
+        ${roundedInteger(percentile(sql`estimated_value`, 0.5))} as median_price
       FROM properties
       WHERE state = ${upperState} AND city = ${city} AND zip_code IS NOT NULL AND estimated_value > 0
         AND ${publicPropertyPredicate()}
       GROUP BY zip_code ORDER BY count DESC
     `);
-    
+
     const typeRows = await db.execute(sql`
-      SELECT property_type as type, COUNT(*)::int as count
+      SELECT property_type as type, CAST(COUNT(*) AS INTEGER) as count
       FROM properties
       WHERE state = ${upperState} AND city = ${city} AND property_type IS NOT NULL
         AND ${publicPropertyPredicate()}
       GROUP BY property_type ORDER BY count DESC
     `);
-    
+
     return {
       totalProperties: totalResult?.count || 0,
       medianPrice: medianResult?.median || 0,
@@ -1060,12 +1063,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPropertyCountByState(state: string): Promise<number> {
-    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, state.toUpperCase()), publicPropertyPredicate()));
+    const [result] = await db.select({ count: sql<number>`CAST(count(*) AS INTEGER)` }).from(properties).where(and(eq(properties.state, state.toUpperCase()), publicPropertyPredicate()));
     return result?.count || 0;
   }
 
   async getPropertyCountByCity(state: string, city: string): Promise<number> {
-    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(properties).where(and(eq(properties.state, state.toUpperCase()), eq(properties.city, city), publicPropertyPredicate()));
+    const [result] = await db.select({ count: sql<number>`CAST(count(*) AS INTEGER)` }).from(properties).where(and(eq(properties.state, state.toUpperCase()), eq(properties.city, city), publicPropertyPredicate()));
     return result?.count || 0;
   }
 
@@ -1094,12 +1097,12 @@ export class DatabaseStorage implements IStorage {
       conditions.push(gte(properties.estimatedValue, low));
       conditions.push(lte(properties.estimatedValue, high));
     }
-    
+
     let results = await db.select().from(properties)
       .where(and(...conditions))
       .orderBy(desc(properties.opportunityScore))
       .limit(limit);
-    
+
     if (results.length < 3 && propertyType) {
       results = await db.select().from(properties)
         .where(and(
@@ -1110,19 +1113,19 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(properties.opportunityScore))
         .limit(limit);
     }
-    
+
     return results;
   }
 
   async getStateCityList(): Promise<{ state: string; cities: string[] }[]> {
     const rows = await db.execute(sql`
-      SELECT state, array_agg(DISTINCT city ORDER BY city) as cities
+      SELECT state, json_group_array(DISTINCT city ORDER BY city) as cities
       FROM properties
       WHERE state IS NOT NULL AND city IS NOT NULL
         AND ${publicPropertyPredicate()}
       GROUP BY state ORDER BY state
     `);
-    return (rows.rows as any[]).map(r => ({ state: r.state, cities: r.cities }));
+    return (rows.rows as any[]).map(r => ({ state: r.state, cities: typeof r.cities === "string" ? JSON.parse(r.cities) : r.cities }));
   }
 
   // Sales operations
@@ -1142,7 +1145,7 @@ export class DatabaseStorage implements IStorage {
     } else if (geoType === "city") {
       // Properties.city stores titlecase ("Hoboken") but the UI/popular chips
       // use slugged lowercase ids ("hoboken"). Match case-insensitively.
-      whereCondition = ilike(properties.city, geoId);
+      whereCondition = like(properties.city, geoId);
     } else if (geoType === "neighborhood") {
       // Aggregates store kebab-case ("cd-108") while properties.neighborhood
       // stores the original CD code with a space ("CD 108"). Try both.
@@ -1156,7 +1159,7 @@ export class DatabaseStorage implements IStorage {
     } else {
       return [];
     }
-    
+
     const results = await db
       .select({
         sale: sales,
@@ -1169,7 +1172,7 @@ export class DatabaseStorage implements IStorage {
         publicPropertyPredicate(),
         gte(sales.salePrice, 50_000),
         lte(sales.salePrice, 100_000_000),
-        sql`${sales.saleDate} >= NOW() - INTERVAL '120 months'`,
+        sql`${sales.saleDate} >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-120 months') || '000Z')`,
         sql`(
           sales.source_id IS NOT NULL
           OR ${sales.matchMethod} IS NOT NULL
@@ -1185,7 +1188,7 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(sales.saleDate))
       .limit(limit);
-    
+
     return results.map((r) => ({
       ...r.sale,
       property: r.property,
@@ -1250,7 +1253,7 @@ export class DatabaseStorage implements IStorage {
     // safety. Same for neighborhood (kebab-case "cd-108").
     const idCondition =
       geoType === "city" || geoType === "neighborhood"
-        ? ilike(marketAggregates.geoId, geoId)
+        ? like(marketAggregates.geoId, geoId)
         : eq(marketAggregates.geoId, geoId);
 
     const conditions = [
@@ -1394,7 +1397,7 @@ export class DatabaseStorage implements IStorage {
     };
 
     const queryLower = query.toLowerCase();
-    
+
     const stateSearchMap: Record<string, { id: string; name: string }> = {
       "new york": { id: "NY", name: "New York" },
       "ny": { id: "NY", name: "New York" },
@@ -1414,7 +1417,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const neighborhoodMatches: Array<{ type: string; id: string; name: string; state: string }> = [];
-    
+
     // Check for neighborhood name matches.
     // Aggregates are stored with kebab-case ids ("cd-108"), so we slug the
     // mapping's CD code to the same format the API expects.
@@ -1436,7 +1439,7 @@ export class DatabaseStorage implements IStorage {
         state: properties.state,
       })
       .from(properties)
-      .where(ilike(properties.zipCode, `${query}%`))
+      .where(like(properties.zipCode, `${query}%`))
       .groupBy(properties.zipCode, properties.state)
       .limit(5);
 
@@ -1447,7 +1450,7 @@ export class DatabaseStorage implements IStorage {
         state: properties.state,
       })
       .from(properties)
-      .where(ilike(properties.city, `%${query}%`))
+      .where(like(properties.city, `%${query}%`))
       .groupBy(properties.city, properties.state)
       .limit(5);
 
@@ -1463,17 +1466,17 @@ export class DatabaseStorage implements IStorage {
   private parseNYCAddress(query: string): { buildingQuery: string; unitDesignation: string | null } {
     // Normalize and tokenize
     let normalized = query.trim().toLowerCase();
-    
+
     // Expand directional abbreviations
     normalized = normalized
       .replace(/\be\b/gi, "east")
       .replace(/\bw\b/gi, "west")
       .replace(/\bn\b/gi, "north")
       .replace(/\bs\b/gi, "south");
-    
+
     // Normalize ordinals (72nd -> 72, 1st -> 1)
     normalized = normalized.replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
-    
+
     // Normalize street type abbreviations
     normalized = normalized
       .replace(/\bave(nue)?\b/gi, "avenue")
@@ -1481,36 +1484,36 @@ export class DatabaseStorage implements IStorage {
       .replace(/\bpkwy\b/gi, "parkway")
       .replace(/\bpl\b/gi, "place")
       .replace(/\bdr\b/gi, "drive");
-    
+
     // Remove "street" word as DB format doesn't always include it
     normalized = normalized.replace(/\bstreet\b/gi, "");
-    
+
     // Tokenize
     const tokens = normalized.split(/\s+/).filter(t => t.length > 0);
-    
+
     if (tokens.length === 0) {
       return { buildingQuery: query, unitDesignation: null };
     }
-    
+
     // Pattern: [street number] [direction?] [street number/name] [unit?]
     // Examples: "52 east 72 12b" -> building: "52 east 72", unit: "12b"
     //           "404 east 76" -> building: "404 east 76", unit: null
-    
+
     // Check if first token is a street number
     const firstIsNumber = /^\d+$/.test(tokens[0]);
     if (!firstIsNumber) {
       // Not a typical address, return as-is
       return { buildingQuery: normalized.replace(/\s+/g, " ").trim(), unitDesignation: null };
     }
-    
+
     // Find where building address ends and unit begins
-    // Heuristics: 
+    // Heuristics:
     // - Unit designations typically: alphanumeric like "12b", "PH2", "3A", or start with letters
     // - Building addresses: number + direction + street number/name
-    
+
     let buildingTokens: string[] = [tokens[0]]; // Start with street number
     let unitDesignation: string | null = null;
-    
+
     for (let i = 1; i < tokens.length; i++) {
       const token = tokens[i];
       const isDirection = /^(east|west|north|south)$/.test(token);
@@ -1518,33 +1521,33 @@ export class DatabaseStorage implements IStorage {
       const isStreetName = /^(avenue|broadway|park|madison|lexington|boulevard|parkway|place|drive)$/.test(token);
       const isUnitPrefix = /^(apt|unit|ph|phd|penthouse|#)$/i.test(token);
       const looksLikeUnit = /^([a-z]+\d+|\d+[a-z]+|ph\d*|phd?\d*|[a-z]{1,2})$/i.test(token);
-      
+
       // If we see a unit prefix, everything after is the unit
       if (isUnitPrefix) {
         unitDesignation = tokens.slice(i + 1).join(" ").toUpperCase() || token.toUpperCase();
         break;
       }
-      
+
       // If this looks like a unit designation and we already have a reasonable building address
       if (buildingTokens.length >= 2 && looksLikeUnit && !isDirection && !isStreetNumber && !isStreetName) {
         // Check if remaining tokens are all unit-like
         const remaining = tokens.slice(i);
-        const allUnitLike = remaining.every(t => 
+        const allUnitLike = remaining.every(t =>
           /^([a-z]+\d+|\d+[a-z]+|ph\d*|phd?\d*|[a-z]{1,2}|\d+)$/i.test(t)
         );
-        
+
         if (allUnitLike && remaining.length <= 2) {
           unitDesignation = remaining.join("").toUpperCase();
           break;
         }
       }
-      
+
       // Otherwise, this is part of the building address
       buildingTokens.push(token);
     }
-    
+
     const buildingQuery = buildingTokens.join(" ").trim();
-    
+
     return { buildingQuery, unitDesignation };
   }
 
@@ -1555,9 +1558,9 @@ export class DatabaseStorage implements IStorage {
   }> {
     // Parse the address using smart NYC address parser
     const { buildingQuery, unitDesignation } = this.parseNYCAddress(query);
-    
+
     const searchQuery = `%${buildingQuery}%`;
-    
+
     // Search buildings by normalized address
     const buildingResults = entityFilter === "units" ? [] : await db
       .select({
@@ -1569,15 +1572,15 @@ export class DatabaseStorage implements IStorage {
       .from(buildings)
       .where(
         or(
-          ilike(buildings.displayAddress, searchQuery),
-          ilike(buildings.baseBbl, searchQuery)
+          like(buildings.displayAddress, searchQuery),
+          like(buildings.baseBbl, searchQuery)
         )
       )
       .limit(10);
 
     // Search units - if unit designation detected, search more precisely
     let unitResults: Array<{ unitBbl: string; baseBbl: string; unitDesignation: string | null; displayAddress: string | null; borough: string | null; slug: string | null }> = [];
-    
+
     if (entityFilter !== "buildings") {
       if (unitDesignation && buildingResults.length > 0) {
         // Search for specific unit in matched buildings
@@ -1597,8 +1600,8 @@ export class DatabaseStorage implements IStorage {
               publicCondoUnitPredicate(),
               inArray(condoUnits.baseBbl, buildingBbls),
               or(
-                ilike(condoUnits.unitDesignation, `%${unitDesignation}%`),
-                ilike(condoUnits.unitDesignation, unitDesignation)
+                like(condoUnits.unitDesignation, `%${unitDesignation}%`),
+                like(condoUnits.unitDesignation, unitDesignation)
               )
             )
           )
@@ -1619,9 +1622,9 @@ export class DatabaseStorage implements IStorage {
             and(
               publicCondoUnitPredicate(),
               or(
-                ilike(condoUnits.unitDisplayAddress, searchQuery),
-                ilike(condoUnits.unitDesignation, `%${query}%`),
-                ilike(condoUnits.unitBbl, `%${query.replace(/[-\s]/g, "")}%`)
+                like(condoUnits.unitDisplayAddress, searchQuery),
+                like(condoUnits.unitDesignation, `%${query}%`),
+                like(condoUnits.unitBbl, `%${query.replace(/[-\s]/g, "")}%`)
               )
             )
           )
@@ -1764,8 +1767,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const versioned = await db.execute(sql`
         SELECT member.id, comp_set.subject_id, sale.property_id AS comp_property_id,
-          member.weight, member.adjustment, sale.sale_price, comp_set.created_at,
-          to_jsonb(properties) AS property
+          member.weight, member.adjustment, sale.sale_price, comp_set.created_at
         FROM comparable_sets_v2 comp_set
         JOIN current_published_dataset version ON version.id = comp_set.dataset_version_id
         JOIN comparable_members_v2 member ON member.comparable_set_id = comp_set.id
@@ -1776,6 +1778,8 @@ export class DatabaseStorage implements IStorage {
         ORDER BY member.weight DESC, sale.sale_date DESC
       `);
       if (versioned.rows.length > 0) {
+        const compProperties = await db.select().from(properties).where(inArray(properties.id, versioned.rows.map(row => row.comp_property_id)));
+        const propertiesById = new Map(compProperties.map(property => [property.id, property]));
         return versioned.rows.map((value: any) => ({
           id: value.id,
           subjectPropertyId: value.subject_id,
@@ -1786,7 +1790,7 @@ export class DatabaseStorage implements IStorage {
           bedsAdjustment: null,
           adjustedPrice: Math.round(Number(value.sale_price) * (1 + Number(value.adjustment || 0))),
           computedAt: new Date(value.created_at),
-          property: value.property as Property,
+          property: propertiesById.get(value.comp_property_id)!,
         }));
       }
       const published = await db.execute(sql`SELECT id FROM current_published_dataset LIMIT 1`);
@@ -1800,7 +1804,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(properties, eq(comps.compPropertyId, properties.id))
       .where(eq(comps.subjectPropertyId, propertyId))
       .orderBy(desc(comps.similarityScore));
-    
+
     return result.map((r) => ({
       ...r.comps,
       property: r.properties,
@@ -1849,7 +1853,7 @@ export class DatabaseStorage implements IStorage {
       gte(marketAggregates.medianPrice, 50_000),
       lte(marketAggregates.medianPrice, 20_000_000),
     ];
-    
+
     if (state) {
       conditions.push(eq(marketAggregates.state, state));
     }
@@ -1863,10 +1867,10 @@ export class DatabaseStorage implements IStorage {
     const propertyStats = await db
       .select({
         zipCode: properties.zipCode,
-        city: sql<string>`MODE() WITHIN GROUP (ORDER BY ${properties.city})`,
+        city: sql<string>`json_group_array(${properties.city})`,
         state: properties.state,
-        propertyCount: sql<number>`count(*)::int`,
-        avgOpportunityScore: sql<number>`round(avg(${properties.opportunityScore}))::int`,
+        propertyCount: sql<number>`CAST(count(*) AS INTEGER)`,
+        avgOpportunityScore: sql<number>`CAST(round(avg(${properties.opportunityScore})) AS INTEGER)`,
         avgLat: sql<number>`avg(${properties.latitude})`,
         avgLng: sql<number>`avg(${properties.longitude})`,
       })
@@ -1897,7 +1901,7 @@ export class DatabaseStorage implements IStorage {
     for (const stat of propertyStats) {
       const existing = zipMap.get(`${stat.state}:${stat.zipCode}`);
       if (existing) {
-        existing.stats = stat;
+        existing.stats = { ...stat, city: mostFrequent(stat.city) || "" };
       }
     }
 
@@ -1916,7 +1920,7 @@ export class DatabaseStorage implements IStorage {
       const trend12m = aggregate.trend12m || 0;
       const trend6m = aggregate.trend6m || 0;
       const trend3m = aggregate.trend3m || 0;
-      
+
       let momentum: "accelerating" | "steady" | "decelerating";
       if (trend3m > trend6m && trend6m > 0) {
         momentum = "accelerating";
@@ -1932,19 +1936,19 @@ export class DatabaseStorage implements IStorage {
       // - acceleration bonus: up to 20 points (based on absolute improvement in momentum)
       // - opportunity score: up to 25 points
       // - transaction volume: up to 15 points
-      
+
       const trend12mScore = Math.min(40, (trend12m / 20) * 40);
-      
+
       // Use absolute delta for acceleration (avoid division by small numbers)
       // 5% improvement in 6m vs 12m trend = full 20 points
       const accelerationDelta = trend6m - trend12m;
-      const accelerationScore = accelerationDelta > 0 
+      const accelerationScore = accelerationDelta > 0
         ? Math.min(20, (accelerationDelta / 5) * 20)
         : 0;
-      
+
       const avgOppScore = stats?.avgOpportunityScore || 50;
       const oppScoreComponent = (avgOppScore / 100) * 25;
-      
+
       const txCount = aggregate.transactionCount || 0;
       const volumeScore = Math.min(15, (txCount / 50) * 15);
 
@@ -2012,7 +2016,7 @@ export class DatabaseStorage implements IStorage {
 
   async getPropertiesWithDeepCoverage(geoType: string, geoId: string, limit = 50): Promise<(Property & { signals?: PropertySignalSummary })[]> {
     const conditions = [];
-    
+
     if (geoType === "zip") {
       conditions.push(eq(properties.zipCode, geoId));
     } else if (geoType === "city") {
@@ -2022,7 +2026,7 @@ export class DatabaseStorage implements IStorage {
     } else if (geoType === "neighborhood") {
       conditions.push(eq(properties.neighborhood, geoId));
     }
-    
+
     // Only NYC properties with state = 'NY' and borough cities
     conditions.push(eq(properties.state, "NY"));
     conditions.push(
@@ -2034,7 +2038,7 @@ export class DatabaseStorage implements IStorage {
         eq(properties.city, "Staten Island")
       )
     );
-    
+
     const result = await db
       .select({
         property: properties,
@@ -2044,7 +2048,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(propertySignalSummary, eq(properties.id, propertySignalSummary.propertyId))
       .where(and(...conditions))
       .limit(limit);
-    
+
     return result.map((r) => ({
       ...r.property,
       signals: r.signals || undefined,
@@ -2053,7 +2057,7 @@ export class DatabaseStorage implements IStorage {
 
   async getDeepCoverageCounts(geoType: string, geoId: string): Promise<{ totalProperties: number; withSignals: number }> {
     const conditions = [];
-    
+
     if (geoType === "zip") {
       conditions.push(eq(properties.zipCode, geoId));
     } else if (geoType === "city") {
@@ -2063,7 +2067,7 @@ export class DatabaseStorage implements IStorage {
     } else if (geoType === "neighborhood") {
       conditions.push(eq(properties.neighborhood, geoId));
     }
-    
+
     // Only NYC properties with state = 'NY' and borough cities
     conditions.push(eq(properties.state, "NY"));
     conditions.push(
@@ -2075,20 +2079,20 @@ export class DatabaseStorage implements IStorage {
         eq(properties.city, "Staten Island")
       )
     );
-    
+
     // Count total properties in the geography
     const [totalResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(properties)
       .where(and(...conditions));
-    
+
     // Count properties with signal summaries
     const [withSignalsResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(properties)
       .innerJoin(propertySignalSummary, eq(properties.id, propertySignalSummary.propertyId))
       .where(and(...conditions));
-    
+
     return {
       totalProperties: totalResult?.count || 0,
       withSignals: withSignalsResult?.count || 0,
@@ -2104,12 +2108,12 @@ export class DatabaseStorage implements IStorage {
     dataSources: number;
   }> {
     const [propertiesCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(properties)
       .where(publicPropertyPredicate());
-    
+
     const [salesCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(sales)
       .where(and(
         gte(sales.salePrice, 50_000),
@@ -2120,26 +2124,26 @@ export class DatabaseStorage implements IStorage {
           isNotNull(sales.baseBbl),
         ),
       ));
-    
+
     const [marketAggregatesCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(marketAggregates)
       .where(and(
         gte(marketAggregates.transactionCount, 1),
         gte(marketAggregates.medianPrice, 50_000),
         lte(marketAggregates.medianPrice, 20_000_000),
       ));
-    
+
     const [compsCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(comps);
-    
+
     const [aiChatsCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(aiChats);
-    
+
     const [dataSourcesCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
       .from(dataSources);
 
     return {
@@ -2205,7 +2209,7 @@ export class DatabaseStorage implements IStorage {
   async incrementApiKeyUsage(id: string): Promise<void> {
     await db
       .update(apiKeys)
-      .set({ 
+      .set({
         lastUsedAt: new Date(),
         requestCount: sql`${apiKeys.requestCount} + 1`,
         updatedAt: new Date()
@@ -2283,10 +2287,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUnprocessedChanges(forDigest: boolean, limit = 1000): Promise<PropertyChange[]> {
-    const processedColumn = forDigest 
-      ? propertyChanges.processedForDigest 
+    const processedColumn = forDigest
+      ? propertyChanges.processedForDigest
       : propertyChanges.processedForInstant;
-    
+
     return await db
       .select()
       .from(propertyChanges)
@@ -2297,11 +2301,11 @@ export class DatabaseStorage implements IStorage {
 
   async markChangesProcessed(ids: string[], forDigest: boolean): Promise<void> {
     if (ids.length === 0) return;
-    
-    const updateData = forDigest 
+
+    const updateData = forDigest
       ? { processedForDigest: true }
       : { processedForInstant: true };
-    
+
     await db
       .update(propertyChanges)
       .set(updateData)
@@ -2360,37 +2364,37 @@ export class DatabaseStorage implements IStorage {
     longitude: number | null;
   }>> {
     const { borough, zipCode, baseBbl, query, unitTypes, limit = 50 } = params;
-    
+
     const conditions: any[] = [publicCondoUnitPredicate()];
-    
+
     if (borough) {
       conditions.push(eq(condoUnits.borough, borough));
     }
-    
+
     if (zipCode) {
       conditions.push(eq(condoUnits.zipCode, zipCode));
     }
-    
+
     if (baseBbl) {
       conditions.push(eq(condoUnits.baseBbl, baseBbl));
     }
-    
+
     if (query) {
       conditions.push(
         or(
-          ilike(condoUnits.unitDesignation, `%${query}%`),
-          ilike(condoUnits.buildingDisplayAddress, `%${query}%`),
-          ilike(condoUnits.unitDisplayAddress, `%${query}%`)
+          like(condoUnits.unitDesignation, `%${query}%`),
+          like(condoUnits.buildingDisplayAddress, `%${query}%`),
+          like(condoUnits.unitDisplayAddress, `%${query}%`)
         )
       );
     }
-    
+
     if (unitTypes && unitTypes.length > 0) {
       conditions.push(inArray(condoUnits.unitTypeHint, unitTypes));
     }
-    
+
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-    
+
     const results = await db
       .select({
         unitBbl: condoUnits.unitBbl,
@@ -2407,7 +2411,7 @@ export class DatabaseStorage implements IStorage {
       .from(condoUnits)
       .where(whereClause)
       .limit(limit);
-    
+
     return results;
   }
 
@@ -2433,7 +2437,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sales.baseBbl, baseBbl))
       .orderBy(desc(sales.saleDate))
       .limit(limit);
-    
+
     return results;
   }
 
@@ -2455,7 +2459,7 @@ export class DatabaseStorage implements IStorage {
       .from(sales)
       .where(eq(sales.unitBbl, unitBbl))
       .orderBy(desc(sales.saleDate));
-    
+
     return results;
   }
 
@@ -2493,7 +2497,7 @@ export class DatabaseStorage implements IStorage {
           zipCode: building.zipCode,
           unitCount: building.unitCount,
           residentialUnitCount: building.residentialUnitCount,
-          updatedAt: sql`now()`,
+          updatedAt: sql`(strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')`,
         },
       })
       .returning();
@@ -2551,7 +2555,7 @@ export class DatabaseStorage implements IStorage {
     const mixRows = await db
       .select({
         unitTypeHint: condoUnits.unitTypeHint,
-        n: sql<number>`count(*)::int`,
+        n: sql<number>`CAST(count(*) AS INTEGER)`,
       })
       .from(condoUnits)
       .where(eq(condoUnits.baseBbl, baseBbl))
@@ -2658,13 +2662,13 @@ export class DatabaseStorage implements IStorage {
     unitDisplayAddress: string | null;
   }>> {
     const { unitTypes, limit = 50, offset = 0 } = params || {};
-    
+
     const conditions = [eq(condoUnits.baseBbl, baseBbl), publicCondoUnitPredicate()];
-    
+
     if (unitTypes && unitTypes.length > 0) {
       conditions.push(inArray(condoUnits.unitTypeHint, unitTypes));
     }
-    
+
     return await db
       .select({
         unitBbl: condoUnits.unitBbl,
@@ -2736,9 +2740,9 @@ export class DatabaseStorage implements IStorage {
       .map(s => s.salePrice)
       .filter(p => p >= 50000 && p <= 10000000)
       .sort((a, b) => a - b);
-    
-    const buildingMedianPrice = residentialPrices.length > 0 
-      ? residentialPrices[Math.floor(residentialPrices.length / 2)] 
+
+    const buildingMedianPrice = residentialPrices.length > 0
+      ? residentialPrices[Math.floor(residentialPrices.length / 2)]
       : null;
 
     const yearlyPrices: Record<number, number[]> = {};
@@ -2881,15 +2885,15 @@ export class DatabaseStorage implements IStorage {
       eq(condoUnits.unitTypeHint, "residential"),
       isNotNull(sales.salePrice),
     ];
-    
+
     if (borough) {
       conditions.push(eq(condoUnits.borough, borough));
     }
-    
+
     if (priceMin) {
       conditions.push(gte(sales.salePrice, priceMin));
     }
-    
+
     if (priceMax) {
       conditions.push(lte(sales.salePrice, priceMax));
     }
@@ -2953,7 +2957,7 @@ export class DatabaseStorage implements IStorage {
           return null;
         }
         const scoreDrivers: Array<{ label: string; value: string; impact: "positive" | "neutral" | "negative" }> = [];
-        
+
         if (oppData.buildingMedianPrice && oppData.lastSalePrice) {
           const pctBelowMedian = ((oppData.buildingMedianPrice - oppData.lastSalePrice) / oppData.buildingMedianPrice) * 100;
           if (pctBelowMedian > 5) {
@@ -2970,7 +2974,7 @@ export class DatabaseStorage implements IStorage {
             });
           }
         }
-        
+
         const buildingSalesCount = oppData.buildingSales.length;
         if (buildingSalesCount >= 8) {
           scoreDrivers.push({
@@ -2985,7 +2989,7 @@ export class DatabaseStorage implements IStorage {
             impact: "neutral",
           });
         }
-        
+
         if (oppData.lastSaleDate) {
           const daysSinceSale = (Date.now() - new Date(oppData.lastSaleDate).getTime()) / (1000 * 60 * 60 * 24);
           if (daysSinceSale < 180) {
@@ -2996,7 +3000,7 @@ export class DatabaseStorage implements IStorage {
             });
           }
         }
-        
+
         return {
           unitBbl: unit.unitBbl,
           baseBbl: unit.baseBbl,
@@ -3118,7 +3122,7 @@ export class DatabaseStorage implements IStorage {
   } | undefined> {
     // Normalize borough: remove spaces for comparison (handles "Staten Island" vs "statenisland")
     const boroughNormalized = borough.toLowerCase().replace(/\s+/g, '');
-    
+
     const [unit] = await db
       .select({
         unitBbl: condoUnits.unitBbl,
@@ -3160,7 +3164,7 @@ export class DatabaseStorage implements IStorage {
   } | undefined> {
     // Normalize borough: remove spaces for comparison (handles "Staten Island" vs "statenisland")
     const boroughNormalized = borough.toLowerCase().replace(/\s+/g, '');
-    
+
     const [unit] = await db
       .select({
         unitBbl: condoUnits.unitBbl,
@@ -3199,7 +3203,7 @@ export class DatabaseStorage implements IStorage {
   // useful context but does not make every unit in that building index-worthy.
   async getUnitCountForSitemapEligible(): Promise<number> {
     const result: any = await db.execute(sql`
-      SELECT COUNT(*)::int AS count
+      SELECT CAST(COUNT(*) AS INTEGER) AS count
       FROM condo_units cu
       WHERE ${publicUnitPageSql("cu")}
     `);

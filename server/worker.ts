@@ -1,5 +1,6 @@
 import { env as cloudflareEnv } from "cloudflare:workers";
 import { httpServerHandler } from "cloudflare:node";
+import { configureDatabase } from "./db";
 import { UsageQuota, configureQuotaNamespace } from "./quota";
 import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueMessage } from "./dataPipelineWorkflow";
 
@@ -8,14 +9,8 @@ export { DataRefreshWorkflow } from "./dataPipelineWorkflow";
 
 const bindings = cloudflareEnv as Env;
 configureQuotaNamespace(bindings.USAGE_QUOTA);
-const databaseConfigured = Boolean(process.env.DATABASE_URL);
-
-// Allow the static shell and health check to run before the database secret is
-// supplied. API routes clearly return 503 until DATABASE_URL is configured.
-if (!databaseConfigured) {
-  process.env.DATABASE_URL =
-    "postgresql://unconfigured:unconfigured@127.0.0.1:5432/unconfigured";
-}
+const databaseConfigured = Boolean(bindings.DB);
+if (databaseConfigured) configureDatabase(bindings.DB);
 const [{ createApp }, { configureCloudflareEmail }, { configureWorkersAI, isWorkersAIConfigured }, seo] = await Promise.all([
   import("./app"),
   import("./emailService"),
@@ -30,7 +25,7 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
-const PUBLIC_CACHE_REVISION = "2026-08-30-versioned-market-v5";
+const PUBLIC_CACHE_REVISION = "2026-09-13-d1-v1";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
@@ -359,6 +354,7 @@ export default {
       return withPublicDataCors(Response.json({
         ok: true,
         runtime: "cloudflare-workers",
+        databaseBackend: "d1",
         databaseConfigured,
         emailConfigured: Boolean(bindings.EMAIL),
         aiConfigured: isWorkersAIConfigured(),
