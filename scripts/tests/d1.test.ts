@@ -70,3 +70,14 @@ test("D1 schema preserves Date values, JSON validation and atomic publication", 
   assert.equal(local.sqlite.prepare("SELECT status FROM published_dataset_versions WHERE id='old'").get()!.status,'retired');
   local.close();
 });
+
+test("legacy unit suffix lookups execute on D1 and preserve borough filtering", async () => {
+  const { storage } = await import('../../server/storage');
+  const local = localD1(':memory:', false); configureDatabase(local.binding);
+  for (const name of ['0000_neon_schema.sql','0001_dataset_publication.sql']) local.sqlite.exec(readFileSync(new URL('../../migrations/d1/'+name,import.meta.url),'utf8'));
+  try {
+    assert.equal(await storage.getCondoUnitBySuffix('123456'), undefined);
+    assert.equal(await storage.getCondoUnitBySuffixAndBorough('123456','Staten Island'), undefined);
+    assert.equal(await storage.getCondoUnitBySuffix9('012345678','Manhattan'), undefined);
+  } finally { local.close(); }
+});

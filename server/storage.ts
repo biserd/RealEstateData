@@ -3102,7 +3102,7 @@ export class DatabaseStorage implements IStorage {
         longitude: condoUnits.longitude,
       })
       .from(condoUnits)
-      .where(and(sql`RIGHT(${condoUnits.unitBbl}, 6) = ${suffix}`, publicCondoUnitPredicate()))
+      .where(and(sql`substr(${condoUnits.unitBbl}, -6) = ${suffix}`, publicCondoUnitPredicate()))
       .limit(1);
     return unit;
   }
@@ -3140,7 +3140,7 @@ export class DatabaseStorage implements IStorage {
       .from(condoUnits)
       .where(
         and(
-          sql`RIGHT(${condoUnits.unitBbl}, 6) = ${suffix}`,
+          sql`substr(${condoUnits.unitBbl}, -6) = ${suffix}`,
           sql`LOWER(REPLACE(${condoUnits.borough}, ' ', '')) = ${boroughNormalized}`,
           publicCondoUnitPredicate(),
         )
@@ -3182,7 +3182,7 @@ export class DatabaseStorage implements IStorage {
       .from(condoUnits)
       .where(
         and(
-          sql`RIGHT(${condoUnits.unitBbl}, 9) = ${suffix}`,
+          sql`substr(${condoUnits.unitBbl}, -9) = ${suffix}`,
           sql`LOWER(REPLACE(${condoUnits.borough}, ' ', '')) = ${boroughNormalized}`,
           publicCondoUnitPredicate(),
         )

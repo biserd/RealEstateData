@@ -14,28 +14,13 @@ import { MarketingHeader } from "@/components/MarketingHeader";
 import { Footer } from "@/components/Footer";
 import { SEO } from "@/components/SEO";
 import { ProductJsonLd, FAQJsonLd } from "@/components/JsonLd";
+import { SUBSCRIPTION_PLANS } from "@shared/subscriptionPlans";
 
 interface SubscriptionData {
   tier: string;
   status: string | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
-}
-
-interface Price {
-  id: string;
-  unit_amount: number;
-  currency: string;
-  recurring: { interval: string } | null;
-  metadata: { plan?: string } | null;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  metadata: { tier?: string; features?: string } | null;
-  prices: Price[];
 }
 
 const FREE_FEATURES = [
@@ -86,10 +71,6 @@ export default function Pricing() {
     enabled: !!user,
   });
 
-  const { data: productsData, isLoading: isProductsLoading } = useQuery<{ data: Product[] }>({
-    queryKey: ["/api/products"],
-  });
-
   const checkoutMutation = useMutation({
     mutationFn: async (priceId: string) => {
       const response = await apiRequest("POST", "/api/checkout", { priceId });
@@ -128,18 +109,15 @@ export default function Pricing() {
     },
   });
 
-  const proProduct = productsData?.data?.find(p => p.metadata?.tier === "pro" || p.name === "Pro Plan");
-  const premiumProduct = productsData?.data?.find(p => p.metadata?.tier === "premium" || p.name === "Premium Plan");
-  
-  const proMonthlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "month");
-  const proYearlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "year");
-  const premiumMonthlyPrice = premiumProduct?.prices?.find(p => p.recurring?.interval === "month");
-  const premiumYearlyPrice = premiumProduct?.prices?.find(p => p.recurring?.interval === "year");
+  const proMonthlyPrice = SUBSCRIPTION_PLANS.pro.prices.month;
+  const proYearlyPrice = SUBSCRIPTION_PLANS.pro.prices.year;
+  const premiumMonthlyPrice = SUBSCRIPTION_PLANS.premium.prices.month;
+  const premiumYearlyPrice = SUBSCRIPTION_PLANS.premium.prices.year;
 
-  const proMonthlyAmount = proMonthlyPrice?.unit_amount ? proMonthlyPrice.unit_amount / 100 : 59;
-  const proYearlyAmount = proYearlyPrice?.unit_amount ? proYearlyPrice.unit_amount / 100 : 590;
-  const premiumMonthlyAmount = premiumMonthlyPrice?.unit_amount ? premiumMonthlyPrice.unit_amount / 100 : 149;
-  const premiumYearlyAmount = premiumYearlyPrice?.unit_amount ? premiumYearlyPrice.unit_amount / 100 : 1490;
+  const proMonthlyAmount = proMonthlyPrice.unit_amount / 100;
+  const proYearlyAmount = proYearlyPrice.unit_amount / 100;
+  const premiumMonthlyAmount = premiumMonthlyPrice.unit_amount / 100;
+  const premiumYearlyAmount = premiumYearlyPrice.unit_amount / 100;
   
   const proYearlySavings = (proMonthlyAmount * 12) - proYearlyAmount;
   const premiumYearlySavings = (premiumMonthlyAmount * 12) - premiumYearlyAmount;
@@ -169,28 +147,11 @@ export default function Pricing() {
   });
 
   const handleUpgrade = (tier: "pro" | "premium") => {
-    if (isProductsLoading) {
-      toast({
-        title: "Loading",
-        description: "Please wait while we load pricing information...",
-      });
-      return;
-    }
-    
     let selectedPrice;
     if (tier === "pro") {
       selectedPrice = isYearly ? proYearlyPrice : proMonthlyPrice;
     } else {
       selectedPrice = isYearly ? premiumYearlyPrice : premiumMonthlyPrice;
-    }
-    
-    if (!selectedPrice?.id) {
-      toast({
-        title: "Error",
-        description: "Pricing not available. Please refresh the page and try again.",
-        variant: "destructive",
-      });
-      return;
     }
     
     // Use guest checkout for unauthenticated users, regular checkout for authenticated users
@@ -254,7 +215,7 @@ export default function Pricing() {
           </Button>
         );
       }
-      const isCheckoutPending = checkoutMutation.isPending || guestCheckoutMutation.isPending || isProductsLoading;
+      const isCheckoutPending = checkoutMutation.isPending || guestCheckoutMutation.isPending;
       return (
         <Button
           className="w-full"
@@ -295,7 +256,7 @@ export default function Pricing() {
           </Button>
         );
       }
-      const isPremiumCheckoutPending = checkoutMutation.isPending || guestCheckoutMutation.isPending || isProductsLoading;
+      const isPremiumCheckoutPending = checkoutMutation.isPending || guestCheckoutMutation.isPending;
       return (
         <Button
           className="w-full"

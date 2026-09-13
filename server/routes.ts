@@ -1,3 +1,4 @@
+import { PUBLIC_SUBSCRIPTION_PRODUCTS } from "@shared/subscriptionPlans";
 import { percentile, roundedInteger } from "../shared/sqliteAnalytics";
 import type { Express } from "express";
 import { type Server } from "http";
@@ -3699,51 +3700,9 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  app.get("/api/products", async (req, res) => {
-    try {
-      const rows = await stripeService.listProductsWithPrices(true);
-      
-      // Helper to parse JSON fields that might be strings
-      const parseJsonField = (field: any) => {
-        if (typeof field === 'string') {
-          try {
-            return JSON.parse(field);
-          } catch {
-            return field;
-          }
-        }
-        return field;
-      };
-      
-      const productsMap = new Map();
-      for (const row of rows as any[]) {
-        if (!productsMap.has(row.product_id)) {
-          productsMap.set(row.product_id, {
-            id: row.product_id,
-            name: row.product_name,
-            description: row.product_description,
-            active: row.product_active,
-            metadata: parseJsonField(row.product_metadata),
-            prices: []
-          });
-        }
-        if (row.price_id) {
-          productsMap.get(row.product_id).prices.push({
-            id: row.price_id,
-            unit_amount: row.unit_amount,
-            currency: row.currency,
-            recurring: parseJsonField(row.recurring),
-            active: row.price_active,
-            metadata: parseJsonField(row.price_metadata),
-          });
-        }
-      }
-
-      res.json({ data: Array.from(productsMap.values()) });
-    } catch (error) {
-      console.error("Error listing products:", error);
-      res.status(500).json({ message: "Failed to fetch products" });
-    }
+  // Keep the legacy alias for previously cached clients. Pricing never waits on Stripe.
+  app.get(["/api/products", "/api/stripe/products"], (_req, res) => {
+    res.json({ data: PUBLIC_SUBSCRIPTION_PRODUCTS });
   });
 
   // ============================================
