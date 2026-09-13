@@ -13,17 +13,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generateOpportunitySlug } from "@/lib/propertySlug";
-
-interface Product {
-  id: string;
-  name: string;
-  metadata?: { tier?: string };
-  prices?: Array<{
-    id: string;
-    unit_amount: number;
-    recurring?: { interval: string };
-  }>;
-}
+import { SUBSCRIPTION_PLANS } from "@shared/subscriptionPlans";
 
 interface PlatformStats {
   properties: number;
@@ -133,13 +123,8 @@ export default function Landing() {
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
 
-  const { data: productsData, isLoading: isProductsLoading } = useQuery<{ data: Product[] }>({
-    queryKey: ["/api/products"],
-  });
-
-  const proProduct = productsData?.data?.find(p => p.metadata?.tier === "pro" || p.name === "Pro Plan");
-  const proMonthlyPrice = proProduct?.prices?.find(p => p.recurring?.interval === "month");
-  const isCheckoutReady = !isProductsLoading && !!proMonthlyPrice?.id;
+  const proMonthlyPrice = SUBSCRIPTION_PLANS.pro.prices.month;
+  const proMonthlyAmount = proMonthlyPrice.unit_amount / 100;
 
   const guestCheckoutMutation = useMutation({
     mutationFn: async (priceId: string) => {
@@ -161,9 +146,7 @@ export default function Landing() {
   });
 
   const handleGetPro = () => {
-    if (proMonthlyPrice?.id) {
-      guestCheckoutMutation.mutate(proMonthlyPrice.id);
-    }
+    guestCheckoutMutation.mutate(proMonthlyPrice.id);
   };
 
   const formatNumber = (num: number): string => {
@@ -287,9 +270,9 @@ export default function Landing() {
                   className="h-14 px-8 text-lg" 
                   data-testid="button-hero-get-pro"
                   onClick={handleGetPro}
-                  disabled={!isCheckoutReady || guestCheckoutMutation.isPending}
+                  disabled={guestCheckoutMutation.isPending}
                 >
-                  {isProductsLoading || guestCheckoutMutation.isPending ? (
+                  {guestCheckoutMutation.isPending ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : null}
                   Start 14-Day Free Trial
@@ -303,7 +286,7 @@ export default function Landing() {
                 </Link>
               </div>
               <p className="mb-3 text-sm text-muted-foreground" data-testid="text-hero-trial">
-                Free for 14 days, then $59/mo · No charge during trial · Cancel anytime
+                Free for 14 days, then ${proMonthlyAmount}/mo · No charge during trial · Cancel anytime
               </p>
               <p className="mx-auto mb-8 max-w-3xl text-sm font-medium text-foreground/80" data-testid="text-hero-credibility">
                 300K+ official NYC condo-unit identities · Recorded-sale pages only · Transparent Opportunity Score · 14-day free trial, no charge today
@@ -904,9 +887,9 @@ export default function Landing() {
                 className="h-12 px-8"
                 data-testid="button-reassurance-trial"
                 onClick={handleGetPro}
-                disabled={!isCheckoutReady || guestCheckoutMutation.isPending}
+                disabled={guestCheckoutMutation.isPending}
               >
-                {isProductsLoading || guestCheckoutMutation.isPending ? (
+                {guestCheckoutMutation.isPending ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : null}
                 Start 14-Day Free Trial
@@ -935,12 +918,12 @@ export default function Landing() {
               className="h-12 px-8 text-lg" 
               data-testid="button-cta"
               onClick={handleGetPro}
-              disabled={!isCheckoutReady || guestCheckoutMutation.isPending}
+              disabled={guestCheckoutMutation.isPending}
             >
-              {isProductsLoading || guestCheckoutMutation.isPending ? (
+              {guestCheckoutMutation.isPending ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : null}
-              Get Pro - $59/mo
+              Get Pro - ${proMonthlyAmount}/mo
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>

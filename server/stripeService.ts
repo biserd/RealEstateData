@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { getUncachableStripeClient } from "./stripeClient";
+import { PUBLIC_SUBSCRIPTION_PRODUCTS, subscriptionTierForPrice } from "@shared/subscriptionPlans";
 
 export const TRIAL_PERIOD_DAYS = 14;
 
@@ -7,12 +8,6 @@ function productForPrice(price: Stripe.Price): Stripe.Product | null {
   return typeof price.product === "object" && !price.product.deleted
     ? price.product
     : null;
-}
-
-function planTier(product: Stripe.Product | null): "pro" | "premium" | null {
-  if (product?.name === "Premium Plan") return "premium";
-  if (product?.name === "Pro Plan") return "pro";
-  return null;
 }
 
 export class StripeService {
@@ -26,7 +21,7 @@ export class StripeService {
     const appSlug = process.env.APP_SLUG || "realtorsdashboard";
     return stripe.checkout.sessions.create({
       customer: customerId,
-      payment_method_types: ["card"],
+      integration_identifier: "realtorsdashboard_qmfnkzva",
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       success_url: successUrl,
@@ -43,7 +38,7 @@ export class StripeService {
     const stripe = await getUncachableStripeClient();
     const appSlug = process.env.APP_SLUG || "realtorsdashboard";
     return stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
+      integration_identifier: "realtorsdashboard_qmfnkzva",
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       success_url: successUrl,
@@ -136,19 +131,12 @@ export class StripeService {
   }
 
   async isValidSubscriptionPrice(priceId: string): Promise<{ valid: boolean; tier: "pro" | "premium" | null }> {
-    try {
-      const price = await this.getPrice(priceId);
-      const tier = planTier(productForPrice(price));
-      return { valid: Boolean(price.active && tier), tier };
-    } catch {
-      return { valid: false, tier: null };
-    }
+    const tier = subscriptionTierForPrice(priceId);
+    return { valid: tier !== null, tier };
   }
 
   async getValidPriceIds(): Promise<string[]> {
-    const stripe = await getUncachableStripeClient();
-    const page = await stripe.prices.list({ active: true, limit: 100, expand: ["data.product"] });
-    return page.data.filter((price) => planTier(productForPrice(price)) !== null).map((price) => price.id);
+    return PUBLIC_SUBSCRIPTION_PRODUCTS.flatMap(product => product.prices.map(price => price.id));
   }
 
   async getPricesForPlan(planName: "Pro Plan" | "Premium Plan"): Promise<Stripe.Price[]> {

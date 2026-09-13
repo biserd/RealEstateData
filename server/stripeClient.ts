@@ -14,6 +14,8 @@ export async function getUncachableStripeClient(): Promise<Stripe> {
   if (!stripeClient) {
     stripeClient = new Stripe(getStripeSecretKey(), {
       httpClient: Stripe.createFetchHttpClient(),
+      timeout: 10_000,
+      maxNetworkRetries: 1,
     });
   }
   return stripeClient;
