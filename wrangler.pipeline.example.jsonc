@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  // Merge these bindings into wrangler.jsonc only after the development Neon
+  // Merge these bindings into wrangler.jsonc only after the development D1
   // branch, migration, R2 bucket, Queue/DLQ, and Workflow have been reviewed.
   // This pipeline is manual-only: never add a Cron trigger. Start a Workflow
   // explicitly, review the candidate, then publish with the separate write gate.

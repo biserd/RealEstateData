@@ -2,6 +2,14 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "realtors-dashboard",
   "main": "./server/worker.ts",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "realtors-dashboard-production",
+      "database_id": "9329644b-3c17-4ddd-82d7-e51f1a544768",
+      "migrations_dir": "migrations/d1"
+    }
+  ],
   "workers_dev": true,
   "compatibility_date": "2026-08-29",
   "compatibility_flags": ["nodejs_compat"],

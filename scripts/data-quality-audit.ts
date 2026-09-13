@@ -17,9 +17,9 @@ async function main() {
   const [profileResult, checks] = await Promise.all([
     db.execute(sql`
       SELECT
-        (SELECT COUNT(*)::int FROM properties) AS properties,
-        (SELECT COUNT(*)::int FROM condo_units) AS condo_units,
-        (SELECT COUNT(*)::int FROM sales) AS sales,
+        (SELECT CAST(COUNT(*) AS INTEGER) FROM properties) AS properties,
+        (SELECT CAST(COUNT(*) AS INTEGER) FROM condo_units) AS condo_units,
+        (SELECT CAST(COUNT(*) AS INTEGER) FROM sales) AS sales,
         (SELECT MAX(sale_date) FROM sales WHERE match_method IS NOT NULL OR raw_block IS NOT NULL OR unit_bbl IS NOT NULL) AS latest_verified_sale,
         (SELECT MAX(imported_at) FROM pluto_raw) AS latest_pluto_import,
         (SELECT MAX(imported_at) FROM acris_raw) AS latest_acris_import,
@@ -28,27 +28,27 @@ async function main() {
         (SELECT MAX(imported_at) FROM hpd_raw) AS latest_hpd_import
     `),
     Promise.all([
-      scalar(sql`SELECT COUNT(*)::int AS count FROM (SELECT slug FROM condo_units WHERE slug IS NOT NULL GROUP BY slug HAVING COUNT(*) > 1) d`),
+      scalar(sql`SELECT CAST(COUNT(*) AS INTEGER) AS count FROM (SELECT slug FROM condo_units WHERE slug IS NOT NULL GROUP BY slug HAVING COUNT(*) > 1) d`),
       scalar(sql`
-        SELECT COUNT(*)::int AS count FROM condo_units cu
+        SELECT CAST(COUNT(*) AS INTEGER) AS count FROM condo_units cu
         WHERE cu.unit_type_hint = 'residential'
           AND cu.latitude IS NOT NULL AND cu.longitude IS NOT NULL
           AND EXISTS (SELECT 1 FROM sales s WHERE s.base_bbl = cu.base_bbl AND s.sale_price >= 100000)
           AND NOT EXISTS (SELECT 1 FROM sales s WHERE s.unit_bbl = cu.unit_bbl AND s.sale_price >= 100000)
       `),
       scalar(sql`
-        SELECT COUNT(*)::int AS count FROM properties p
-        WHERE NULLIF(BTRIM(p.address), '') IS NULL
-           OR NULLIF(BTRIM(p.city), '') IS NULL
+        SELECT CAST(COUNT(*) AS INTEGER) AS count FROM properties p
+        WHERE NULLIF(TRIM(p.address), '') IS NULL
+           OR NULLIF(TRIM(p.city), '') IS NULL
            OR p.state NOT IN ('NY','NJ','CT')
-           OR p.zip_code !~ '^[0-9]{5}$'
+           OR p.zip_code NOT GLOB '[0-9][0-9][0-9][0-9][0-9]'
            OR p.latitude NOT BETWEEN 38 AND 46
            OR p.longitude NOT BETWEEN -80 AND -69
            OR COALESCE(p.estimated_value, p.last_sale_price, 0) NOT BETWEEN 50000 AND 100000000
       `),
       scalar(sql`
-        SELECT COUNT(*)::int AS count FROM properties p
-        WHERE NULLIF(BTRIM(p.bbl), '') IS NULL
+        SELECT CAST(COUNT(*) AS INTEGER) AS count FROM properties p
+        WHERE NULLIF(TRIM(p.bbl), '') IS NULL
           AND NOT EXISTS (SELECT 1 FROM entity_resolution_map erm WHERE erm.matched_property_id = p.id AND erm.match_confidence >= 0.90)
           AND NOT EXISTS (
             SELECT 1 FROM sales s WHERE s.property_id = p.id
@@ -56,7 +56,7 @@ async function main() {
           )
       `),
       scalar(sql`
-        SELECT COUNT(*)::int AS count FROM sales s
+        SELECT CAST(COUNT(*) AS INTEGER) AS count FROM sales s
         WHERE s.property_id IS NOT NULL
           AND s.match_method IS NULL
           AND s.unit_bbl IS NULL
@@ -67,12 +67,12 @@ async function main() {
           AND s.raw_address IS NULL
           AND s.deed_type IN ('Warranty','Quitclaim','Grant')
       `),
-      scalar(sql`SELECT COUNT(*)::int AS count FROM sales s LEFT JOIN properties p ON p.id = s.property_id WHERE s.property_id IS NOT NULL AND p.id IS NULL`),
+      scalar(sql`SELECT CAST(COUNT(*) AS INTEGER) AS count FROM sales s LEFT JOIN properties p ON p.id = s.property_id WHERE s.property_id IS NOT NULL AND p.id IS NULL`),
       scalar(sql`
-        SELECT COUNT(*)::int AS count FROM (
-          SELECT state, UPPER(BTRIM(address)) AS address_key, COALESCE(UPPER(BTRIM(unit)), ''), zip_code
+        SELECT CAST(COUNT(*) AS INTEGER) AS count FROM (
+          SELECT state, UPPER(TRIM(address)) AS address_key, COALESCE(UPPER(TRIM(unit)), ''), zip_code
           FROM properties
-          GROUP BY state, UPPER(BTRIM(address)), COALESCE(UPPER(BTRIM(unit)), ''), zip_code
+          GROUP BY state, UPPER(TRIM(address)), COALESCE(UPPER(TRIM(unit)), ''), zip_code
           HAVING COUNT(*) > 1
         ) duplicates
       `),
@@ -106,7 +106,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+await main().catch((error) => {
   console.error(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
   process.exitCode = 1;
 });

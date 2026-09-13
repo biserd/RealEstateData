@@ -65,7 +65,7 @@ async function notifyNewTrial(customer: string): Promise<void> {
   if (sent) {
     await db.execute(sql`
       UPDATE users
-      SET trial_notification_sent_at = NOW()
+      SET trial_notification_sent_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
       WHERE id = ${user.id} AND trial_notification_sent_at IS NULL
     `);
   }
@@ -82,7 +82,7 @@ async function applySubscription(subscription: Stripe.Subscription): Promise<voi
       stripe_subscription_id = ${active ? subscription.id : null},
       subscription_tier = ${active ? tier : "free"},
       subscription_status = ${subscription.status},
-      updated_at = NOW()
+      updated_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
     WHERE stripe_customer_id = ${customer}
   `);
   if (subscription.status === "trialing") await notifyNewTrial(customer);
@@ -130,7 +130,7 @@ async function applyCheckoutSession(eventSession: Stripe.Checkout.Session): Prom
           stripe_subscription_id = ${subscription.id},
           subscription_tier = ${tier},
           subscription_status = ${subscription.status},
-          updated_at = NOW()
+          updated_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
       WHERE id = ${userId}
     `);
     if (subscription.status === "trialing") await notifyNewTrial(customer);

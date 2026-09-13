@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "scripts/run-d1.ts",
+    "scripts/dev-node.ts",
+    "scripts/data-quality-audit.ts",
+    "scripts/cleanup-shadow-data.ts",
+    "scripts/migrate-canonical-geographies.ts",
+    "scripts/refresh-live-data.ts",
+    "scripts/build-candidate-dataset.ts",
+    "scripts/validate-d1-read-paths.ts",
+    "scripts/d1-verify-import.ts",
+    "worker-configuration.d.ts"
+  ],
+  "compilerOptions": { "incremental": false }
+}

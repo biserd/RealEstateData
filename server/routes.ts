@@ -1,3 +1,4 @@
+import { percentile, roundedInteger } from "../shared/sqliteAnalytics";
 import type { Express } from "express";
 import { type Server } from "http";
 import passport from "passport";
@@ -495,7 +496,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         FROM current_market_snapshots snapshot
         JOIN canonical_geographies geography ON geography.id = snapshot.geography_id
         WHERE geography.type = 'zip'
-          AND geography.zip_code ~ '^[0-9]{5}$'
+          AND geography.zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]'
           AND snapshot.transaction_count >= 5
           AND EXISTS (
             SELECT 1 FROM properties public_property
@@ -2655,17 +2656,15 @@ Sitemap: ${baseUrl}/sitemap.xml
 
       const yearly = await db.execute(sql`
         SELECT
-          EXTRACT(YEAR FROM s.sale_date)::int AS year,
-          COUNT(*)::int AS sale_count,
-          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.sale_price)::bigint AS median_price,
-          ROUND(AVG(s.sale_price))::bigint AS avg_price,
-          PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY s.sale_price)::bigint AS p25_price,
-          PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY s.sale_price)::bigint AS p75_price,
-          MIN(s.sale_price)::bigint AS min_price,
-          MAX(s.sale_price)::bigint AS max_price,
-          PERCENTILE_CONT(0.5) WITHIN GROUP (
-            ORDER BY (s.sale_price::numeric / NULLIF(p.sqft, 0))
-          ) FILTER (WHERE p.sqft > 0)::numeric(10,2) AS median_ppsf
+          CAST(CAST(strftime('%Y', s.sale_date) AS INTEGER) AS INTEGER) AS year,
+          CAST(COUNT(*) AS INTEGER) AS sale_count,
+          ${roundedInteger(percentile(sql`s.sale_price`, 0.5))} AS median_price,
+          CAST(ROUND(AVG(s.sale_price)) AS INTEGER) AS avg_price,
+          ${roundedInteger(percentile(sql`s.sale_price`, 0.25))} AS p25_price,
+          ${roundedInteger(percentile(sql`s.sale_price`, 0.75))} AS p75_price,
+          CAST(MIN(s.sale_price) AS INTEGER) AS min_price,
+          CAST(MAX(s.sale_price) AS INTEGER) AS max_price,
+          CAST(${percentile(sql`(CAST(s.sale_price AS REAL) / NULLIF(p.sqft, 0))`, 0.5, sql`p.sqft > 0`)} AS REAL) AS median_ppsf
         FROM sales s
         JOIN properties p ON s.property_id = p.id
         WHERE p.zip_code = ${geoId}

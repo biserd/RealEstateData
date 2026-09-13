@@ -1,4 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
+import { propertyRecordJson } from "./lib/property-record-json";
 import { db } from "../server/db";
 import { assertDatabaseWriteAllowed, databaseIdentity } from "./lib/database-safety";
 
@@ -24,7 +25,7 @@ async function main() {
     AND deed_type IN ('Warranty','Quitclaim','Grant')
   `;
   const shadowPropertiesWhere = sql`
-    NULLIF(BTRIM(p.bbl), '') IS NULL
+    NULLIF(TRIM(p.bbl), '') IS NULL
     AND NOT EXISTS (SELECT 1 FROM entity_resolution_map erm WHERE erm.matched_property_id = p.id AND erm.match_confidence >= 0.90)
     AND NOT EXISTS (
       SELECT 1 FROM sales s WHERE s.property_id = p.id
@@ -33,8 +34,8 @@ async function main() {
   `;
 
   const [generatedSales, shadowProperties] = await Promise.all([
-    count(sql`SELECT COUNT(*)::int AS count FROM sales WHERE ${generatedSalesWhere}`),
-    count(sql`SELECT COUNT(*)::int AS count FROM properties p WHERE ${shadowPropertiesWhere}`),
+    count(sql`SELECT CAST(COUNT(*) AS INTEGER) AS count FROM sales WHERE ${generatedSalesWhere}`),
+    count(sql`SELECT CAST(COUNT(*) AS INTEGER) AS count FROM properties p WHERE ${shadowPropertiesWhere}`),
   ]);
 
   console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", generatedSales, shadowProperties }, null, 2));
@@ -44,23 +45,12 @@ async function main() {
   }
 
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS data_quality_quarantine (
-      source_table text NOT NULL,
-      source_id text NOT NULL,
-      reason text NOT NULL,
-      record jsonb NOT NULL,
-      quarantined_at timestamptz NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (source_table, source_id, reason)
-    )
-  `);
-
-  await db.execute(sql`
-    INSERT INTO data_quality_quarantine (source_table, source_id, reason, record)
-    SELECT 'properties', p.id, 'unverified_shadow_property', to_jsonb(p)
+    INSERT INTO data_quality_quarantine (source_table, source_id, reason, severity, record)
+    SELECT 'properties', p.id, 'unverified_shadow_property', 'high', ${propertyRecordJson("p")}
     FROM properties p
     WHERE ${shadowPropertiesWhere}
     ON CONFLICT (source_table, source_id, reason) DO UPDATE
-      SET record = EXCLUDED.record, quarantined_at = NOW()
+      SET record = EXCLUDED.record, quarantined_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
   `);
 
   const deleted = await db.execute(sql`DELETE FROM sales WHERE ${generatedSalesWhere} RETURNING id`);
@@ -68,7 +58,7 @@ async function main() {
   console.log("Property rows were quarantined, not hard-deleted. Runtime publication filters keep them off all public pages while source owners review them.");
 }
 
-main().catch((error) => {
+await main().catch((error) => {
   console.error(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
   process.exitCode = 1;
 });

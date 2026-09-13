@@ -1,3 +1,4 @@
+import { d1BatchSize } from "../server/d1Writes";
 import { sql } from "drizzle-orm";
 import { db } from "../server/db";
 import {
@@ -47,7 +48,7 @@ type RawSale = {
   sqft: number | string | null;
   property_type: string | null;
   beds: number | string | null;
-  arms_length: boolean | null;
+  arms_length: boolean | number | null;
   package_sale: boolean | null;
   match_method: string | null;
   source_id: string | null;
@@ -85,11 +86,11 @@ async function loadFacts(): Promise<{ sales: VerifiedSaleFact[]; properties: Pub
         ON quarantine.source_table = 'properties' AND quarantine.source_id = property.id
       WHERE property.geography_id IS NOT NULL
         AND quarantine.source_id IS NULL
-        AND NULLIF(BTRIM(property.address), '') IS NOT NULL
+        AND NULLIF(TRIM(property.address), '') IS NOT NULL
         AND property.state IN ('NY','NJ','CT')
-        AND property.zip_code ~ '^[0-9]{5}$'
+        AND property.zip_code GLOB '[0-9][0-9][0-9][0-9][0-9]'
         AND COALESCE(property.estimated_value, property.last_sale_price, 0) BETWEEN 50000 AND 100000000
-        AND (NULLIF(BTRIM(property.bbl), '') IS NOT NULL OR EXISTS (
+        AND (NULLIF(TRIM(property.bbl), '') IS NOT NULL OR EXISTS (
           SELECT 1 FROM entity_resolution_map map
           WHERE map.matched_property_id = property.id AND map.match_confidence >= 0.90
         ))
@@ -104,7 +105,7 @@ async function loadFacts(): Promise<{ sales: VerifiedSaleFact[]; properties: Pub
     sqft: row.sqft === null ? null : Number(row.sqft),
     propertyType: row.property_type,
     beds: row.beds === null ? null : Number(row.beds),
-    armsLength: row.arms_length !== false,
+    armsLength: row.arms_length === null || Boolean(row.arms_length),
     packageSale: Boolean(row.package_sale),
     identityResolved: Boolean(row.match_method),
     sourceId: row.source_id || source.id,
@@ -141,19 +142,19 @@ async function main() {
   const sourceAgeDays = latestSourceDate ? Math.max(0, (periodEnd.getTime() - latestSourceDate.getTime()) / 86_400_000) : Number.POSITIVE_INFINITY;
   let previousTransactionCount = 0;
   try {
-    const previous = await db.execute(sql`SELECT COALESCE(sum(transaction_count), 0)::int AS count FROM current_market_snapshots`);
+    const previous = await db.execute(sql`SELECT CAST(COALESCE(sum(transaction_count), 0) AS INTEGER) AS count FROM current_market_snapshots`);
     previousTransactionCount = Number((previous.rows[0] as { count?: number | string } | undefined)?.count || 0);
   } catch (error) {
     if (!(error instanceof Error) || !/current_market_snapshots|does not exist/i.test(error.message)) throw error;
   }
   const contradictionResult = await db.execute(sql`
-    SELECT count(*)::int AS count
+    SELECT CAST(count(*) AS INTEGER) AS count
     FROM properties property
     JOIN canonical_geographies geography ON geography.id = property.geography_id
     WHERE property.state IS DISTINCT FROM geography.state OR property.zip_code IS DISTINCT FROM geography.zip_code
   `);
   const duplicateResult = await db.execute(sql`
-    SELECT count(*)::int AS count FROM (
+    SELECT CAST(count(*) AS INTEGER) AS count FROM (
       SELECT source_id, source_record_id FROM sales
       WHERE source_id IS NOT NULL AND source_record_id IS NOT NULL
       GROUP BY source_id, source_record_id HAVING count(*) > 1
@@ -211,8 +212,8 @@ async function main() {
     counts: report.input,
     candidateVersionId: candidateId,
   });
-  for (let index = 0; index < snapshots.length; index += 250) {
-    await db.insert(marketSnapshots).values(snapshots.slice(index, index + 250).map((snapshot) => ({
+  for (let index = 0; index < snapshots.length; index += d1BatchSize(marketSnapshots)) {
+    await db.insert(marketSnapshots).values(snapshots.slice(index, index + d1BatchSize(marketSnapshots)).map((snapshot) => ({
       datasetVersionId: candidateId,
       geographyId: snapshot.geographyId,
       segmentKey: snapshot.segmentKey,
@@ -228,8 +229,8 @@ async function main() {
       confidence: snapshot.confidence,
     })));
   }
-  for (let index = 0; index < rankings.length; index += 250) {
-    await db.insert(rankingSnapshots).values(rankings.slice(index, index + 250).map((ranking) => ({
+  for (let index = 0; index < rankings.length; index += d1BatchSize(rankingSnapshots)) {
+    await db.insert(rankingSnapshots).values(rankings.slice(index, index + d1BatchSize(rankingSnapshots)).map((ranking) => ({
       datasetVersionId: candidateId,
       geographyId: ranking.geographyId,
       scoreVersion: RANKING_RULE_VERSION,
@@ -244,7 +245,7 @@ async function main() {
       exclusionReasons: ranking.exclusionReasons,
     })));
   }
-  await db.insert(dataQualityResults).values(quality.map((result) => ({
+  for (const result of quality) await db.insert(dataQualityResults).values({
     runId,
     datasetVersionId: candidateId,
     ruleId: result.ruleId,
@@ -253,12 +254,12 @@ async function main() {
     observedValue: result.observedValue,
     threshold: result.threshold,
     evidence: result.evidence,
-  })));
+  });
   const compPeriodStart = new Date(periodEnd);
   compPeriodStart.setUTCMonth(compPeriodStart.getUTCMonth() - 18);
   const compRows = compCandidates.map((candidate) => ({ candidate, comparableSetId: crypto.randomUUID() }));
-  for (let index = 0; index < compRows.length; index += 250) {
-    await db.insert(comparableSets).values(compRows.slice(index, index + 250).map(({ candidate, comparableSetId }) => ({
+  for (let index = 0; index < compRows.length; index += d1BatchSize(comparableSets)) {
+    await db.insert(comparableSets).values(compRows.slice(index, index + d1BatchSize(comparableSets)).map(({ candidate, comparableSetId }) => ({
       id: comparableSetId,
       datasetVersionId: candidateId,
       subjectType: "property",
@@ -277,20 +278,20 @@ async function main() {
     adjustment: member.adjustment,
     inclusionReason: member.inclusionReason,
   })));
-  for (let index = 0; index < memberRows.length; index += 500) {
-    await db.insert(comparableMembers).values(memberRows.slice(index, index + 500));
+  for (let index = 0; index < memberRows.length; index += d1BatchSize(comparableMembers)) {
+    await db.insert(comparableMembers).values(memberRows.slice(index, index + d1BatchSize(comparableMembers)));
   }
   await db.execute(sql`UPDATE published_dataset_versions SET status = 'validated' WHERE id = ${candidateId}`);
-  await db.execute(sql`UPDATE refresh_runs SET status = 'candidate_ready', counts = ${JSON.stringify({ ...report.input, ...report.output })}::jsonb, completed_at = now() WHERE id = ${runId}`);
+  await db.execute(sql`UPDATE refresh_runs SET status = 'candidate_ready', counts = ${JSON.stringify({ ...report.input, ...report.output })}, completed_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z') WHERE id = ${runId}`);
 
   if (publish) {
-    await db.execute(sql`SELECT publish_validated_dataset(${candidateId}, ${environment})`);
+    await db.execute(sql`INSERT INTO dataset_publication_requests (candidate_id, environment) VALUES (${candidateId}, ${environment})`);
     await db.execute(sql`UPDATE refresh_runs SET status = 'published', published_version_id = ${candidateId} WHERE id = ${runId}`);
   }
   console.log(JSON.stringify({ candidateId, runId, published: publish }, null, 2));
 }
 
-main().catch((error) => {
+await main().catch((error) => {
   console.error(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
   process.exitCode = 1;
 });

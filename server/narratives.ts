@@ -1,3 +1,4 @@
+import { percentile } from "../shared/sqliteAnalytics";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { completeWithWorkersAI, WORKERS_AI_MODEL } from "./aiClient";
@@ -46,11 +47,11 @@ async function upsertNarrative(
 ): Promise<void> {
   await db.execute(sql`
     INSERT INTO page_narratives (kind, ref_id, narrative, model, generated_at)
-    VALUES (${kind}, ${refId}, ${narrative}, ${model}, NOW())
+    VALUES (${kind}, ${refId}, ${narrative}, ${model}, (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z'))
     ON CONFLICT (kind, ref_id) DO UPDATE
     SET narrative = EXCLUDED.narrative,
         model = EXCLUDED.model,
-        generated_at = NOW()
+        generated_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
   `);
 }
 
@@ -91,23 +92,21 @@ async function buildUnitContext(unitBbl: string): Promise<UnitContext | null> {
       ORDER BY sale_date DESC LIMIT 5
     `),
     db.execute(sql`
-      SELECT COUNT(*) FILTER (WHERE sale_price >= 100000)::int AS c,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price)
-          FILTER (WHERE sale_price >= 100000) AS med,
+      SELECT COUNT(*) FILTER (WHERE sale_price >= 100000) AS c,
+        ${percentile(sql`sale_price`, 0.5, sql`sale_price >= 100000`)} AS med,
         MIN(sale_price) FILTER (WHERE sale_price >= 100000) AS lo,
         MAX(sale_price) FILTER (WHERE sale_price >= 100000) AS hi
       FROM sales
       WHERE base_bbl = ${unit.base_bbl}
-        AND sale_date >= NOW() - INTERVAL '36 months'
+        AND sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-36 months') || '000Z')
     `),
     unit.zip_code
       ? db.execute(sql`
-          SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sale_price)
-            FILTER (WHERE sale_price >= 100000) AS med
+          SELECT ${percentile(sql`sale_price`, 0.5, sql`sale_price >= 100000`)} AS med
           FROM sales s
           JOIN condo_units cu ON cu.base_bbl = s.base_bbl
           WHERE cu.zip_code = ${unit.zip_code}
-            AND s.sale_date >= NOW() - INTERVAL '24 months'
+            AND s.sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-24 months') || '000Z')
         `)
       : Promise.resolve({ rows: [{}] } as any),
   ]);
@@ -180,9 +179,8 @@ async function buildPropertyContext(propertyId: string): Promise<PropertyContext
     `),
     prop.zip_code
       ? db.execute(sql`
-          SELECT COUNT(*) FILTER (WHERE last_sale_price > 0)::int AS c,
-            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY last_sale_price)
-              FILTER (WHERE last_sale_price > 0) AS med
+          SELECT COUNT(*) FILTER (WHERE last_sale_price > 0) AS c,
+            ${percentile(sql`last_sale_price`, 0.5, sql`last_sale_price > 0`)} AS med
           FROM properties WHERE zip_code = ${prop.zip_code}
         `)
       : Promise.resolve({ rows: [{}] } as any),

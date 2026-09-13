@@ -1,3 +1,5 @@
+> Production now uses D1. The historical PostgreSQL migration commands below document the earlier rollout; use `migrations/d1` and the D1 runner for current operations.
+
 # Data integrity and refresh operations
 
 ## Publication policy
@@ -13,9 +15,9 @@ This deliberately removes legacy NJ/CT demo records and building-only condo shel
 
 ## Commands
 
-All database commands require `DATABASE_URL`. Production and development must use separate database URLs.
+Database commands use the D1 runner. Local D1 is the default. Set `D1_REMOTE=1` and `DATABASE_ENV=production` explicitly to target the production database in `wrangler.data.jsonc`. Each deployed environment must use a separate D1 database; no connection string is required.
 
-Applied writes also require an explicit `DATABASE_ENV`. Production writes are blocked unless the reviewed command has `CONFIRM_PRODUCTION_WRITE=YES` and `BACKUP_VERIFIED_AT` contains an ISO timestamp for a recoverable backup or Neon branch verified within the prior 24 hours. These values are command-scoped controls, not permanent Worker variables.
+Applied writes also require an explicit `DATABASE_ENV`. Production writes are blocked unless the reviewed command has `CONFIRM_PRODUCTION_WRITE=YES` and `BACKUP_VERIFIED_AT` contains an ISO timestamp for a recoverable D1 backup or export verified within the prior 24 hours. These values are command-scoped controls, not permanent Worker variables.
 
 ```bash
 # Confirm which database host/environment the local command will use.
@@ -93,7 +95,7 @@ the previous successful release.
 
 `migrations/0001_versioned_data_platform.sql` is additive and creates canonical geography, source catalog, refresh-run, raw-manifest, source-entity, crosswalk, quarantine, quality-result, dataset-version, comp, market-snapshot, and ranking tables. It also defines `publish_validated_dataset`, the only approved publication operation. That function locks the candidate, rejects critical failures or empty outputs, retires the prior release, and publishes the candidate in one database transaction.
 
-Apply the schema only after the write gate has a recent verified backup/Neon branch. Review the SQL in Neon before application; it intentionally contains no `TRUNCATE` and leaves legacy tables readable during migration.
+Apply the schema only after the write gate has a recent verified recoverable backup. Review the SQL in `migrations/d1` before application; it intentionally contains no `TRUNCATE` and leaves legacy tables readable during migration.
 
 The candidate lifecycle is:
 
@@ -115,7 +117,7 @@ Production additionally requires `CONFIRM_PRODUCTION_WRITE=YES` and a `BACKUP_VE
 `wrangler.pipeline.example.jsonc` contains the reviewed R2, Queue/DLQ, and
 Workflow binding shape. It intentionally contains no Cron trigger and is not
 merged into the active Worker config: create and validate those resources
-against the development Neon branch first, merge the bindings, regenerate
+against the development D1 database first, merge the bindings, regenerate
 Worker types, dry-run the package, and run two successful manually triggered
 development refreshes before production use.
 
