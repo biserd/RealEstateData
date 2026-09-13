@@ -59,6 +59,6 @@ Apply reviewed SQL migrations from `migrations/d1`; do not use `drizzle-kit push
 
 ## Rollback
 
-The pre-migration Worker version was `ff792b8c-2d3e-4efb-bc51-c2780f917018` (source commit `1357f5e`). Before D1 accepts new production writes, restoring that Worker version returns traffic to the retained Neon database and existing secret.
+The pre-migration active Worker version was `438881e3-1482-4f66-bd67-4c10c3fba70a`, deployed August 31, 2026. The repository checkout before migration was `1357f5e`. Before D1 accepts new production writes, restoring that Worker version returns traffic to the retained Neon database and existing secret.
 
 After D1 accepts production writes, do **not** blindly roll back the Worker: Neon will be stale. Pause writes, preserve a D1 recovery point/export, reconcile new user/session/payment data back to the chosen target, and only then switch traffic. A Worker rollback does not roll back or synchronize database contents.
