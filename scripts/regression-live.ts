@@ -33,6 +33,28 @@ async function checkHeader(url: string, header: string, pattern: RegExp, expecte
   results.push({ url, expected: `${expectedStatus} ${header} ${pattern}`, actual: response.status, ok: response.status === expectedStatus && pattern.test(value), detail: value });
 }
 
+async function checkDocumentSeo(url: string, accept = "text/html") {
+  try {
+    const response = await fetch(url, { headers: { accept } });
+    const html = await response.text();
+    const canonical = html.match(/<link\s+rel="canonical"\s+href="([^"]+)"/i)?.[1];
+    const title = html.match(/<title>([^<]+)<\/title>/i)?.[1];
+    const description = html.match(/<meta\s+name="description"\s+content="([^"]+)"/i)?.[1];
+    const h1Count = (html.match(/<h1\b/gi) || []).length;
+    const resolved = new URL(response.url);
+    const ok = response.status === 200
+      && Boolean(title?.trim())
+      && Boolean(description?.trim())
+      && h1Count === 1
+      && canonical === `https://realtorsdashboard.com${resolved.pathname}${resolved.search}`
+      && !/noindex/i.test(response.headers.get("x-robots-tag") || "");
+    results.push({ url, expected: "200 indexable HTML, unique H1, title, description, matching apex canonical", actual: response.status, ok,
+      detail: ok ? undefined : JSON.stringify({ canonical, resolved: response.url, title, description, h1Count, robots: response.headers.get("x-robots-tag") }) });
+  } catch (error) {
+    results.push({ url, expected: "200 SEO document", actual: 0, ok: false, detail: error instanceof Error ? error.message : String(error) });
+  }
+}
+
 async function checkEnvelope(url: string) {
   try {
     const response = await fetch(url, { headers: { accept: "application/json" } });
@@ -80,6 +102,8 @@ function evenlySample<T>(items: T[], count: number): T[] {
 async function main() {
   const staticPaths = ["/", "/market-intelligence", "/investment-opportunities", "/up-and-coming", "/compare", "/calculator", "/guides", "/pricing", "/login", "/register"];
   await Promise.all(staticPaths.map((path) => check(`${baseUrl}${path}`, 200, /Unit not found|Property no longer available/i)));
+  await Promise.all(staticPaths.filter((path) => !["/login", "/register"].includes(path)).map((path) => checkDocumentSeo(`${baseUrl}${path}`)));
+  await checkDocumentSeo(`${baseUrl}/`, "*/*");
   await Promise.all([
     check(`${baseUrl}/api/health`, 200),
     check(`${baseUrl}/api/market/trending-zips?limit=5`, 200),
@@ -133,6 +157,8 @@ async function main() {
   entityUrls = Array.from(new Set(entityUrls));
   const targets = allEntityPages ? entityUrls : evenlySample(entityUrls, sampleSize * Math.max(1, sitemapUrls.length));
   for (const url of targets) await check(url, [200, 301], /Unit not found|Property no longer available/i);
+  for (const url of targets) await checkDocumentSeo(url);
+  if (targets[0]) await checkDocumentSeo(targets[0], "*/*");
 
   const failed = results.filter((result) => !result.ok);
   console.log(JSON.stringify({ baseUrl, checked: results.length, sitemapUrls: sitemapUrls.length, discoveredEntityUrls: entityUrls.length, duplicateUrls, sampledEntityUrls: targets.length, failed }, null, 2));

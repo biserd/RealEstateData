@@ -257,7 +257,15 @@ async function fetchBackendWithCache(
 }
 
 function isDocumentRequest(request: Request): boolean {
-  return request.method === "GET" && (request.headers.get("accept") || "").includes("text/html");
+  if (request.method !== "GET") return false;
+  const accept = request.headers.get("accept") || "";
+  if (accept.includes("text/html")) return true;
+  // Several crawlers and command-line clients request pages with */* (or no
+  // Accept header). Keep their document response identical to browsers while
+  // leaving fingerprinted assets and image files on the static-asset path.
+  const pathname = new URL(request.url).pathname;
+  return (accept === "" || accept.includes("*/*"))
+    && !/\.[a-z0-9]{2,8}$/i.test(pathname);
 }
 
 function clearCachedHttp3Route(request: Request, headers: Headers): void {
@@ -287,23 +295,19 @@ function protectDocumentResponse(request: Request, response: Response, cacheCont
 
 async function serveDocument(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
-    const normalized = new URL(request.url);
-    normalized.pathname = normalized.pathname.replace(/\/+$/, "");
-    return Response.redirect(normalized.toString(), 301);
-  }
+  const pathname = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : url.pathname;
 
   const assetResponse = await bindings.ASSETS.fetch(request);
-  if (!assetResponse.ok || !databaseConfigured) {
+  if (!assetResponse.ok) {
     return protectDocumentResponse(request, assetResponse, "public, max-age=0, must-revalidate");
   }
 
   try {
     const html = await assetResponse.clone().text();
-    const entityPage = seo.isDatabaseBackedPagePath(url.pathname);
+    const entityPage = seo.isDatabaseBackedPagePath(pathname);
     const metadata = entityPage
-      ? await seo.getDatabaseBackedMetaForUrl(`${url.pathname}${url.search}`)
-      : await seo.getMetaForUrl(`${url.pathname}${url.search}`);
+      ? await seo.getDatabaseBackedMetaForUrl(`${pathname}${url.search}`)
+      : await seo.getMetaForUrl(`${pathname}${url.search}`);
     const headers = new Headers(assetResponse.headers);
     headers.set("content-type", "text/html; charset=utf-8");
     clearCachedHttp3Route(request, headers);
@@ -315,8 +319,9 @@ async function serveDocument(request: Request): Promise<Response> {
     }
 
     const canonicalPathname = metadata.canonicalPath.split("?")[0];
-    if (canonicalPathname !== url.pathname) {
-      const canonicalUrl = new URL(metadata.canonicalPath, url.origin);
+    if (canonicalPathname !== url.pathname || url.hostname === "www.realtorsdashboard.com") {
+      const canonicalUrl = new URL(metadata.canonicalPath, "https://realtorsdashboard.com");
+      if (!metadata.canonicalPath.includes("?") && url.search) canonicalUrl.search = url.search;
       return Response.redirect(canonicalUrl.toString(), 301);
     }
 
@@ -331,13 +336,20 @@ async function serveDocument(request: Request): Promise<Response> {
     headers.set("x-content-type-options", "nosniff");
     headers.set("referrer-policy", "strict-origin-when-cross-origin");
     if (metadata.robots) headers.set("x-robots-tag", metadata.robots);
-    return new Response(seo.injectMetaTags(html, metadata, url.origin), {
+    return new Response(seo.injectMetaTags(html, metadata, "https://realtorsdashboard.com"), {
       status: assetResponse.status,
       headers,
     });
   } catch (error) {
     console.error(JSON.stringify({ level: "error", source: "seo", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() }));
-    return protectDocumentResponse(request, assetResponse, "public, max-age=0, must-revalidate");
+    return new Response("Page temporarily unavailable. Please try again later.", {
+      status: 503,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store, no-transform",
+        "retry-after": "120",
+      },
+    });
   }
 }
 

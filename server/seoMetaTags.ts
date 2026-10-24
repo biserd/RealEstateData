@@ -487,7 +487,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     bodyHtml: `
       <p>Honest, side-by-side comparison of Realtors Dashboard with the tools real estate buyers, investors, and agents most often ask about - including the things other tools do better than we do.</p>
       <h2>Realtors Dashboard vs Zillow</h2>
-      <p>Zillow is a consumer search portal with the Zestimate as the headline price. We separate verified recorded sales from automated estimates, publish a proprietary Opportunity Score with confidence bands, and cover NYC at the unit level (300K+ condo units). Both have free consumer search.</p>
+      <p>Zillow focuses on listing discovery and automated valuations. This site focuses on a narrower published set of NYC recorded sales and eligible unit records. A unit page is public only when its geography and source-backed sale pass the current quality checks; raw database row counts are not published coverage counts.</p>
       <h2>Realtors Dashboard vs Redfin</h2>
       <p>Redfin combines brokerage and listing search. Realtors Dashboard is not a brokerage and currently focuses on published recorded-sale research rather than live-listing discovery.</p>
       <h2>Realtors Dashboard vs PropStream</h2>
@@ -701,8 +701,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       : '';
 
     // Build a small set of grounded FAQs from the same data. These render as
-    // a definition list in the noscript body AND as FAQPage JSON-LD so Google
-    // can show them as rich results.
+    // a definition list in the crawlable body AND as matching FAQPage JSON-LD.
     const faqs: Array<{ q: string; a: string }> = [];
     if (lastSale && priceNum) {
       faqs.push({
@@ -812,7 +811,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
     };
   } catch (err) {
     console.error('[SEO] Error fetching unit meta:', err);
-    return null;
+    throw err;
   }
 }
 
@@ -966,7 +965,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       <ul>
         ${zip ? `<li><a href="/neighborhood/${escapeHtml(zip)}?geoType=zip">Full neighborhood report for ${escapeHtml(zip)}</a></li>` : ''}
         ${state && city ? `<li><a href="/browse/${escapeHtml(state.toLowerCase())}/${escapeHtml(encodeURIComponent(city.toLowerCase()))}">More properties in ${escapeHtml(city)}, ${escapeHtml(state)}</a></li>` : ''}
-        ${state ? `<li><a href="/browse/${escapeHtml(state.toLowerCase())}">Browse all ${escapeHtml(STATE_NAMES[state] || state)} listings</a></li>` : ''}
+        ${state ? `<li><a href="/browse/${escapeHtml(state.toLowerCase())}">Browse published ${escapeHtml(STATE_NAMES[state] || state)} records</a></li>` : ''}
         <li><a href="/investment-opportunities">Opportunity screener — review published candidates</a></li>
         <li><a href="/methodology/opportunity-score">How the opportunity score is calculated</a></li>
       </ul>
@@ -1096,7 +1095,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
     };
   } catch (err) {
     console.error('[SEO] Error fetching property meta:', err);
-    return null;
+    throw err;
   }
 }
 
@@ -1162,8 +1161,9 @@ async function getBuildingMeta(rawBaseBbl: string): Promise<PageMeta | null> {
       bodyHtml,
       jsonLd,
     };
-  } catch {
-    return null;
+  } catch (err) {
+    console.error('[SEO] Error fetching building meta:', err);
+    throw err;
   }
 }
 
@@ -1213,8 +1213,9 @@ async function getNeighborhoodMeta(geoId: string, geoType: string): Promise<Page
         address: { '@type': 'PostalAddress', postalCode: geoId, addressLocality: city, addressRegion: state, addressCountry: 'US' },
       },
     };
-  } catch {
-    return null;
+  } catch (err) {
+    console.error('[SEO] Error fetching neighborhood meta:', err);
+    throw err;
   }
 }
 
@@ -1258,8 +1259,9 @@ async function getBrowseStateMeta(state: string): Promise<PageMeta | null> {
       bodyHtml,
       jsonLd,
     };
-  } catch {
-    return null;
+  } catch (err) {
+    console.error('[SEO] Error fetching state meta:', err);
+    throw err;
   }
 }
 
@@ -1305,8 +1307,9 @@ async function getBrowseCityMeta(state: string, city: string): Promise<PageMeta 
       bodyHtml,
       jsonLd,
     };
-  } catch {
-    return null;
+  } catch (err) {
+    console.error('[SEO] Error fetching city meta:', err);
+    throw err;
   }
 }
 

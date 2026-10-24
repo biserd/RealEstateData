@@ -38,7 +38,7 @@ const COMPARISONS: Comparison[] = [
     rows: [
       { feature: "Verified recorded sales (ACRIS / county records)", us: true, them: "Mixed with AVM estimates" },
       { feature: "Proprietary opportunity score with confidence band", us: true, them: false },
-      { feature: "Per-unit NYC condo coverage (300K+ units)", us: true, them: "Building-level only" },
+      { feature: "Eligible NYC unit pages with source-backed sales", us: true, them: "Check current coverage" },
       { feature: "Source citation on every data point", us: true, them: false },
       { feature: "Investment calculator (cap rate, cash-on-cash, DSCR)", us: true, them: false },
       { feature: "Free consumer search", us: true, them: true },

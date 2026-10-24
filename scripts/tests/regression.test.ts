@@ -49,8 +49,14 @@ test("SEO routing, sitemaps, and social assets enforce the indexability contract
   const image = readFileSync(new URL("../../client/public/og-image.png", import.meta.url));
   assert.match(wrangler, /"\/\*"[\s\S]*"!\/assets\/\*"/);
   assert.match(worker, /status: 404/);
+  assert.match(worker, /status: 503/);
+  assert.match(worker, /"retry-after": "120"/);
+  assert.match(worker, /accept\.includes\("\*\/\*"\)/);
   assert.match(worker, /x-robots-tag/);
+  assert.match(worker, /seo\.injectMetaTags\(html, metadata, "https:\/\/realtorsdashboard\.com"\)/);
   assert.match(routes, /current_market_snapshots/);
+  assert.match(routes, /User-agent: Googlebot\s+Allow: \//);
+  assert.doesNotMatch(routes, /const baseUrl = `https:\/\/\$\{req\.get\("host"\)\}`/);
   assert.doesNotMatch(routes, /<changefreq>|<priority>/);
   assert.doesNotMatch(routes, /\{ url: "\/api-access"/);
   assert.match(seo, /return null;/);

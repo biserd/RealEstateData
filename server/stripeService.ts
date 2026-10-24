@@ -19,7 +19,7 @@ export class StripeService {
   async createCheckoutSession(customerId: string, priceId: string, successUrl: string, cancelUrl: string) {
     const stripe = await getUncachableStripeClient();
     const appSlug = process.env.APP_SLUG || "realtorsdashboard";
-    return stripe.checkout.sessions.create({
+    const params: Stripe.Checkout.SessionCreateParams & { integration_identifier: string } = {
       customer: customerId,
       integration_identifier: "realtorsdashboard_qmfnkzva",
       line_items: [{ price: priceId, quantity: 1 }],
@@ -31,13 +31,14 @@ export class StripeService {
         trial_period_days: TRIAL_PERIOD_DAYS,
         metadata: { app: appSlug },
       },
-    });
+    };
+    return stripe.checkout.sessions.create(params);
   }
 
   async createGuestCheckoutSession(priceId: string, successUrl: string, cancelUrl: string) {
     const stripe = await getUncachableStripeClient();
     const appSlug = process.env.APP_SLUG || "realtorsdashboard";
-    return stripe.checkout.sessions.create({
+    const params: Stripe.Checkout.SessionCreateParams & { integration_identifier: string } = {
       integration_identifier: "realtorsdashboard_qmfnkzva",
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
@@ -48,7 +49,8 @@ export class StripeService {
         trial_period_days: TRIAL_PERIOD_DAYS,
         metadata: { app: appSlug },
       },
-    });
+    };
+    return stripe.checkout.sessions.create(params);
   }
 
   async createCustomerPortalSession(customerId: string, returnUrl: string) {

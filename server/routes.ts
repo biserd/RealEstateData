@@ -315,11 +315,17 @@ export async function registerRoutes(
 
   // SEO: robots.txt
   app.get("/robots.txt", (req, res) => {
-    const baseUrl = `https://${req.get("host")}`;
+    const baseUrl = "https://realtorsdashboard.com";
     res.type("text/plain");
     // P-05: cache crawler-facing robots.txt for an hour at the edge.
     res.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
     res.send(`User-agent: *
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
 Allow: /
 
 User-agent: GPTBot
@@ -357,7 +363,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   
   app.get("/sitemap.xml", async (req, res) => {
     try {
-      const baseUrl = `https://${req.get("host")}`;
+      const baseUrl = "https://realtorsdashboard.com";
       const datasetLastmod = await publishedSitemapDate();
       
       const propertyCount = await storage.getPropertyCountForSitemapEligible();
@@ -420,7 +426,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   // SEO: Static pages sitemap
   app.get("/sitemap-static.xml", (req, res) => {
-    const baseUrl = `https://${req.get("host")}`;
+    const baseUrl = "https://realtorsdashboard.com";
     const staticPages = getStaticSitemapEntries();
     
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -449,7 +455,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   // SEO: Browse pages sitemap (state/city pages)
   app.get("/sitemap-browse.xml", async (req, res) => {
     try {
-      const baseUrl = `https://${req.get("host")}`;
+      const baseUrl = "https://realtorsdashboard.com";
       const datasetLastmod = await publishedSitemapDate();
       const data = await storage.getStateCityList();
       
@@ -490,7 +496,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   // SEO: Neighborhood report sitemap (ZIPs from market aggregates)
   app.get("/sitemap-neighborhoods.xml", async (req, res) => {
     try {
-      const baseUrl = `https://${req.get("host")}`;
+      const baseUrl = "https://realtorsdashboard.com";
       const datasetLastmod = await publishedSitemapDate();
       const result = await db.execute(sql`
         SELECT geography.zip_code AS zip
@@ -601,7 +607,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(404).send("Invalid sitemap page");
       }
       
-      const baseUrl = `https://${req.get("host")}`;
+      const baseUrl = "https://realtorsdashboard.com";
       const datasetLastmod = await publishedSitemapDate();
       
       const offset = (page - 1) * ITEMS_PER_SITEMAP;
@@ -651,7 +657,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         return res.status(404).send("Invalid sitemap page");
       }
       
-      const baseUrl = `https://${req.get("host")}`;
+      const baseUrl = "https://realtorsdashboard.com";
       const datasetLastmod = await publishedSitemapDate();
       
       const offset = (page - 1) * ITEMS_PER_SITEMAP;
