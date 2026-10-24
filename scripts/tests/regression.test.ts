@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "../../server/apiDiscovery";
-import { generatedDocumentResponse } from "../../server/documentResponse";
+import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "../../server/documentResponse";
 import { canonicalRedirectTarget, isDatabaseBackedPagePath, isPrivatePagePath } from "../../server/entityPagePolicy";
 import { inferTriStateFromZip, normalizeZipCode } from "../../shared/triStateGeography";
 import { assertDatabaseWriteAllowed } from "../lib/database-safety";
@@ -109,6 +109,12 @@ test("generated HTML honors gzip support and retains an identity fallback", asyn
   const identity = generatedDocumentResponse(new Request(requestUrl, { headers: { "accept-encoding": "gzip;q=0" } }), html, 200, headers);
   assert.equal(identity.headers.get("content-encoding"), null);
   assert.equal(await identity.text(), html);
+});
+
+test("homepage module preload does not leak onto other routes", () => {
+  const html = '<head><link rel="modulepreload" href="/assets/Landing-example.js" data-home-route-preload=""></head>';
+  assert.equal(routeSpecificDocumentTemplate(html, "/"), html);
+  assert.doesNotMatch(routeSpecificDocumentTemplate(html, "/tools"), /Landing-example/);
 });
 
 test("SEO routing, sitemaps, and social assets enforce the indexability contract", () => {
@@ -309,6 +315,11 @@ test("published ranking retries transient failures without reloading the applica
 
 test("homepage feeds distinguish loading, error, and empty states", () => {
   const pageSource = readFileSync(new URL("../../client/src/pages/Landing.tsx", import.meta.url), "utf8");
+  assert.match(pageSource, /enabled: statsSection\.near/);
+  assert.match(pageSource, /enabled: opportunitiesSection\.near/);
+  assert.match(pageSource, /enabled: trendingSection\.near/);
+  assert.match(pageSource, /rootMargin: "600px 0px"/);
+  assert.match(pageSource, /!opportunitiesSection\.near && !topOpportunities/);
   assert.match(pageSource, /opportunitiesError/);
   assert.match(pageSource, /trendingError/);
   assert.match(pageSource, /retry: 2/g);

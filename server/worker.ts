@@ -2,7 +2,7 @@ import { env as cloudflareEnv } from "cloudflare:workers";
 import { httpServerHandler } from "cloudflare:node";
 import { configureDatabase } from "./db";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
-import { generatedDocumentResponse } from "./documentResponse";
+import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
 import { UsageQuota, configureQuotaNamespace } from "./quota";
 import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueMessage } from "./dataPipelineWorkflow";
 
@@ -305,7 +305,10 @@ async function serveDocument(request: Request): Promise<Response> {
   }
 
   try {
-    const html = await assetResponse.clone().text();
+    const template = await assetResponse.clone().text();
+    // The homepage module is a useful preload only on the public landing URL.
+    // Keep other routes from spending bandwidth on a page they will not show.
+    const html = routeSpecificDocumentTemplate(template, pathname);
     const entityPage = seo.isDatabaseBackedPagePath(pathname);
     const metadata = entityPage
       ? await seo.getDatabaseBackedMetaForUrl(`${pathname}${url.search}`)

@@ -14,6 +14,30 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generateOpportunitySlug } from "@/lib/propertySlug";
 import { SUBSCRIPTION_PLANS } from "@shared/subscriptionPlans";
+import { useEffect, useRef, useState } from "react";
+
+function useNearViewport() {
+  const ref = useRef<HTMLElement>(null);
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    const section = ref.current;
+    if (!section || !window.IntersectionObserver) {
+      setNear(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setNear(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "600px 0px" });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, near };
+}
 
 interface PlatformStats {
   properties: number;
@@ -66,13 +90,18 @@ interface TrendingArea {
 
 export default function Landing() {
   const { toast } = useToast();
+  const statsSection = useNearViewport();
+  const opportunitiesSection = useNearViewport();
+  const trendingSection = useNearViewport();
   
-  const { data: platformStats, isLoading: statsLoading } = useQuery<PlatformStats>({
+  const { data: platformStats, isLoading: statsQueryLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/stats/platform"],
+    enabled: statsSection.near,
   });
 
-  const { data: topOpportunities, isLoading: opportunitiesLoading, isError: opportunitiesError, isFetching: opportunitiesFetching, refetch: refetchOpportunities } = useQuery<TopOpportunity[]>({
+  const { data: topOpportunities, isLoading: opportunitiesQueryLoading, isError: opportunitiesError, isFetching: opportunitiesFetching, refetch: refetchOpportunities } = useQuery<TopOpportunity[]>({
     queryKey: ["/api/units/top-opportunities", { borough: "Manhattan", limit: 9 }],
+    enabled: opportunitiesSection.near,
     queryFn: async () => {
       const res = await fetch("/api/units/top-opportunities?borough=Manhattan&limit=9", { cache: "no-store" });
       if (!res.ok) throw new Error(`${res.status}: Failed to fetch published opportunity candidates`);
@@ -112,8 +141,9 @@ export default function Landing() {
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
 
-  const { data: trendingAreas, isLoading: trendingLoading, isError: trendingError, isFetching: trendingFetching, refetch: refetchTrending } = useQuery<TrendingArea[]>({
+  const { data: trendingAreas, isLoading: trendingQueryLoading, isError: trendingError, isFetching: trendingFetching, refetch: refetchTrending } = useQuery<TrendingArea[]>({
     queryKey: ["/api/market/trending-zips", { limit: 6 }],
+    enabled: trendingSection.near,
     queryFn: async () => {
       const res = await fetch("/api/market/trending-zips?limit=6", { cache: "no-store" });
       if (!res.ok) throw new Error(`${res.status}: Failed to fetch trending areas`);
@@ -122,6 +152,10 @@ export default function Landing() {
     retry: 2,
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
+
+  const statsLoading = statsQueryLoading || (!statsSection.near && !platformStats);
+  const opportunitiesLoading = opportunitiesQueryLoading || (!opportunitiesSection.near && !topOpportunities);
+  const trendingLoading = trendingQueryLoading || (!trendingSection.near && !trendingAreas);
 
   const proMonthlyPrice = SUBSCRIPTION_PLANS.pro.prices.month;
   const proMonthlyAmount = proMonthlyPrice.unit_amount / 100;
@@ -311,7 +345,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="border-y bg-muted/30 py-12">
+        <section ref={statsSection.ref} className="border-y bg-muted/30 py-12">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-4 text-center">
               <h2 className="text-lg font-semibold text-muted-foreground">Our Database</h2>
@@ -438,7 +472,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="py-12 border-b bg-gradient-to-b from-emerald-50/50 to-background dark:from-emerald-950/20 dark:to-background">
+        <section ref={opportunitiesSection.ref} className="py-12 border-b bg-gradient-to-b from-emerald-50/50 to-background dark:from-emerald-950/20 dark:to-background">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
               <div>
@@ -571,7 +605,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="py-12 border-b bg-gradient-to-b from-amber-50/40 to-background dark:from-amber-950/20 dark:to-background">
+        <section ref={trendingSection.ref} className="py-12 border-b bg-gradient-to-b from-amber-50/40 to-background dark:from-amber-950/20 dark:to-background">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
               <div>

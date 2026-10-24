@@ -1,9 +1,36 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+function preloadHomepageRoute(): Plugin {
+  return {
+    name: "preload-homepage-route",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(_html, context) {
+        const landing = Object.values(context.bundle || {}).find((asset) =>
+          asset.type === "chunk"
+          && asset.facadeModuleId?.replaceAll("\\", "/").endsWith("/client/src/pages/Landing.tsx"),
+        );
+        if (!landing || landing.type !== "chunk") return;
+        return [{
+          tag: "link",
+          attrs: {
+            rel: "modulepreload",
+            crossorigin: "",
+            href: `/${landing.fileName}`,
+            "data-home-route-preload": "",
+          },
+          injectTo: "head",
+        }];
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), preloadHomepageRoute()],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
