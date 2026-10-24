@@ -117,6 +117,11 @@ test("homepage module preload does not leak onto other routes", () => {
   assert.doesNotMatch(routeSpecificDocumentTemplate(html, "/tools"), /Landing-example/);
 });
 
+test("the browser Google tag is absent after the Zaraz cutover", () => {
+  const html = readFileSync(new URL("../../client/index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /googletagmanager\.com|gtag\(|dataLayer/);
+});
+
 test("prose typography ships with its lazy routes instead of the homepage CSS", () => {
   const globalTailwind = readFileSync(new URL("../../tailwind.config.ts", import.meta.url), "utf8");
   const typography = readFileSync(new URL("../../client/src/typography.css", import.meta.url), "utf8");

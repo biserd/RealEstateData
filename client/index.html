@@ -20,25 +20,6 @@
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Realtors Dashboard","url":"https://realtorsdashboard.com/","logo":"https://realtorsdashboard.com/favicon.png","description":"Source-backed real estate market intelligence with verified recorded sales, reproducible comps, and explicit coverage and freshness."}</script>
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Realtors Dashboard","url":"https://realtorsdashboard.com/"}</script>
 
-    <!-- Analytics loads after the page is interactive; consent tooling can set
-         window.analyticsConsentGranted=false before this callback to suppress it. -->
-    <script>
-      window.addEventListener('load', () => {
-        const startAnalytics = () => {
-          if (window.analyticsConsentGranted === false) return;
-          const script = document.createElement('script');
-          script.async = true;
-          script.src = 'https://www.googletagmanager.com/gtag/js?id=G-G9255VEH07';
-          document.head.appendChild(script);
-          window.dataLayer = window.dataLayer || [];
-          window.gtag = function(){ window.dataLayer.push(arguments); };
-          window.gtag('js', new Date());
-          window.gtag('config', 'G-G9255VEH07');
-        };
-        if ('requestIdleCallback' in window) window.requestIdleCallback(startAnalytics, { timeout: 4000 });
-        else window.setTimeout(startAnalytics, 2500);
-      }, { once: true });
-    </script>
   </head>
   <body>
     <div id="root"></div>

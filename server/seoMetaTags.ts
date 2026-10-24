@@ -173,7 +173,7 @@ const DEFAULT_META: PageMeta = {
   description: 'Source-backed property and market intelligence with verified recorded sales, reproducible comps, and visible coverage and freshness.',
   ogType: 'website',
   canonicalPath: '/',
-  h1: 'Source-Backed Real Estate Market Intelligence',
+  h1: 'Transparent Opportunity Scoring for Published NYC Sales Data',
   bodyHtml: HOMEPAGE_BODY_HTML,
   jsonLd: SOFTWARE_APPLICATION_JSONLD,
 };
