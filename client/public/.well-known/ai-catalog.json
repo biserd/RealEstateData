@@ -1,0 +1,21 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Realtors Dashboard",
+    "documentationUrl": "https://realtorsdashboard.com/developers"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:realtorsdashboard.com:api:partner-data",
+      "displayName": "Realtors Dashboard Partner Data API",
+      "type": "application/json",
+      "url": "https://realtorsdashboard.com/openapi.json",
+      "description": "OpenAPI specification for the API-key-protected published real-estate data API. Access requires an approved key; the API is not an autonomous agent or MCP server.",
+      "tags": ["real estate", "recorded sales", "market data", "API"],
+      "representativeQueries": [
+        "How can I access Realtors Dashboard published property data through an API?",
+        "Is there an API for published New York City market statistics?"
+      ]
+    }
+  ]
+}

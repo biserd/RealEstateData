@@ -1,0 +1,19 @@
+# Realtors Dashboard
+
+Realtors Dashboard publishes source-backed real-estate market information. Its detailed verified-sale coverage is currently focused on New York City; published data is a manually validated snapshot, not live listings or an appraisal. Check each page's coverage and freshness before relying on a figure.
+
+## Public information
+
+- [Home](https://realtorsdashboard.com/): Product overview and links to public pages.
+- [Data coverage](https://realtorsdashboard.com/methodology/data-coverage): Geographic and source coverage.
+- [Methodology](https://realtorsdashboard.com/methodology/opportunity-score): How opportunity scores are calculated.
+- [Free NYC data tools](https://realtorsdashboard.com/tools): ZIP-level market snapshots and benchmarks.
+- [Developers](https://realtorsdashboard.com/developers): Documented, API-key-protected partner data API.
+- [OpenAPI document](https://realtorsdashboard.com/openapi.json): Machine-readable partner API specification.
+
+## Discovery
+
+- [ARD manifest](https://realtorsdashboard.com/.well-known/ard.json): Discoverable description of the documented partner API.
+- [API catalog](https://realtorsdashboard.com/.well-known/api-catalog): RFC 9727 API linkset.
+
+Public pages may be read and summarized subject to the site's published terms. This file does not grant training rights, bypass authentication, or authorize automated access to protected APIs.

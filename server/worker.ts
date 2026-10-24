@@ -2,6 +2,7 @@ import { env as cloudflareEnv } from "cloudflare:workers";
 import { httpServerHandler } from "cloudflare:node";
 import { configureDatabase } from "./db";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
+import { generatedDocumentResponse } from "./documentResponse";
 import { UsageQuota, configureQuotaNamespace } from "./quota";
 import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueMessage } from "./dataPipelineWorkflow";
 
@@ -333,15 +334,17 @@ async function serveDocument(request: Request): Promise<Response> {
       "cache-control",
       entityPage ? "no-store, no-transform" : "public, max-age=60, stale-while-revalidate=300, no-transform",
     );
-    headers.set("vary", "Accept");
+    headers.set("vary", "Accept, Accept-Encoding");
     headers.set("x-content-type-options", "nosniff");
     headers.set("referrer-policy", "strict-origin-when-cross-origin");
     if (metadata.robots) headers.set("x-robots-tag", metadata.robots);
     appendApiDiscoveryLinks(headers);
-    return new Response(seo.injectMetaTags(html, metadata, "https://realtorsdashboard.com"), {
-      status: assetResponse.status,
+    return generatedDocumentResponse(
+      request,
+      seo.injectMetaTags(html, metadata, "https://realtorsdashboard.com"),
+      assetResponse.status,
       headers,
-    });
+    );
   } catch (error) {
     console.error(JSON.stringify({ level: "error", source: "seo", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() }));
     return new Response("Page temporarily unavailable. Please try again later.", {

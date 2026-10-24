@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "../../server/apiDiscovery";
+import { generatedDocumentResponse } from "../../server/documentResponse";
 import { canonicalRedirectTarget, isDatabaseBackedPagePath, isPrivatePagePath } from "../../server/entityPagePolicy";
 import { inferTriStateFromZip, normalizeZipCode } from "../../shared/triStateGeography";
 import { assertDatabaseWriteAllowed } from "../lib/database-safety";
@@ -78,6 +79,36 @@ test("agent discovery advertises only the existing API-key partner API", async (
   const worker = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
   assert.match(worker, /appendApiDiscoveryLinks\(headers\)/);
   assert.match(worker, /apiCatalogResponse\(request\)/);
+});
+
+test("agent discovery static documents are real Markdown and compatible JSON manifests", () => {
+  const llms = readFileSync("client/public/llms.txt", "utf8");
+  assert.match(llms, /^# Realtors Dashboard\s*$/m);
+  assert.match(llms, /\[[^\]]+\]\(https:\/\/realtorsdashboard\.com\//);
+  const ard = JSON.parse(readFileSync("client/public/.well-known/ard.json", "utf8"));
+  const catalog = JSON.parse(readFileSync("client/public/.well-known/ai-catalog.json", "utf8"));
+  assert.deepEqual(ard, catalog);
+  assert.equal(ard.specVersion, "1.0");
+  assert.equal(ard.entries.length, 1);
+  assert.match(ard.entries[0].identifier, /^urn:air:realtorsdashboard\.com:/);
+  assert.equal(ard.entries[0].url, "https://realtorsdashboard.com/openapi.json");
+  assert.equal(ard.entries[0].type, "application/json");
+  assert.equal(ard.entries[0].data, undefined);
+});
+
+test("generated HTML honors gzip support and retains an identity fallback", async () => {
+  const requestUrl = "https://realtorsdashboard.com/";
+  const headers = new Headers({ "content-type": "text/html; charset=utf-8", etag: "template-etag", "content-length": "10" });
+  const html = "<html><body>Mobile document</body></html>";
+  const gzip = generatedDocumentResponse(new Request(requestUrl, { headers: { "accept-encoding": "br, gzip" } }), html, 200, headers);
+  assert.equal(gzip.headers.get("content-encoding"), "gzip");
+  assert.equal(gzip.headers.get("etag"), null);
+  assert.equal(gzip.headers.get("content-length"), null);
+  assert.match(gzip.headers.get("vary") || "", /Accept-Encoding/);
+  assert.equal(await new Response(gzip.body!.pipeThrough(new DecompressionStream("gzip"))).text(), html);
+  const identity = generatedDocumentResponse(new Request(requestUrl, { headers: { "accept-encoding": "gzip;q=0" } }), html, 200, headers);
+  assert.equal(identity.headers.get("content-encoding"), null);
+  assert.equal(await identity.text(), html);
 });
 
 test("SEO routing, sitemaps, and social assets enforce the indexability contract", () => {

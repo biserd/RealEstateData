@@ -4,6 +4,8 @@ const SPEC_PATH = "/openapi.json";
 
 export const API_CATALOG_LINK = `<${CATALOG_PATH}>; rel="api-catalog"; type="application/linkset+json"`;
 export const API_SPEC_LINK = `<${SPEC_PATH}>; rel="service-desc"; type="application/json"`;
+export const ARD_LINK = `</.well-known/ard.json>; rel="ard"; type="application/json"`;
+export const AI_CATALOG_LINK = `</.well-known/ai-catalog.json>; rel="ai-catalog"; type="application/json"`;
 
 /** RFC 9727 catalog: only the existing, documented partner API is advertised. */
 export function apiCatalog(): { linkset: Array<Record<string, unknown>> } {
@@ -28,6 +30,8 @@ export function apiCatalog(): { linkset: Array<Record<string, unknown>> } {
 
 export function appendApiDiscoveryLinks(headers: Headers, includeSpec = false): void {
   headers.append("link", API_CATALOG_LINK);
+  headers.append("link", ARD_LINK);
+  headers.append("link", AI_CATALOG_LINK);
   if (includeSpec) headers.append("link", API_SPEC_LINK);
 }
 
