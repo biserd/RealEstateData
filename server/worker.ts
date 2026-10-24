@@ -1,6 +1,7 @@
 import { env as cloudflareEnv } from "cloudflare:workers";
 import { httpServerHandler } from "cloudflare:node";
 import { configureDatabase } from "./db";
+import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
 import { UsageQuota, configureQuotaNamespace } from "./quota";
 import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueMessage } from "./dataPipelineWorkflow";
 
@@ -336,6 +337,7 @@ async function serveDocument(request: Request): Promise<Response> {
     headers.set("x-content-type-options", "nosniff");
     headers.set("referrer-policy", "strict-origin-when-cross-origin");
     if (metadata.robots) headers.set("x-robots-tag", metadata.robots);
+    appendApiDiscoveryLinks(headers);
     return new Response(seo.injectMetaTags(html, metadata, "https://realtorsdashboard.com"), {
       status: assetResponse.status,
       headers,
@@ -357,6 +359,8 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const corsOrigin = publicDataCorsOrigin(request, url.pathname);
+
+    if (url.pathname === "/.well-known/api-catalog") return apiCatalogResponse(request);
 
     if (request.method === "OPTIONS" && corsOrigin) {
       return withPublicDataCors(new Response(null, { status: 204 }), corsOrigin);
@@ -391,7 +395,17 @@ export default {
       if (!expressHandler.fetch) {
         return Response.json({ message: "Express adapter is unavailable" }, { status: 500 });
       }
-      return withPublicDataCors(await fetchBackendWithCache(request, env, ctx, url.pathname), corsOrigin);
+      const response = await fetchBackendWithCache(request, env, ctx, url.pathname);
+      if (url.pathname.startsWith("/api/external/")) {
+        const headers = new Headers(response.headers);
+        appendApiDiscoveryLinks(headers, true);
+        return withPublicDataCors(new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers,
+        }), corsOrigin);
+      }
+      return withPublicDataCors(response, corsOrigin);
     }
 
     if (isDocumentRequest(request)) return serveDocument(request);

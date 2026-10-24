@@ -1,0 +1,108 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Realtors Dashboard Partner Data API",
+    "version": "1.0.0",
+    "description": "Read-only access to the currently published real-estate dataset. Availability and coverage depend on the latest manually published snapshot. An account holder must create an API key in Settings; this API does not offer OAuth or autonomous agent registration."
+  },
+  "servers": [{ "url": "https://realtorsdashboard.com" }],
+  "security": [{ "apiKey": [] }],
+  "components": {
+    "securitySchemes": {
+      "apiKey": { "type": "apiKey", "in": "header", "name": "x-api-key" }
+    },
+    "responses": {
+      "Unauthorized": { "description": "Missing, invalid, or expired API key." },
+      "RateLimited": { "description": "Request quota or burst limit exceeded; retry according to the response headers." }
+    }
+  },
+  "paths": {
+    "/api/external/properties": {
+      "get": {
+        "summary": "Search published properties",
+        "description": "Returns currently eligible published records, not live listings. An exact-ZIP request may return no records when that ZIP has no eligible publication.",
+        "parameters": [
+          { "name": "state", "in": "query", "schema": { "type": "string", "enum": ["NY", "NJ", "CT"] } },
+          { "name": "cities", "in": "query", "description": "Comma-separated city names.", "schema": { "type": "string" } },
+          { "name": "zipCodes", "in": "query", "description": "Comma-separated five-digit ZIP codes.", "schema": { "type": "string" } },
+          { "name": "propertyTypes", "in": "query", "description": "Comma-separated property types.", "schema": { "type": "string" } },
+          { "name": "opportunityScoreMin", "in": "query", "schema": { "type": "integer", "minimum": 0, "maximum": 100 } },
+          { "name": "priceMin", "in": "query", "schema": { "type": "integer", "minimum": 0 } },
+          { "name": "priceMax", "in": "query", "schema": { "type": "integer", "minimum": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "Published properties matching the supplied filters." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/external/properties/{id}": {
+      "get": {
+        "summary": "Get a published property by ID or slug",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Property details." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Property not found." },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/external/market-stats": {
+      "get": {
+        "summary": "Get published market aggregates for a geography",
+        "parameters": [
+          { "name": "geoType", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "geoId", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Market aggregates; may be empty when coverage is unavailable." },
+          "400": { "description": "Missing geography parameters." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/external/comps/{propertyId}": {
+      "get": {
+        "summary": "Get published comparable sales for a property",
+        "parameters": [{ "name": "propertyId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Comparable sales; may be empty when coverage is unavailable." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/external/zip/{zipCode}": {
+      "get": {
+        "summary": "Get a published ZIP market summary",
+        "parameters": [{ "name": "zipCode", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[0-9]{5}$" } }],
+        "responses": {
+          "200": { "description": "ZIP-level market summary." },
+          "400": { "description": "Invalid ZIP code." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "No published ZIP market data." },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/external/up-and-coming": {
+      "get": {
+        "summary": "Get published ZIP momentum rankings",
+        "parameters": [
+          { "name": "state", "in": "query", "schema": { "type": "string", "enum": ["NY", "NJ", "CT"] } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Published ZIP rankings; may be empty when no ZIP is eligible." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    }
+  }
+}

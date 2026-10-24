@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { apiCatalogResponse, appendApiDiscoveryLinks } from "../../server/apiDiscovery";
 import { canonicalRedirectTarget, isDatabaseBackedPagePath, isPrivatePagePath } from "../../server/entityPagePolicy";
 import { inferTriStateFromZip, normalizeZipCode } from "../../shared/triStateGeography";
 import { assertDatabaseWriteAllowed } from "../lib/database-safety";
@@ -38,6 +39,45 @@ test("account and API-key routes are explicitly private", () => {
     assert.equal(isPrivatePagePath(path), true, path);
   }
   assert.equal(isPrivatePagePath("/developers"), false);
+});
+
+test("agent discovery advertises only the existing API-key partner API", async () => {
+  const catalogUrl = "https://realtorsdashboard.com/.well-known/api-catalog";
+  const getResponse = apiCatalogResponse(new Request(catalogUrl));
+  assert.equal(getResponse.status, 200);
+  assert.match(getResponse.headers.get("content-type") || "", /^application\/linkset\+json; profile=/);
+  assert.match(getResponse.headers.get("link") || "", /rel="api-catalog"/);
+  const catalog = await getResponse.json() as { linkset: Array<Record<string, unknown>> };
+  const items = catalog.linkset[0].item as Array<{ href: string }>;
+  assert.deepEqual(items.map((item) => item.href), [
+    "https://realtorsdashboard.com/api/external/properties",
+    "https://realtorsdashboard.com/api/external/market-stats",
+    "https://realtorsdashboard.com/api/external/up-and-coming",
+  ]);
+  assert.equal(catalog.linkset[1].anchor, items[0].href);
+  const headResponse = apiCatalogResponse(new Request(catalogUrl, { method: "HEAD" }));
+  assert.equal(headResponse.status, 200);
+  assert.equal(await headResponse.text(), "");
+  assert.match(headResponse.headers.get("link") || "", /rel="service-desc"/);
+  assert.equal(apiCatalogResponse(new Request(catalogUrl, { method: "POST" })).status, 405);
+  assert.equal(apiCatalogResponse(new Request("https://www.realtorsdashboard.com/.well-known/api-catalog")).headers.get("location"), catalogUrl);
+
+  const links = new Headers();
+  appendApiDiscoveryLinks(links, true);
+  assert.match(links.get("link") || "", /rel="api-catalog"/);
+  assert.match(links.get("link") || "", /rel="service-desc"/);
+
+  const spec = JSON.parse(readFileSync(new URL("../../client/public/openapi.json", import.meta.url), "utf8"));
+  assert.equal(spec.servers[0].url, "https://realtorsdashboard.com");
+  assert.equal(spec.components.securitySchemes.apiKey.name, "x-api-key");
+  for (const path of ["/api/external/properties", "/api/external/properties/{id}", "/api/external/market-stats", "/api/external/comps/{propertyId}", "/api/external/zip/{zipCode}", "/api/external/up-and-coming"]) {
+    assert.ok(spec.paths[path]?.get, path);
+  }
+  const developerDocs = readFileSync(new URL("../../client/src/pages/Developers.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(developerDocs, /api\.realtorsdashboard\.com/);
+  const worker = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
+  assert.match(worker, /appendApiDiscoveryLinks\(headers\)/);
+  assert.match(worker, /apiCatalogResponse\(request\)/);
 });
 
 test("SEO routing, sitemaps, and social assets enforce the indexability contract", () => {

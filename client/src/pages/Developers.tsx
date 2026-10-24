@@ -14,10 +14,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 
 const codeExamples = {
-  curl: `curl -X GET "https://api.realtorsdashboard.com/api/external/properties?state=NY&limit=10" \\
+  curl: `curl -X GET "https://realtorsdashboard.com/api/external/properties?state=NY&limit=10" \\
   -H "x-api-key: YOUR_API_KEY"`,
   javascript: `const response = await fetch(
-  'https://api.realtorsdashboard.com/api/external/properties?state=NY&limit=10',
+  'https://realtorsdashboard.com/api/external/properties?state=NY&limit=10',
   {
     headers: {
       'x-api-key': 'YOUR_API_KEY'
@@ -29,7 +29,7 @@ console.log(data);`,
   python: `import requests
 
 response = requests.get(
-    'https://api.realtorsdashboard.com/api/external/properties',
+    'https://realtorsdashboard.com/api/external/properties',
     params={'state': 'NY', 'limit': 10},
     headers={'x-api-key': 'YOUR_API_KEY'}
 )
