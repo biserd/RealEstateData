@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "dev:node": "tsx scripts/dev-node.ts",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr src/App.tsx --outDir ../dist/ssr-home && tsx scripts/prerender-home.ts",
     "build:node": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "deploy": "npm run build && wrangler deploy",

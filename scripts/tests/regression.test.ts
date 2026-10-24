@@ -112,9 +112,11 @@ test("generated HTML honors gzip support and retains an identity fallback", asyn
 });
 
 test("homepage module preload does not leak onto other routes", () => {
-  const html = '<head><link rel="modulepreload" href="/assets/Landing-example.js" data-home-route-preload=""></head>';
+  const html = '<head><link rel="modulepreload" href="/assets/Landing-example.js" data-home-route-preload=""></head><!--ssr-home-start--><div id="root" data-ssr-home="true"><h1>Home</h1></div><!--ssr-home-end-->';
   assert.equal(routeSpecificDocumentTemplate(html, "/"), html);
   assert.doesNotMatch(routeSpecificDocumentTemplate(html, "/tools"), /Landing-example/);
+  assert.doesNotMatch(routeSpecificDocumentTemplate(html, "/tools"), /data-ssr-home|<h1>Home/);
+  assert.match(routeSpecificDocumentTemplate(html, "/tools"), /<div id="root"><\/div>/);
 });
 
 test("the browser Google tag is absent after the Zaraz cutover", () => {

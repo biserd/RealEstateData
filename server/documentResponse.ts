@@ -1,7 +1,9 @@
 /** Compress generated HTML without allowing edge transformations of page scripts. */
 export function routeSpecificDocumentTemplate(template: string, pathname: string): string {
   if (pathname === "/") return template;
-  return template.replace(/\s*<link\b(?=[^>]*data-home-route-preload)[^>]*>/i, "");
+  return template
+    .replace(/\s*<link\b(?=[^>]*data-home-route-preload)[^>]*>/i, "")
+    .replace(/<!--ssr-home-start-->[\s\S]*?<!--ssr-home-end-->/, '<div id="root"></div>');
 }
 
 export function generatedDocumentResponse(request: Request, html: string, status: number, originalHeaders: Headers): Response {
