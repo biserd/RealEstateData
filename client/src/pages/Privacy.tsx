@@ -1,3 +1,4 @@
+import "../typography.css";
 import { MarketingLayout } from "@/components/layouts";
 
 export default function Privacy() {

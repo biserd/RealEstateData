@@ -117,6 +117,17 @@ test("homepage module preload does not leak onto other routes", () => {
   assert.doesNotMatch(routeSpecificDocumentTemplate(html, "/tools"), /Landing-example/);
 });
 
+test("prose typography ships with its lazy routes instead of the homepage CSS", () => {
+  const globalTailwind = readFileSync(new URL("../../tailwind.config.ts", import.meta.url), "utf8");
+  const typography = readFileSync(new URL("../../client/src/typography.css", import.meta.url), "utf8");
+  assert.doesNotMatch(globalTailwind, /require\("@tailwindcss\/typography"\)/);
+  assert.match(typography, /@tailwind components/);
+  for (const page of ["Privacy", "Terms", "UnitDetail"]) {
+    const source = readFileSync(new URL(`../../client/src/pages/${page}.tsx`, import.meta.url), "utf8");
+    assert.match(source, /import "\.\.\/typography\.css"/);
+  }
+});
+
 test("SEO routing, sitemaps, and social assets enforce the indexability contract", () => {
   const worker = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
   const wrangler = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");

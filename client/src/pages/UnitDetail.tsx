@@ -1,3 +1,4 @@
+import "../typography.css";
 import { useParams, useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { 
