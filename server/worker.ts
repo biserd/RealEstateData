@@ -27,7 +27,9 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
-const PUBLIC_CACHE_REVISION = "2026-09-13-d1-v1";
+// Bump after a manual dataset publication so Worker Cache API entries for
+// sitemaps and public data cannot outlive the newly published snapshot.
+const PUBLIC_CACHE_REVISION = "2026-10-24-f02859ed";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
