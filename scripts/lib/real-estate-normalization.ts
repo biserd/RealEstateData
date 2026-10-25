@@ -46,9 +46,9 @@ export function normalizeUnitDesignation(value: unknown): string | null {
 
 export function classifyUnitType(value: unknown): "residential" | "parking" | "storage" | "commercial" | "other" {
   const unit = String(value ?? "").trim().toLowerCase();
-  if (/park|garage|space/.test(unit)) return "parking";
-  if (/storage|locker/.test(unit)) return "storage";
-  if (/commercial|retail|office|store/.test(unit)) return "commercial";
+  if (/park|garage|space|^gar\b|^gar\d/.test(unit)) return "parking";
+  if (/storage|locker|^stor/.test(unit)) return "storage";
+  if (/commercial|retail|office|store|^comm|^ret\b|^ret\d|^rtl|^prof|^shop/.test(unit)) return "commercial";
   if (!unit) return "other";
   return "residential";
 }

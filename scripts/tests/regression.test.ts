@@ -196,6 +196,8 @@ test("public page predicates use one published, canonical, non-quarantined contr
   assert.match(eligibility, /canonical_geographies/);
   assert.match(eligibility, /data_quality_quarantine/);
   assert.match(eligibility, /BETWEEN 100000 AND 100000000/);
+  assert.match(eligibility, /unit_designation\)\) GLOB 'COMM\*'/);
+  assert.match(eligibility, /unit_designation\)\) GLOB 'STOR\*'/);
   assert.match(storage, /publicPropertyPageSql/);
   assert.match(storage, /publicUnitPageSql/);
   assert.match(storage, /recent_sale_quarantine/);
@@ -219,6 +221,10 @@ test("source values are validated and deterministic", () => {
   assert.equal(parseMoney("$1,250,000.00"), 1_250_000);
   assert.equal(parseMoney("$0"), null);
   assert.equal(classifyUnitType("Parking Space P2"), "parking");
+  assert.equal(classifyUnitType("STORH"), "storage");
+  assert.equal(classifyUnitType("COMM5"), "commercial");
+  assert.equal(classifyUnitType("RTL2"), "commercial");
+  assert.equal(classifyUnitType("PROF2"), "commercial");
   assert.equal(classifyUnitType("4A"), "residential");
 
   const input = {
@@ -298,7 +304,7 @@ test("manual dataset publication cannot leave a day-old browser API response", (
     "../../client/src/pages/InvestmentCalculator.tsx",
     "../../client/src/pages/Tools.tsx",
   ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
-  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-10-24-f02859ed"/);
+  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-10-24-f02859ed-quality1"/);
   assert.match(workerSource, /const payload = await response\.arrayBuffer\(\)/);
   assert.match(workerSource, /payload\.slice\(0\)/);
   assert.doesNotMatch(workerSource, /cache\.put\(key, cacheable\.clone\(\)\)/);

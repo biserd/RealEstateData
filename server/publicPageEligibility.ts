@@ -69,6 +69,17 @@ export function publicUnitPageSql(alias = "cu"): SQL {
   const cu = tableAlias(alias);
   return sql`
     ${cu}.unit_type_hint = 'residential'
+    AND NOT (
+      UPPER(TRIM(${cu}.unit_designation)) GLOB 'COMM*'
+      OR UPPER(TRIM(${cu}.unit_designation)) GLOB 'RET*'
+      OR UPPER(TRIM(${cu}.unit_designation)) GLOB 'RTL*'
+      OR UPPER(TRIM(${cu}.unit_designation)) GLOB 'STOR*'
+      OR UPPER(TRIM(${cu}.unit_designation)) GLOB 'PROF*'
+      OR UPPER(TRIM(${cu}.unit_designation)) GLOB 'GAR*'
+      OR UPPER(TRIM(${cu}.unit_designation)) GLOB 'PARK*'
+      OR UPPER(TRIM(${cu}.unit_designation)) GLOB 'OFFICE*'
+      OR UPPER(TRIM(${cu}.unit_designation)) GLOB 'SHOP*'
+    )
     AND ${cu}.unit_bbl GLOB '[1-5][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
     AND ${cu}.base_bbl GLOB '[1-5][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
     AND NULLIF(TRIM(${cu}.building_display_address), '') IS NOT NULL

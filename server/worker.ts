@@ -29,7 +29,7 @@ httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
 // Bump after a manual dataset publication so Worker Cache API entries for
 // sitemaps and public data cannot outlive the newly published snapshot.
-const PUBLIC_CACHE_REVISION = "2026-10-24-f02859ed";
+const PUBLIC_CACHE_REVISION = "2026-10-24-f02859ed-quality1";
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");
