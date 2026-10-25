@@ -63,6 +63,7 @@ import {
 } from "@shared/schema";
 import { inferTriStateFromZip } from "@shared/triStateGeography";
 import { publicPropertyPageSql, publicUnitPageSql } from "./publicPageEligibility";
+import type { HomepageStats } from "../shared/homepageStats";
 
 // A property is public only when it has enough real, traceable source data to
 // support a detail page. This intentionally excludes the legacy randomly
@@ -353,6 +354,7 @@ export interface IStorage {
   getDeepCoverageCounts(geoType: string, geoId: string): Promise<{ totalProperties: number; withSignals: number }>;
 
   // Platform statistics
+  getHomepageStats(): Promise<HomepageStats>;
   getPlatformStats(): Promise<{
     properties: number;
     sales: number;
@@ -2102,6 +2104,53 @@ export class DatabaseStorage implements IStorage {
     return {
       totalProperties: totalResult?.count || 0,
       withSignals: withSignalsResult?.count || 0,
+    };
+  }
+
+  async getHomepageStats(): Promise<HomepageStats> {
+    const environment = process.env.DATABASE_ENV || "production";
+    const publication = await db.execute(sql`
+      SELECT published_at FROM current_published_dataset
+      WHERE environment = ${environment}
+      ORDER BY published_at DESC LIMIT 1
+    `);
+    const publishedAt = (publication.rows[0] as { published_at?: string } | undefined)?.published_at;
+    if (!publishedAt) throw new Error("No published dataset is available for homepage statistics");
+
+    const [saleBackedUnits, [propertiesCount], [salesCount], marketSnapshots, dataFeeds] = await Promise.all([
+      this.getUnitCountForSitemapEligible(),
+      db.select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
+        .from(properties)
+        .where(publicPropertyPredicate()),
+      db.select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
+        .from(sales)
+        .where(and(
+          gte(sales.salePrice, 50_000),
+          or(
+            isNotNull(sales.matchMethod),
+            isNotNull(sales.rawBlock),
+            isNotNull(sales.unitBbl),
+            isNotNull(sales.baseBbl),
+          ),
+        )),
+      db.execute(sql`
+        SELECT CAST(COUNT(*) AS INTEGER) AS count FROM current_market_snapshots
+        WHERE dataset_version_id = (SELECT id FROM current_published_dataset
+          WHERE environment = ${environment} ORDER BY published_at DESC LIMIT 1)
+      `),
+      db.execute(sql`
+        SELECT CAST(COUNT(*) AS INTEGER) AS count FROM source_catalog
+        WHERE active = 1 AND redistribution_status = 'approved'
+      `),
+    ]);
+
+    return {
+      publishedAt,
+      saleBackedUnits,
+      publicProperties: Number(propertiesCount?.count || 0),
+      recordedSaleRows: Number(salesCount?.count || 0),
+      publishedMarketSnapshots: Number((marketSnapshots.rows[0] as { count?: number } | undefined)?.count || 0),
+      approvedDataFeeds: Number((dataFeeds.rows[0] as { count?: number } | undefined)?.count || 0),
     };
   }
 

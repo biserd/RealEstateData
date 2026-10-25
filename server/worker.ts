@@ -44,6 +44,7 @@ const PUBLIC_SITE_ORIGINS = new Set([
 function isPublicDataApiPath(pathname: string): boolean {
   return pathname === "/api/health"
     || pathname === "/api/stats/platform"
+    || pathname === "/api/stats/homepage"
     || pathname === "/api/opportunities/top"
     || pathname === "/api/units/top-opportunities"
     || pathname.startsWith("/api/units/resolve/")
@@ -104,6 +105,7 @@ function isBlockedApiCrawler(request: Request, pathname: string): boolean {
 
 function publicCacheTtl(pathname: string): number | null {
   if (pathname === "/api/stats/platform") return 600;
+  if (pathname === "/api/stats/homepage") return 600;
   if (pathname === "/api/units/top-opportunities") return 300;
   if (pathname === "/api/products") return 600;
   if (pathname.startsWith("/api/market/") || pathname.startsWith("/api/browse/")) return 300;
@@ -174,7 +176,9 @@ async function fetchBackendWithCache(
   const ttl = request.method === "GET" ? publicCacheTtl(pathname) : null;
   const cache = (caches as unknown as { default: Cache }).default;
   const key = ttl ? cacheKeyFor(request) : null;
-  const snapshotKey = key && pathname.startsWith("/api/market/") ? lastKnownGoodKey(request) : null;
+  const snapshotKey = key && (pathname.startsWith("/api/market/") || pathname === "/api/stats/homepage")
+    ? lastKnownGoodKey(request)
+    : null;
 
   if (key) {
     const cached = await cache.match(key);

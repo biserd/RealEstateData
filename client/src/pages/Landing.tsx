@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateOpportunitySlug } from "@/lib/propertySlug";
 import { SUBSCRIPTION_PLANS } from "@shared/subscriptionPlans";
 import { useEffect, useRef, useState } from "react";
+import type { HomepageStats } from "@shared/homepageStats";
 
 function useNearViewport() {
   const ref = useRef<HTMLElement>(null);
@@ -37,16 +38,6 @@ function useNearViewport() {
   }, []);
 
   return { ref, near };
-}
-
-interface PlatformStats {
-  properties: number;
-  sales: number;
-  marketAggregates: number;
-  comps: number;
-  aiChats: number;
-  dataSources: number;
-  condoUnits?: number;
 }
 
 interface ScoreDriver {
@@ -94,8 +85,8 @@ export default function Landing() {
   const opportunitiesSection = useNearViewport();
   const trendingSection = useNearViewport();
   
-  const { data: platformStats, isLoading: statsQueryLoading } = useQuery<PlatformStats>({
-    queryKey: ["/api/stats/platform"],
+  const { data: homepageStats, isLoading: statsQueryLoading, isError: statsError, refetch: refetchStats } = useQuery<HomepageStats>({
+    queryKey: ["/api/stats/homepage"],
     enabled: statsSection.near,
   });
 
@@ -153,7 +144,7 @@ export default function Landing() {
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
   });
 
-  const statsLoading = statsQueryLoading || (!statsSection.near && !platformStats);
+  const statsLoading = statsQueryLoading || (!statsSection.near && !homepageStats);
   const opportunitiesLoading = opportunitiesQueryLoading || (!opportunitiesSection.near && !topOpportunities);
   const trendingLoading = trendingQueryLoading || (!trendingSection.near && !trendingAreas);
 
@@ -183,21 +174,13 @@ export default function Landing() {
     guestCheckoutMutation.mutate(proMonthlyPrice.id);
   };
 
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) {
-      return Math.floor(num / 1000000) + "M+";
-    }
-    if (num >= 1000) {
-      return Math.floor(num / 1000) + "K+";
-    }
-    return num.toLocaleString() + "+";
-  };
+  const formatNumber = (num: number): string => num.toLocaleString("en-US");
 
   const features = [
     {
       icon: <CheckCircle className="h-6 w-6" />,
       title: "Verified Sale Prices",
-      description: "300K+ NYC condo units with real transaction data. See actual sale prices, not estimates.",
+      description: "Published NYC condo-unit pages require an exact recorded-sale match. Unmatched unit identities are not presented as sale-backed pages.",
     },
     {
       icon: <Target className="h-6 w-6" />,
@@ -236,31 +219,31 @@ export default function Landing() {
     },
   ];
 
-  const realStats = platformStats ? [
+  const realStats = homepageStats ? [
     { 
-      value: formatNumber(platformStats.condoUnits || 304000), 
-      label: "Condo Units",
+      value: formatNumber(homepageStats.saleBackedUnits),
+      label: "Sale-Backed Units",
       icon: <HomeIcon className="h-5 w-5" />,
       highlight: true,
     },
     { 
-      value: formatNumber(platformStats.properties), 
-      label: "Properties",
+      value: formatNumber(homepageStats.publicProperties),
+      label: "Published Properties",
       icon: <Building2 className="h-5 w-5" />,
     },
     { 
-      value: formatNumber(platformStats.sales), 
-      label: "Verified Sales",
+      value: formatNumber(homepageStats.recordedSaleRows),
+      label: "Recorded-Sale Rows",
       icon: <Receipt className="h-5 w-5" />,
     },
     { 
-      value: formatNumber(platformStats.marketAggregates), 
-      label: "Market Data Points",
+      value: formatNumber(homepageStats.publishedMarketSnapshots),
+      label: "Published Market Snapshots",
       icon: <BarChart3 className="h-5 w-5" />,
     },
     { 
-      value: platformStats.dataSources.toString(), 
-      label: "Data Sources",
+      value: formatNumber(homepageStats.approvedDataFeeds),
+      label: "Active Approved Feeds",
       icon: <Database className="h-5 w-5" />,
     },
   ] : [];
@@ -323,7 +306,7 @@ export default function Landing() {
                 Free for 14 days, then ${proMonthlyAmount}/mo · No charge during trial · Cancel anytime
               </p>
               <p className="mx-auto mb-8 max-w-3xl text-sm font-medium text-foreground/80" data-testid="text-hero-credibility">
-                300K+ official NYC condo-unit identities · Recorded-sale pages only · Transparent Opportunity Score · 14-day free trial, no charge today
+                Official NYC condo-unit identities · Published detail pages require recorded-sale matches · Transparent Opportunity Score · 14-day free trial, no charge today
               </p>
 
               <SmartAddressSearch 
@@ -349,8 +332,18 @@ export default function Landing() {
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-4 text-center">
               <h2 className="text-lg font-semibold text-muted-foreground">Our Database</h2>
+              {homepageStats && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Current market snapshot published {new Date(homepageStats.publishedAt).toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "long", day: "numeric" })}
+                </p>
+              )}
             </div>
-            {statsLoading ? (
+            {statsError && !homepageStats ? (
+              <div className="rounded-lg border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
+                Published counts are temporarily unavailable. We do not display estimated totals.
+                <Button variant="outline" size="sm" className="ml-3" onClick={() => void refetchStats()}>Retry</Button>
+              </div>
+            ) : statsLoading ? (
               <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="text-center relative">
@@ -388,6 +381,11 @@ export default function Landing() {
                   </div>
                 ))}
               </div>
+            )}
+            {homepageStats && (
+              <p className="mt-5 text-center text-xs text-muted-foreground">
+                Sale-backed units and properties pass public-page checks. Recorded-sale rows also include transactions not yet matched to a public property or unit.
+              </p>
             )}
           </div>
         </section>

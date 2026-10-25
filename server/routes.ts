@@ -2313,7 +2313,19 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
   });
 
-  // Platform stats - public endpoint for homepage
+  // Exact-scope homepage counts; the Worker caches this public snapshot at the edge.
+  app.get("/api/stats/homepage", async (_req, res) => {
+    try {
+      const stats = await storage.getHomepageStats();
+      res.setHeader("Cache-Control", "public, max-age=0, must-revalidate, s-maxage=600");
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching homepage stats:", error);
+      res.status(503).json({ message: "Published homepage statistics are temporarily unavailable" });
+    }
+  });
+
+  // Legacy platform stats, also used by the admin console.
   app.get("/api/stats/platform", async (req, res) => {
     try {
       const stats = await storage.getPlatformStats();

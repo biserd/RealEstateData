@@ -3,6 +3,7 @@ const WORKER_DATA_ORIGIN = "https://realtors-dashboard.biser-d.workers.dev";
 const PUBLIC_DATA_PATHS = [
   "/api/health",
   "/api/stats/platform",
+  "/api/stats/homepage",
   "/api/opportunities/top",
   "/api/units/top-opportunities",
   "/api/units/resolve/",

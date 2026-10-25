@@ -314,6 +314,29 @@ test("manual dataset publication cannot leave a day-old browser API response", (
   for (const pageSource of criticalPages) assert.match(pageSource, /cache: "no-store"/);
 });
 
+test("homepage statistics use published, precisely labeled counts behind the edge cache", () => {
+  const homepage = readFileSync(new URL("../../client/src/pages/Landing.tsx", import.meta.url), "utf8");
+  const storage = readFileSync(new URL("../../server/storage.ts", import.meta.url), "utf8");
+  const routes = readFileSync(new URL("../../server/routes.ts", import.meta.url), "utf8");
+  const worker = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
+  const transport = readFileSync(new URL("../../client/src/lib/apiTransport.ts", import.meta.url), "utf8");
+
+  assert.match(homepage, /queryKey: \["\/api\/stats\/homepage"\]/);
+  assert.match(homepage, /Sale-Backed Units/);
+  assert.match(homepage, /Recorded-Sale Rows/);
+  assert.match(homepage, /Current market snapshot published/);
+  assert.doesNotMatch(homepage, /304000|300K\+ NYC condo units with real transaction data/);
+  assert.match(storage, /async getHomepageStats\(\)/);
+  assert.match(storage, /const \[saleBackedUnits, .*\] = await Promise\.all\(\[/);
+  assert.match(storage, /this\.getUnitCountForSitemapEligible\(\)/);
+  assert.match(storage, /FROM current_market_snapshots/);
+  assert.match(storage, /FROM source_catalog\s+WHERE active = 1 AND redistribution_status = 'approved'/);
+  assert.match(routes, /app\.get\("\/api\/stats\/homepage"/);
+  assert.match(worker, /if \(pathname === "\/api\/stats\/homepage"\) return 600/);
+  assert.match(worker, /pathname\.startsWith\("\/api\/market\/"\) \|\| pathname === "\/api\/stats\/homepage"/);
+  assert.match(transport, /"\/api\/stats\/homepage"/);
+});
+
 test("HTML and public JSON have transport protections for zone-level rewriting", () => {
   const workerSource = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
   const transportSource = readFileSync(new URL("../../client/src/lib/apiTransport.ts", import.meta.url), "utf8");
