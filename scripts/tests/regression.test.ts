@@ -139,6 +139,7 @@ test("SEO routing, sitemaps, and social assets enforce the indexability contract
   const worker = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
   const wrangler = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");
   const routes = readFileSync(new URL("../../server/routes.ts", import.meta.url), "utf8");
+  const storage = readFileSync(new URL("../../server/storage.ts", import.meta.url), "utf8");
   const seo = readFileSync(new URL("../../server/seoMetaTags.ts", import.meta.url), "utf8");
   const tools = readFileSync(new URL("../../client/src/pages/Tools.tsx", import.meta.url), "utf8");
   const image = readFileSync(new URL("../../client/public/og-image.png", import.meta.url));
@@ -153,7 +154,11 @@ test("SEO routing, sitemaps, and social assets enforce the indexability contract
   assert.match(routes, /User-agent: Googlebot\s+Allow: \//);
   assert.doesNotMatch(routes, /const baseUrl = `https:\/\/\$\{req\.get\("host"\)\}`/);
   assert.doesNotMatch(routes, /<changefreq>|<priority>/);
+  assert.match(routes, /property\.contentUpdatedAt/);
+  assert.match(routes, /unit\.contentUpdatedAt/);
+  assert.match(storage, /MAX\(COALESCE\(s\.created_at, s\.sale_date\)\)/);
   assert.doesNotMatch(routes, /\{ url: "\/api-access"/);
+  assert.doesNotMatch(seo, /verified ACRIS (?:dataset|record)/);
   assert.match(seo, /return null;/);
   assert.doesNotMatch(seo, /SingleFamilyResidence/);
   for (const route of ["/tools", "/tools/nyc-zip-market-snapshot", "/tools/nyc-price-per-square-foot", "/tools/nyc-neighborhood-momentum"]) {

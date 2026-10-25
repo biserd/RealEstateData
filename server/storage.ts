@@ -262,7 +262,7 @@ export interface IStorage {
   getAllPropertiesForSitemap(): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   getPropertyCountForSitemap(): Promise<number>;
   getPropertyCountForSitemapEligible(): Promise<number>;
-  getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Array<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'> & { lastSaleDate: Date | null; updatedAt: Date | null }>>;
+  getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Array<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'> & { contentUpdatedAt: Date | null }>>;
   getPropertiesForSitemapPaginated(limit: number, offset: number): Promise<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'>[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property | undefined>;
@@ -617,7 +617,7 @@ export interface IStorage {
     unitDesignation: string | null;
     buildingDisplayAddress: string | null;
     borough: string | null;
-    lastSaleDate: Date | null;
+    contentUpdatedAt: Date | null;
   }>>;
   getUnitsForSitemapPaginated(limit: number, offset: number): Promise<Array<{
     unitBbl: string;
@@ -956,9 +956,16 @@ export class DatabaseStorage implements IStorage {
     return Number(result.rows?.[0]?.count || 0);
   }
 
-  async getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Array<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'> & { lastSaleDate: Date | null; updatedAt: Date | null }>> {
+  async getPropertiesForSitemapEligible(limit: number, offset: number): Promise<Array<Pick<Property, 'id' | 'address' | 'city' | 'zipCode'> & { contentUpdatedAt: Date | null }>> {
     const result: any = await db.execute(sql`
-      SELECT p.id, p.address, p.city, p.zip_code, p.last_sale_date, p.updated_at
+      SELECT p.id, p.address, p.city, p.zip_code,
+             MAX(COALESCE(p.updated_at, ''), COALESCE((
+               SELECT MAX(COALESCE(s.created_at, s.sale_date)) FROM sales s
+               WHERE s.property_id = p.id
+                 AND s.sale_price BETWEEN 50000 AND 100000000
+                 AND (s.source_id IS NOT NULL OR s.match_method IS NOT NULL
+                   OR s.raw_block IS NOT NULL OR s.raw_lot IS NOT NULL)
+             ), '')) AS content_updated_at
       FROM properties p
       WHERE ${publicPropertyPageSql("p")}
       ORDER BY p.id
@@ -969,8 +976,7 @@ export class DatabaseStorage implements IStorage {
       address: r.address,
       city: r.city,
       zipCode: r.zip_code,
-      lastSaleDate: r.last_sale_date ? new Date(r.last_sale_date) : null,
-      updatedAt: r.updated_at ? new Date(r.updated_at) : null,
+      contentUpdatedAt: r.content_updated_at ? new Date(r.content_updated_at) : null,
     }));
   }
 
@@ -3216,16 +3222,18 @@ export class DatabaseStorage implements IStorage {
     unitDesignation: string | null;
     buildingDisplayAddress: string | null;
     borough: string | null;
-    lastSaleDate: Date | null;
+    contentUpdatedAt: Date | null;
   }>> {
     const result: any = await db.execute(sql`
       SELECT cu.unit_bbl, cu.slug, cu.unit_designation,
              cu.building_display_address, cu.borough,
-             (
-               SELECT MAX(s.sale_date) FROM sales s
+             MAX(COALESCE(cu.updated_at, ''), COALESCE((
+               SELECT MAX(COALESCE(s.created_at, s.sale_date)) FROM sales s
                WHERE s.unit_bbl = cu.unit_bbl
                  AND s.sale_price BETWEEN 100000 AND 100000000
-             ) AS last_sale_date
+                 AND (s.source_id IS NOT NULL OR s.match_method IS NOT NULL
+                   OR s.raw_block IS NOT NULL OR s.raw_lot IS NOT NULL)
+             ), '')) AS content_updated_at
       FROM condo_units cu
       WHERE ${publicUnitPageSql("cu")}
       ORDER BY cu.unit_bbl
@@ -3237,7 +3245,7 @@ export class DatabaseStorage implements IStorage {
       unitDesignation: r.unit_designation,
       buildingDisplayAddress: r.building_display_address,
       borough: r.borough,
-      lastSaleDate: r.last_sale_date ? new Date(r.last_sale_date) : null,
+      contentUpdatedAt: r.content_updated_at ? new Date(r.content_updated_at) : null,
     }));
   }
 

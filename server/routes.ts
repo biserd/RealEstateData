@@ -623,9 +623,8 @@ Sitemap: ${baseUrl}/sitemap.xml
       
       for (const property of properties) {
         const slug = generateSitemapSlug(property);
-        const mod = property.lastSaleDate || property.updatedAt;
-        const lastmod = mod
-          ? new Date(mod).toISOString().split("T")[0]
+        const lastmod = property.contentUpdatedAt
+          ? property.contentUpdatedAt.toISOString().split("T")[0]
           : datasetLastmod;
         xml += `  <url>
     <loc>${baseUrl}/properties/${slug}</loc>
@@ -673,8 +672,8 @@ Sitemap: ${baseUrl}/sitemap.xml
       
       for (const unit of units) {
         const slug = unit.slug || generateUnitSlug(unit);
-        const lastmod = unit.lastSaleDate
-          ? new Date(unit.lastSaleDate).toISOString().split("T")[0]
+        const lastmod = unit.contentUpdatedAt
+          ? unit.contentUpdatedAt.toISOString().split("T")[0]
           : datasetLastmod;
         xml += `  <url>
     <loc>${baseUrl}/unit/${slug}</loc>

@@ -94,7 +94,17 @@ async function fetchSocrata(dataset: string, query: URLSearchParams): Promise<So
     const pageQuery = new URLSearchParams(query);
     pageQuery.set("$limit", String(PAGE_SIZE));
     pageQuery.set("$offset", String(offset));
-    const response = await fetch(`${NYC_OPEN_DATA}/${dataset}.json?${pageQuery}`, { headers: sourceHeaders() });
+    let response: Response | undefined;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        response = await fetch(`${NYC_OPEN_DATA}/${dataset}.json?${pageQuery}`, { headers: sourceHeaders() });
+        if (response.ok || (response.status !== 429 && response.status < 500)) break;
+      } catch (error) {
+        if (attempt === 3) throw error;
+      }
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1_000 * 2 ** attempt));
+    }
+    if (!response) throw new Error(`NYC Open Data ${dataset} did not return a response`);
     if (!response.ok) throw new Error(`NYC Open Data ${dataset} returned HTTP ${response.status}`);
     const rows = await response.json() as SocrataRecord[];
     all.push(...rows);
@@ -266,8 +276,14 @@ async function syncRollingSales(): Promise<{ fetched: number; valid: number; new
     });
   }
 
+  let newRows = 0;
   if (apply) {
-    for (let i = 0; i < values.length; i += d1BatchSize(versionedSales)) await db.insert(versionedSales).values(values.slice(i, i + d1BatchSize(versionedSales)));
+    const before = await db.select({ count: sql<number>`count(*)` }).from(versionedSales).where(eq(versionedSales.sourceId, ROLLING_SALES_SOURCE.id));
+    for (let i = 0; i < values.length; i += d1BatchSize(versionedSales)) {
+      await db.insert(versionedSales).values(values.slice(i, i + d1BatchSize(versionedSales))).onConflictDoNothing();
+    }
+    const after = await db.select({ count: sql<number>`count(*)` }).from(versionedSales).where(eq(versionedSales.sourceId, ROLLING_SALES_SOURCE.id));
+    newRows = Number(after[0]?.count || 0) - Number(before[0]?.count || 0);
     await db.execute(sql`
       UPDATE properties AS p SET
         last_sale_price = latest.sale_price,
@@ -284,7 +300,7 @@ async function syncRollingSales(): Promise<{ fetched: number; valid: number; new
         AND (p.last_sale_date IS NULL OR latest.sale_date >= p.last_sale_date)
     `);
   }
-  return { fetched: records.length, valid: values.length, newRows: apply ? values.length : 0, matchedUnits, matchedProperties };
+  return { fetched: records.length, valid: values.length, newRows, matchedUnits, matchedProperties };
 }
 
 async function main() {

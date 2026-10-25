@@ -88,7 +88,7 @@ export function buildUnitFaq(opts: {
   if (lastSalePrice && lastSaleDate) {
     items.push({
       q: `When did ${displayAddress} last sell?`,
-      a: `On ${new Date(lastSaleDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} for ${fmtPrice(lastSalePrice)} (verified ACRIS public record).`,
+      a: `On ${new Date(lastSaleDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} for ${fmtPrice(lastSalePrice)} (NYC recorded-sale data).`,
     });
   }
 

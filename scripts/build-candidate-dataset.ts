@@ -3,7 +3,6 @@ import { sql } from "drizzle-orm";
 import { db } from "../server/db";
 import {
   dataQualityResults,
-  comparableMembers,
   comparableSets,
   marketSnapshots,
   publishedDatasetVersions,
@@ -28,6 +27,8 @@ import { assertDatabaseWriteAllowed, databaseIdentity } from "./lib/database-saf
 
 const apply = process.argv.includes("--apply");
 const publish = process.argv.includes("--publish");
+const resumeCandidateId = process.argv.find((argument) => argument.startsWith("--resume-candidate="))?.split("=")[1];
+const maxMemberBatches = Number(process.argv.find((argument) => argument.startsWith("--max-member-batches="))?.split("=")[1] || 0);
 const environment = (process.env.DATABASE_ENV || "development") as "development" | "staging" | "production";
 const periodEndArg = process.argv.find((argument) => argument.startsWith("--period-end="));
 const periodEnd = periodEndArg ? new Date(periodEndArg.split("=")[1]) : new Date();
@@ -35,6 +36,7 @@ const source = sourceById("nyc-rolling-sales");
 
 if (Number.isNaN(periodEnd.getTime())) throw new Error("--period-end must be an ISO date");
 if (publish && !apply) throw new Error("--publish requires --apply");
+if (maxMemberBatches && (publish || !resumeCandidateId)) throw new Error("--max-member-batches requires an unpublished resume run");
 if (publish && process.env.CONFIRM_DATASET_PUBLISH !== "YES") {
   throw new Error("Dataset publication blocked. Set CONFIRM_DATASET_PUBLISH=YES after reviewing the candidate quality report.");
 }
@@ -62,6 +64,27 @@ type RawProperty = {
   sqft: number | string | null;
   year_built: number | string | null;
 };
+
+type MemberValue = { comparableSetId: string; saleId: string; weight: number; adjustment: number; inclusionReason: string };
+
+async function insertMembers(rows: MemberValue[]): Promise<number> {
+  let batches = 0;
+  for (let index = 0; index < rows.length; index += 1_000) {
+    const payload = JSON.stringify(rows.slice(index, index + 1_000).map((row) => ({ id: crypto.randomUUID(), ...row })));
+    await db.execute(sql`
+      INSERT INTO comparable_members_v2 (id, comparable_set_id, sale_id, weight, adjustment, inclusion_reason)
+      SELECT json_extract(value, '$.id'), json_extract(value, '$.comparableSetId'),
+        json_extract(value, '$.saleId'), json_extract(value, '$.weight'),
+        json_extract(value, '$.adjustment'), json_extract(value, '$.inclusionReason')
+      FROM json_each(${payload}) WHERE true
+      ON CONFLICT(comparable_set_id, sale_id) DO NOTHING
+    `);
+    batches++;
+    if (batches % 25 === 0) console.log(JSON.stringify({ memberRowsProcessed: Math.min(index + 1_000, rows.length), totalMemberRows: rows.length }));
+    if (maxMemberBatches && batches >= maxMemberBatches) break;
+  }
+  return batches;
+}
 
 async function loadFacts(): Promise<{ sales: VerifiedSaleFact[]; properties: PublicPropertyFact[] }> {
   const [salesResult, propertiesResult] = await Promise.all([
@@ -181,6 +204,62 @@ async function main() {
   if (!candidatePasses(quality)) throw new Error("Candidate failed critical quality gates; nothing will be published");
   if (!apply) return;
 
+  if (resumeCandidateId) {
+    const versionResult = await db.execute(sql`
+      SELECT status, environment, source_watermarks FROM published_dataset_versions WHERE id = ${resumeCandidateId}
+    `);
+    const version = versionResult.rows[0] as { status?: string; environment?: string; source_watermarks?: string } | undefined;
+    const watermarks = JSON.parse(version?.source_watermarks || "{}") as Record<string, string>;
+    if (version?.status !== "candidate" || version.environment !== environment || watermarks[source.id] !== periodEnd.toISOString()) {
+      throw new Error("Resume blocked: candidate status, environment, or period end does not match");
+    }
+    const setIds = new Map<string, string>();
+    let cursor = "";
+    while (true) {
+      const result = await db.execute(sql`
+        SELECT id, subject_id FROM comparable_sets_v2
+        WHERE dataset_version_id = ${resumeCandidateId} AND id > ${cursor}
+        ORDER BY id LIMIT 5000
+      `);
+      const rows = result.rows as Array<{ id: string; subject_id: string }>;
+      for (const row of rows) setIds.set(row.subject_id, row.id);
+      if (rows.length < 5000) break;
+      cursor = rows[rows.length - 1].id;
+    }
+    if (setIds.size !== compCandidates.length) {
+      throw new Error(`Resume blocked: expected ${compCandidates.length} comp sets, found ${setIds.size}`);
+    }
+    const memberRows = compCandidates.flatMap((candidate) => candidate.members.map((member) => ({
+      comparableSetId: setIds.get(candidate.property.id)!,
+      saleId: member.saleId,
+      weight: member.weight,
+      adjustment: member.adjustment,
+      inclusionReason: member.inclusionReason,
+    })));
+    await insertMembers(memberRows);
+    if (maxMemberBatches) return;
+    const memberCountResult = await db.execute(sql`
+      SELECT CAST(COUNT(*) AS INTEGER) AS count FROM comparable_members_v2 member
+      JOIN comparable_sets_v2 comp ON comp.id = member.comparable_set_id
+      WHERE comp.dataset_version_id = ${resumeCandidateId}
+    `);
+    const memberCount = Number((memberCountResult.rows[0] as { count?: number } | undefined)?.count || 0);
+    if (memberCount !== memberRows.length) {
+      throw new Error(`Resume blocked: expected ${memberRows.length} comp members, found ${memberCount}`);
+    }
+    const runResult = await db.execute(sql`SELECT id FROM refresh_runs WHERE candidate_version_id = ${resumeCandidateId} LIMIT 1`);
+    const runId = (runResult.rows[0] as { id?: string } | undefined)?.id;
+    if (!runId) throw new Error("Resume blocked: candidate refresh run not found");
+    await db.execute(sql`UPDATE published_dataset_versions SET status = 'validated' WHERE id = ${resumeCandidateId}`);
+    await db.execute(sql`UPDATE refresh_runs SET status = 'candidate_ready', counts = ${JSON.stringify({ ...report.input, ...report.output })}, completed_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z') WHERE id = ${runId}`);
+    if (publish) {
+      await db.execute(sql`INSERT INTO dataset_publication_requests (candidate_id, environment) VALUES (${resumeCandidateId}, ${environment})`);
+      await db.execute(sql`UPDATE refresh_runs SET status = 'published', published_version_id = ${resumeCandidateId} WHERE id = ${runId}`);
+    }
+    console.log(JSON.stringify({ candidateId: resumeCandidateId, runId, published: publish, memberCount }, null, 2));
+    return;
+  }
+
   const candidateId = crypto.randomUUID();
   const runId = crypto.randomUUID();
   await db.insert(sourceCatalog).values({
@@ -258,19 +337,26 @@ async function main() {
   const compPeriodStart = new Date(periodEnd);
   compPeriodStart.setUTCMonth(compPeriodStart.getUTCMonth() - 18);
   const compRows = compCandidates.map((candidate) => ({ candidate, comparableSetId: crypto.randomUUID() }));
+  const makeSetQuery = (rows: typeof compRows) => db.insert(comparableSets).values(rows.map(({ candidate, comparableSetId }) => ({
+    id: comparableSetId,
+    datasetVersionId: candidateId,
+    subjectType: "property",
+    subjectId: candidate.property.id,
+    ruleVersion: COMP_RULE_VERSION,
+    periodStart: compPeriodStart,
+    periodEnd,
+    confidence: candidate.members.length >= 8 ? "high" : candidate.members.length >= 5 ? "medium" : "low",
+    broadeningSteps: ["same_geography", "same_property_type", "bedroom_plus_or_minus_one", "size_plus_or_minus_35_percent", "18_month_window"],
+  })));
+  let setQueries: ReturnType<typeof makeSetQuery>[] = [];
   for (let index = 0; index < compRows.length; index += d1BatchSize(comparableSets)) {
-    await db.insert(comparableSets).values(compRows.slice(index, index + d1BatchSize(comparableSets)).map(({ candidate, comparableSetId }) => ({
-      id: comparableSetId,
-      datasetVersionId: candidateId,
-      subjectType: "property",
-      subjectId: candidate.property.id,
-      ruleVersion: COMP_RULE_VERSION,
-      periodStart: compPeriodStart,
-      periodEnd,
-      confidence: candidate.members.length >= 8 ? "high" : candidate.members.length >= 5 ? "medium" : "low",
-      broadeningSteps: ["same_geography", "same_property_type", "bedroom_plus_or_minus_one", "size_plus_or_minus_35_percent", "18_month_window"],
-    })));
+    setQueries.push(makeSetQuery(compRows.slice(index, index + d1BatchSize(comparableSets))));
+    if (setQueries.length === 50) {
+      await db.batch(setQueries as [typeof setQueries[number], ...typeof setQueries[number][]]);
+      setQueries = [];
+    }
   }
+  if (setQueries.length) await db.batch(setQueries as [typeof setQueries[number], ...typeof setQueries[number][]]);
   const memberRows = compRows.flatMap(({ candidate, comparableSetId }) => candidate.members.map((member) => ({
     comparableSetId,
     saleId: member.saleId,
@@ -278,9 +364,7 @@ async function main() {
     adjustment: member.adjustment,
     inclusionReason: member.inclusionReason,
   })));
-  for (let index = 0; index < memberRows.length; index += d1BatchSize(comparableMembers)) {
-    await db.insert(comparableMembers).values(memberRows.slice(index, index + d1BatchSize(comparableMembers)));
-  }
+  await insertMembers(memberRows);
   await db.execute(sql`UPDATE published_dataset_versions SET status = 'validated' WHERE id = ${candidateId}`);
   await db.execute(sql`UPDATE refresh_runs SET status = 'candidate_ready', counts = ${JSON.stringify({ ...report.input, ...report.output })}, completed_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z') WHERE id = ${runId}`);
 

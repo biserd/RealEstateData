@@ -85,6 +85,14 @@ source acquisition and every publication. The website serves only the latest
 approved snapshot and never calls upstream real-estate sources during a page
 request.
 
+Entity sitemaps are generated from the current public-page eligibility contract;
+imports do not create new property or unit identities automatically. Their
+`lastmod` reflects the later of the entity update and the ingestion of a
+source-backed sale, not merely the historical sale date. After publication,
+check the live apex sitemap and a sample of newly eligible pages before
+resubmitting the existing sitemap index in Search Console. A sitemap submission
+requests discovery; Google still decides whether and when each page is indexed.
+
 For each requested refresh: run `data:audit`, acquire the selected source
 partitions, build a candidate, review its quality and freshness report, and use
 the separate publication confirmation only after approval. After publication,
@@ -113,6 +121,19 @@ CONFIRM_DATASET_PUBLISH=YES npm run data:candidate -- --apply --publish
 ```
 
 Production additionally requires `CONFIRM_PRODUCTION_WRITE=YES` and a `BACKUP_VERIFIED_AT` no older than 24 hours. The final publish command recomputes a fresh candidate; it does not publish an arbitrary candidate ID.
+
+If the D1 member load is interrupted after all comp sets are staged, resume only
+the same candidate with its original `periodEnd` printed in the candidate report:
+
+```bash
+CONFIRM_DATASET_PUBLISH=YES npm run data:candidate -- --apply --publish \
+  --resume-candidate=<candidate-id> --period-end=<original-ISO-period-end>
+```
+
+The resume path verifies candidate status, environment, period end, set count,
+and every expected comp member before publication. It skips already inserted
+members. Production still requires the explicit write confirmation and a recent
+verified D1 Time Travel bookmark or export.
 
 `wrangler.pipeline.example.jsonc` contains the reviewed R2, Queue/DLQ, and
 Workflow binding shape. It intentionally contains no Cron trigger and is not

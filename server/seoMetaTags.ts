@@ -547,6 +547,13 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
         SELECT sale_price, sale_date FROM sales
         WHERE unit_bbl = ${row.unit_bbl}
           AND sale_price BETWEEN 100000 AND 100000000
+          AND (source_id IS NOT NULL OR match_method IS NOT NULL
+            OR raw_block IS NOT NULL OR raw_lot IS NOT NULL)
+          AND NOT EXISTS (
+            SELECT 1 FROM data_quality_quarantine q
+            WHERE q.source_table = 'sales' AND q.source_id = sales.id
+              AND q.review_status IN ('pending', 'rejected')
+          )
         ORDER BY sale_date DESC LIMIT 8
       `),
       db.execute(sql`
@@ -558,6 +565,13 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
         WHERE s.base_bbl = ${row.base_bbl}
           AND s.unit_bbl IS DISTINCT FROM ${row.unit_bbl}
           AND s.sale_price BETWEEN 100000 AND 100000000
+          AND (s.source_id IS NOT NULL OR s.match_method IS NOT NULL
+            OR s.raw_block IS NOT NULL OR s.raw_lot IS NOT NULL)
+          AND NOT EXISTS (
+            SELECT 1 FROM data_quality_quarantine q
+            WHERE q.source_table = 'sales' AND q.source_id = s.id
+              AND q.review_status IN ('pending', 'rejected')
+          )
         ORDER BY s.sale_date DESC LIMIT 8
       `),
       db.execute(sql`
@@ -571,6 +585,8 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
             WHERE sibling_sale.unit_bbl = cu.unit_bbl
               AND sibling_sale.sale_price BETWEEN 100000 AND 100000000
               AND sibling_sale.sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-120 months') || '000Z')
+              AND (sibling_sale.source_id IS NOT NULL OR sibling_sale.match_method IS NOT NULL
+                OR sibling_sale.raw_block IS NOT NULL OR sibling_sale.raw_lot IS NOT NULL)
           )
         ORDER BY cu.unit_designation NULLS LAST
         LIMIT 6
@@ -585,6 +601,8 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
         FROM sales
         WHERE base_bbl = ${row.base_bbl}
           AND sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-36 months') || '000Z')
+          AND (source_id IS NOT NULL OR match_method IS NOT NULL
+            OR raw_block IS NOT NULL OR raw_lot IS NOT NULL)
       `),
     ]);
 
@@ -604,7 +622,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
       : `${buildingAddr}${row.unit_designation ? `, ${row.unit_designation}` : ''}`;
 
     const locationParts = [borough, zip].filter(Boolean).join(' ');
-    const title = `${displayAddress}${zip ? ` · ${zip}` : ''} | RD`;
+    const title = `${displayAddress}${zip ? ` · ${zip}` : ''} | Realtors Dashboard`;
 
     const beds = row.beds ? Number(row.beds) : null;
     const baths = row.baths ? Number(row.baths) : null;
@@ -642,7 +660,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
 
     const unitSalesHtml = unitSales.length
       ? `<h2>Sale history for this unit</h2>
-         <p>This condo unit has ${unitSales.length} recorded transaction${unitSales.length === 1 ? '' : 's'} in our verified ACRIS dataset.</p>
+         <p>This condo unit has ${unitSales.length} source-backed recorded transaction${unitSales.length === 1 ? '' : 's'} in our published NYC sales dataset.</p>
          <ul>${unitSales.map(s => `<li>${escapeHtml(formatPrice(Number(s.sale_price)))} on ${escapeHtml(String(s.sale_date).slice(0, 10))}</li>`).join('')}</ul>`
       : `<h2>Sale history for this unit</h2><p>No verified transactions are currently recorded for this specific unit in our dataset. See building-level activity below for context.</p>`;
 
@@ -686,14 +704,15 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
 
     const intro = `
       <p>${escapeHtml(displayAddress)}${locationParts ? ` is located in ${escapeHtml(locationParts)}` : ''}.
-      This page combines verified ACRIS sale history, our proprietary opportunity score, building-level price trends, and
+      This page combines NYC recorded-sale history, our opportunity score, building-level price trends, and
       comparable transactions${beds ? ` for similar ${beds}-bedroom units` : ''} to help buyers and investors evaluate this condo.</p>
       <ul>${factsList}</ul>
     `;
 
     // Crawls never trigger model spend. Render only a fresh, cached narrative.
     const cachedNarrative = await getCachedNarrative('unit', row.unit_bbl);
-    const narrativeHtml = cachedNarrative?.narrative
+    const narrativeHtml = cachedNarrative?.fresh && cachedNarrative.narrative
+      && (!row.published_at || cachedNarrative.generatedAt >= new Date(row.published_at))
       ? `<h2>Property analysis</h2>${cachedNarrative.narrative
           .split(/\n\n+/)
           .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
@@ -706,7 +725,7 @@ async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
     if (lastSale && priceNum) {
       faqs.push({
         q: `When did ${displayAddress} last sell?`,
-        a: `On ${String(lastSale.sale_date).slice(0, 10)} for ${formatPrice(priceNum)} (verified ACRIS record).`,
+        a: `On ${String(lastSale.sale_date).slice(0, 10)} for ${formatPrice(priceNum)} (NYC recorded-sale data).`,
       });
     }
     if (priceNum && medianPrice && buildingSaleCount >= 3) {
@@ -863,6 +882,13 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
         SELECT sale_price, sale_date FROM sales
         WHERE property_id = ${row.id}
           AND sale_price BETWEEN 50000 AND 100000000
+          AND (source_id IS NOT NULL OR match_method IS NOT NULL
+            OR raw_block IS NOT NULL OR raw_lot IS NOT NULL)
+          AND NOT EXISTS (
+            SELECT 1 FROM data_quality_quarantine q
+            WHERE q.source_table = 'sales' AND q.source_id = sales.id
+              AND q.review_status IN ('pending', 'rejected')
+          )
         ORDER BY sale_date DESC LIMIT 8
       `),
       row.zip_code
@@ -899,7 +925,11 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
     const zip = row.zip_code || '';
     const priceNum = row.estimated_value ? Number(row.estimated_value) : null;
     const price = priceNum ? formatPrice(priceNum) : null;
-    const lastSalePriceNum = row.last_sale_price ? Number(row.last_sale_price) : null;
+    // The property summary can lag a manual recorded-sales publication. Prefer
+    // the latest source-backed transaction used in the visible sale history.
+    const latestSale = sales[0];
+    const lastSalePriceNum = latestSale?.sale_price ? Number(latestSale.sale_price) : (row.last_sale_price ? Number(row.last_sale_price) : null);
+    const lastSaleDate = latestSale?.sale_date || row.last_sale_date;
     const type = row.property_type || '';
     const sqftNum = row.sqft ? Number(row.sqft) : null;
     const beds = row.beds ? Number(row.beds) : null;
@@ -908,7 +938,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
     const score = row.opportunity_score ? Number(row.opportunity_score) : null;
 
     const locationParts = [city, state, zip].filter(Boolean).join(', ');
-    const title = `${address}${zip ? ` · ${zip}` : ''} | RD`;
+    const title = `${address}${zip ? ` · ${zip}` : ''} | Realtors Dashboard`;
 
     const descParts: string[] = [];
     if (type) descParts.push(type);
@@ -925,7 +955,7 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
     const factsHtml = [
       type ? `<li><strong>Property type:</strong> ${escapeHtml(type)}</li>` : '',
       price ? `<li><strong>Estimated value:</strong> ${escapeHtml(price)}</li>` : '',
-      lastSalePriceNum ? `<li><strong>Last sale:</strong> ${escapeHtml(formatPrice(lastSalePriceNum))}${row.last_sale_date ? ` on ${escapeHtml(String(row.last_sale_date).slice(0, 10))}` : ''}</li>` : '',
+      lastSalePriceNum ? `<li><strong>Last sale:</strong> ${escapeHtml(formatPrice(lastSalePriceNum))}${lastSaleDate ? ` on ${escapeHtml(String(lastSaleDate).slice(0, 10))}` : ''}</li>` : '',
       sqftNum ? `<li><strong>Square footage:</strong> ${sqftNum.toLocaleString()} sqft</li>` : '',
       beds ? `<li><strong>Bedrooms:</strong> ${beds}</li>` : '',
       baths ? `<li><strong>Bathrooms:</strong> ${baths}</li>` : '',
@@ -979,7 +1009,8 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
     `;
 
     const cachedNarrative = await getCachedNarrative('property', row.id);
-    const narrativeHtml = cachedNarrative?.narrative
+    const narrativeHtml = cachedNarrative?.fresh && cachedNarrative.narrative
+      && (!row.published_at || cachedNarrative.generatedAt >= new Date(row.published_at))
       ? `<h2>Property analysis</h2>${cachedNarrative.narrative
           .split(/\n\n+/)
           .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
@@ -987,10 +1018,10 @@ async function getPropertyMeta(slug: string): Promise<PageMeta | null> {
       : '';
 
     const propFaqs: Array<{ q: string; a: string }> = [];
-    if (lastSalePriceNum && row.last_sale_date) {
+    if (lastSalePriceNum && lastSaleDate) {
       propFaqs.push({
         q: `When did ${address} last sell?`,
-        a: `On ${String(row.last_sale_date).slice(0, 10)} for ${formatPrice(lastSalePriceNum)} (verified public record).`,
+        a: `On ${String(lastSaleDate).slice(0, 10)} for ${formatPrice(lastSalePriceNum)} (source-backed public record).`,
       });
     }
     if (lastSalePriceNum && zipMedian) {
