@@ -176,7 +176,7 @@ async function fetchBackendWithCache(
   const ttl = request.method === "GET" ? publicCacheTtl(pathname) : null;
   const cache = (caches as unknown as { default: Cache }).default;
   const key = ttl ? cacheKeyFor(request) : null;
-  const snapshotKey = key && (pathname.startsWith("/api/market/") || pathname === "/api/stats/homepage")
+  const snapshotKey = key && (pathname.startsWith("/api/market/") || pathname === "/api/stats/homepage" || pathname === "/api/units/top-opportunities")
     ? lastKnownGoodKey(request)
     : null;
 

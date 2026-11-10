@@ -317,6 +317,7 @@ test("manual dataset publication cannot leave a day-old browser API response", (
 test("homepage statistics use published, precisely labeled counts behind the edge cache", () => {
   const homepage = readFileSync(new URL("../../client/src/pages/Landing.tsx", import.meta.url), "utf8");
   const storage = readFileSync(new URL("../../server/storage.ts", import.meta.url), "utf8");
+  const snapshot = readFileSync(new URL("../../server/publishedHomepageSnapshot.ts", import.meta.url), "utf8");
   const routes = readFileSync(new URL("../../server/routes.ts", import.meta.url), "utf8");
   const worker = readFileSync(new URL("../../server/worker.ts", import.meta.url), "utf8");
   const transport = readFileSync(new URL("../../client/src/lib/apiTransport.ts", import.meta.url), "utf8");
@@ -327,14 +328,20 @@ test("homepage statistics use published, precisely labeled counts behind the edg
   assert.match(homepage, /Current market snapshot published/);
   assert.doesNotMatch(homepage, /304000|300K\+ NYC condo units with real transaction data/);
   assert.match(storage, /async getHomepageStats\(\)/);
+  assert.match(storage, /published\.id === publishedHomepageSnapshot\.datasetVersionId/);
+  assert.match(storage, /snapshotStatus: "last_known"/);
+  assert.match(snapshot, /datasetVersionId: "f02859ed-2743-439d-afbb-bb7f8eb7429b"/);
   assert.match(storage, /const \[saleBackedUnits, .*\] = await Promise\.all\(\[/);
   assert.match(storage, /this\.getUnitCountForSitemapEligible\(\)/);
   assert.match(storage, /FROM current_market_snapshots/);
   assert.match(storage, /FROM source_catalog\s+WHERE active = 1 AND redistribution_status = 'approved'/);
   assert.match(routes, /app\.get\("\/api\/stats\/homepage"/);
   assert.match(worker, /if \(pathname === "\/api\/stats\/homepage"\) return 600/);
+  assert.match(worker, /pathname === "\/api\/units\/top-opportunities"\)\s*\? lastKnownGoodKey/);
   assert.match(worker, /pathname\.startsWith\("\/api\/market\/"\) \|\| pathname === "\/api\/stats\/homepage"/);
   assert.match(transport, /"\/api\/stats\/homepage"/);
+  assert.match(homepage, /Last verified market snapshot published/);
+  assert.equal((homepage.match(/refetchInterval: \(query\) => query\.state\.status === "error" \? 30_000 : false/g) || []).length, 3);
 });
 
 test("HTML and public JSON have transport protections for zone-level rewriting", () => {

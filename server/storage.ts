@@ -64,6 +64,7 @@ import {
 import { inferTriStateFromZip } from "@shared/triStateGeography";
 import { publicPropertyPageSql, publicUnitPageSql } from "./publicPageEligibility";
 import type { HomepageStats } from "../shared/homepageStats";
+import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
 
 // A property is public only when it has enough real, traceable source data to
 // support a detail page. This intentionally excludes the legacy randomly
@@ -2109,13 +2110,27 @@ export class DatabaseStorage implements IStorage {
 
   async getHomepageStats(): Promise<HomepageStats> {
     const environment = process.env.DATABASE_ENV || "production";
-    const publication = await db.execute(sql`
-      SELECT published_at FROM current_published_dataset
-      WHERE environment = ${environment}
-      ORDER BY published_at DESC LIMIT 1
-    `);
-    const publishedAt = (publication.rows[0] as { published_at?: string } | undefined)?.published_at;
+    let publication;
+    try {
+      publication = await db.execute(sql`
+        SELECT id, published_at FROM current_published_dataset
+        WHERE environment = ${environment}
+        ORDER BY published_at DESC LIMIT 1
+      `);
+    } catch (error) {
+      if (environment !== "production") throw error;
+      console.error("Homepage publication check failed; serving dated last-known counts:", error);
+      const { datasetVersionId: _version, ...snapshot } = publishedHomepageSnapshot;
+      return { ...snapshot, snapshotStatus: "last_known" };
+    }
+    const published = publication.rows[0] as { id?: string; published_at?: string } | undefined;
+    const publishedAt = published?.published_at;
     if (!publishedAt) throw new Error("No published dataset is available for homepage statistics");
+
+    if (environment === "production" && published.id === publishedHomepageSnapshot.datasetVersionId) {
+      const { datasetVersionId: _version, ...snapshot } = publishedHomepageSnapshot;
+      return snapshot;
+    }
 
     const [saleBackedUnits, [propertiesCount], [salesCount], marketSnapshots, dataFeeds] = await Promise.all([
       this.getUnitCountForSitemapEligible(),
@@ -2146,6 +2161,7 @@ export class DatabaseStorage implements IStorage {
 
     return {
       publishedAt,
+      snapshotStatus: "current",
       saleBackedUnits,
       publicProperties: Number(propertiesCount?.count || 0),
       recordedSaleRows: Number(salesCount?.count || 0),

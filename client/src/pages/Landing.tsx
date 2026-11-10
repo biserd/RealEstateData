@@ -88,6 +88,7 @@ export default function Landing() {
   const { data: homepageStats, isLoading: statsQueryLoading, isError: statsError, refetch: refetchStats } = useQuery<HomepageStats>({
     queryKey: ["/api/stats/homepage"],
     enabled: statsSection.near,
+    refetchInterval: (query) => query.state.status === "error" ? 30_000 : false,
   });
 
   const { data: topOpportunities, isLoading: opportunitiesQueryLoading, isError: opportunitiesError, isFetching: opportunitiesFetching, refetch: refetchOpportunities } = useQuery<TopOpportunity[]>({
@@ -130,6 +131,7 @@ export default function Landing() {
     },
     retry: 2,
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
+    refetchInterval: (query) => query.state.status === "error" ? 30_000 : false,
   });
 
   const { data: trendingAreas, isLoading: trendingQueryLoading, isError: trendingError, isFetching: trendingFetching, refetch: refetchTrending } = useQuery<TrendingArea[]>({
@@ -142,6 +144,7 @@ export default function Landing() {
     },
     retry: 2,
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
+    refetchInterval: (query) => query.state.status === "error" ? 30_000 : false,
   });
 
   const statsLoading = statsQueryLoading || (!statsSection.near && !homepageStats);
@@ -334,7 +337,8 @@ export default function Landing() {
               <h2 className="text-lg font-semibold text-muted-foreground">Our Database</h2>
               {homepageStats && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Current market snapshot published {new Date(homepageStats.publishedAt).toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "long", day: "numeric" })}
+                  {homepageStats.snapshotStatus === "last_known" ? "Last verified market snapshot published " : "Current market snapshot published "}
+                  {new Date(homepageStats.publishedAt).toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "long", day: "numeric" })}
                 </p>
               )}
             </div>
