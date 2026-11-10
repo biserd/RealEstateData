@@ -324,6 +324,8 @@ test("homepage statistics use published, precisely labeled counts behind the edg
 
   assert.match(homepage, /queryKey: \["\/api\/stats\/homepage"\]/);
   assert.match(homepage, /Sale-Backed Units/);
+  assert.match(homepage, /Published sale-backed units ranked by score/);
+  assert.doesNotMatch(homepage, /Underpriced properties scored 70\+/);
   assert.match(homepage, /Recorded-Sale Rows/);
   assert.match(homepage, /Current market snapshot published/);
   assert.doesNotMatch(homepage, /304000|300K\+ NYC condo units with real transaction data/);

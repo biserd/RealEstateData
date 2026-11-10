@@ -491,7 +491,7 @@ export default function Landing() {
                     <span>Updated on manual dataset publication</span>
                   </span>
                   <span aria-hidden>·</span>
-                  <span>Underpriced properties scored 70+</span>
+                  <span>Published sale-backed units ranked by score</span>
                   {opportunitiesFetching && !opportunitiesLoading ? <><span aria-hidden>·</span><span>Refreshing…</span></> : null}
                 </p>
               </div>
