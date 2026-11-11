@@ -842,7 +842,7 @@ function extractPropertyId(slug: string): string {
   return parts[parts.length - 1];
 }
 
-function propertySlug(row: { id: string; address?: string | null; city?: string | null; zip_code?: string | null }): string {
+export function propertySlug(row: { id: string; address?: string | null; city?: string | null; zip_code?: string | null }): string {
   const clean = (value: string, max = 80) => value.toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')

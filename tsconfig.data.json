@@ -8,6 +8,7 @@
     "scripts/migrate-canonical-geographies.ts",
     "scripts/refresh-live-data.ts",
     "scripts/build-candidate-dataset.ts",
+    "scripts/capture-sitemap.ts",
     "scripts/validate-d1-read-paths.ts",
     "scripts/d1-verify-import.ts",
     "scripts/daily-seo.ts",

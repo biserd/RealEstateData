@@ -4,6 +4,7 @@ import { configureDatabase } from "./db";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
+import { getPublishedPageFallback, getSitemapXml, isSitemapPath, publishedSitemap } from "./publishedSitemaps";
 import { UsageQuota, configureQuotaNamespace } from "./quota";
 import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueMessage } from "./dataPipelineWorkflow";
 
@@ -28,8 +29,7 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
-// A manual publication updates the homepage snapshot and invalidates the
-// public data and sitemap caches together.
+// A manual publication updates the homepage snapshot and invalidates public data caches.
 const PUBLIC_CACHE_REVISION = publishedHomepageSnapshot.datasetVersionId;
 
 function isBackendPath(pathname: string): boolean {
@@ -111,7 +111,7 @@ function publicCacheTtl(pathname: string): number | null {
   if (pathname === "/api/products") return 600;
   if (pathname.startsWith("/api/market/") || pathname.startsWith("/api/browse/")) return 300;
   if (pathname.startsWith("/api/seo/narrative/")) return 3600;
-  if (pathname === "/robots.txt" || pathname.startsWith("/sitemap")) return 3600;
+  if (pathname === "/robots.txt") return 3600;
   return null;
 }
 
@@ -317,9 +317,18 @@ async function serveDocument(request: Request): Promise<Response> {
     // Keep other routes from spending bandwidth on a page they will not show.
     const html = routeSpecificDocumentTemplate(template, pathname);
     const entityPage = seo.isDatabaseBackedPagePath(pathname);
-    const metadata = entityPage
-      ? await seo.getDatabaseBackedMetaForUrl(`${pathname}${url.search}`)
-      : await seo.getMetaForUrl(`${pathname}${url.search}`);
+    let metadata;
+    let servedPublishedFallback = false;
+    try {
+      metadata = entityPage
+        ? await seo.getDatabaseBackedMetaForUrl(`${pathname}${url.search}`)
+        : await seo.getMetaForUrl(`${pathname}${url.search}`);
+    } catch (error) {
+      if (!/overload|temporar|timeout|reset|internal error/i.test(String(error))) throw error;
+      metadata = getPublishedPageFallback(pathname, url.search);
+      if (!metadata) throw error;
+      servedPublishedFallback = true;
+    }
     const headers = new Headers(assetResponse.headers);
     headers.set("content-type", "text/html; charset=utf-8");
     clearCachedHttp3Route(request, headers);
@@ -342,8 +351,9 @@ async function serveDocument(request: Request): Promise<Response> {
     // cache path while retaining short caching for static marketing pages.
     headers.set(
       "cache-control",
-      entityPage ? "no-store, no-transform" : "public, max-age=60, stale-while-revalidate=300, no-transform",
+      entityPage || servedPublishedFallback ? "no-store, no-transform" : "public, max-age=60, stale-while-revalidate=300, no-transform",
     );
+    if (servedPublishedFallback) headers.set("x-rd-entity-data", "published-snapshot");
     headers.set("vary", "Accept, Accept-Encoding");
     headers.set("x-content-type-options", "nosniff");
     headers.set("referrer-policy", "strict-origin-when-cross-origin");
@@ -374,6 +384,17 @@ export default {
     const corsOrigin = publicDataCorsOrigin(request, url.pathname);
 
     if (url.pathname === "/.well-known/api-catalog") return apiCatalogResponse(request);
+    if (isSitemapPath(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
+      const xml = getSitemapXml(url.pathname);
+      if (!xml) return new Response("Sitemap not found", { status: 404 });
+      return new Response(request.method === "HEAD" ? null : xml, {
+        headers: {
+          "content-type": "application/xml; charset=utf-8",
+          "cache-control": "public, max-age=300, no-transform",
+          "x-rd-dataset-version": publishedSitemap.datasetVersionId,
+        },
+      });
+    }
 
     if (request.method === "OPTIONS" && corsOrigin) {
       return withPublicDataCors(new Response(null, { status: 204 }), corsOrigin);

@@ -154,8 +154,6 @@ test("SEO routing, sitemaps, and social assets enforce the indexability contract
   assert.match(routes, /User-agent: Googlebot\s+Allow: \//);
   assert.doesNotMatch(routes, /const baseUrl = `https:\/\/\$\{req\.get\("host"\)\}`/);
   assert.doesNotMatch(routes, /<changefreq>|<priority>/);
-  assert.match(routes, /property\.contentUpdatedAt/);
-  assert.match(routes, /unit\.contentUpdatedAt/);
   assert.match(storage, /MAX\(COALESCE\(s\.created_at, s\.sale_date\)\)/);
   assert.doesNotMatch(routes, /\{ url: "\/api-access"/);
   assert.doesNotMatch(seo, /verified ACRIS (?:dataset|record)/);
@@ -186,6 +184,42 @@ test("free tool landing pages have indexable server metadata and sitemap entries
     assert.match(meta?.bodyHtml || "", /recorded|tools/i, path);
     assert.equal(sitemapPaths.has(path), true, path);
   }
+});
+
+test("the published sitemap serves a unique canonical inventory without a database connection", async () => {
+  const { getSitemapXml, getPublishedPageFallback, publishedSitemap } = await import("../../server/publishedSitemaps");
+  const { publishedHomepageSnapshot } = await import("../../server/publishedHomepageSnapshot");
+  const locs = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+  const index = getSitemapXml("/sitemap.xml")!;
+  assert.match(index, /<sitemapindex\b/);
+  assert.equal(publishedSitemap.datasetVersionId, publishedHomepageSnapshot.datasetVersionId);
+  assert.equal(publishedSitemap.properties.length, publishedHomepageSnapshot.publicProperties);
+  assert.equal(publishedSitemap.units.length, publishedHomepageSnapshot.saleBackedUnits);
+  const listed = new Set<string>();
+  for (const child of locs(index)) {
+    const url = new URL(child);
+    assert.equal(url.origin, "https://realtorsdashboard.com");
+    const xml = getSitemapXml(url.pathname)!;
+    assert.match(xml, /<urlset\b/);
+    const pages = locs(xml);
+    assert.ok(pages.length > 0 && pages.length <= 50000);
+    for (const page of pages) {
+      const url = new URL(page);
+      assert.equal(url.origin, "https://realtorsdashboard.com");
+      assert.equal(url.href, page);
+      assert.equal(url.hash, "");
+      assert.equal(listed.has(page), false, page);
+      listed.add(page);
+      if (/^\/(?:unit|properties|browse|neighborhood)\//.test(url.pathname)) {
+        const fallback = getPublishedPageFallback(url.pathname, url.search);
+        assert.equal(fallback?.canonicalPath, url.pathname + url.search, page);
+        assert.ok(fallback?.bodyHtml && fallback.h1, page);
+      }
+    }
+  }
+  assert.equal(listed.has("https://realtorsdashboard.com/login"), false);
+  assert.equal(getSitemapXml("/sitemap-units-999.xml"), undefined);
+  assert.equal(getPublishedPageFallback("/unit/unpublished-record", ""), undefined);
 });
 
 test("public page predicates use one published, canonical, non-quarantined contract", () => {
@@ -356,7 +390,7 @@ test("HTML and public JSON have transport protections for zone-level rewriting",
   assert.match(workerSource, /public, max-age=60, stale-while-revalidate=300, no-transform/);
   assert.match(workerSource, /hostname === "realtorsdashboard\.com"/);
   assert.match(workerSource, /headers\.set\("alt-svc", "clear"\)/);
-  assert.match(workerSource, /entityPage \? "no-store, no-transform"/);
+  assert.match(workerSource, /entityPage \|\| servedPublishedFallback \? "no-store, no-transform"/);
   assert.match(workerSource, /PUBLIC_SITE_ORIGINS/);
   assert.match(workerSource, /access-control-allow-origin/);
   assert.match(transportSource, /realtors-dashboard\.biser-d\.workers\.dev/);

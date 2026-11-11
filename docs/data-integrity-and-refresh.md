@@ -88,10 +88,10 @@ source acquisition and every publication. The website serves only the latest
 approved snapshot and never calls upstream real-estate sources during a page
 request.
 
-Entity sitemaps are generated from the current public-page eligibility contract;
-imports do not create new property or unit identities automatically. Their
-`lastmod` reflects the later of the entity update and the ingestion of a
-source-backed sale, not merely the historical sale date. After publication,
+Entity sitemaps are captured from the active D1 publication with the same
+eligibility rules as public pages. The Worker serves the captured inventory
+without querying D1. For each entity, `lastmod` uses its update date or the
+ingestion date of the latest verified transaction, whichever is later. After deployment,
 check the live apex sitemap and a sample of newly eligible pages before
 resubmitting the existing sitemap index in Search Console. A sitemap submission
 requests discovery; Google still decides whether and when each page is indexed.
@@ -100,7 +100,9 @@ For each requested refresh: run `data:audit`, acquire the selected source
 partitions, build a candidate, review its quality and freshness report, and use
 the separate publication confirmation only after approval. After publication,
 update the version and verified counts in `server/publishedHomepageSnapshot.ts`,
-deploy the Worker to invalidate the public and sitemap caches, run
+run `npm run data:sitemaps` against production with `D1_REMOTE=1` and
+`DATABASE_ENV=production`, and commit the resulting sitemap snapshot.
+Deploy the Worker, run
 `regression:live`, and compare freshness to the previous successful release.
 
 ## P3-P7 versioned pipeline

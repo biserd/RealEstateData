@@ -25,6 +25,7 @@
     "data:refresh": "tsx scripts/run-d1.ts scripts/refresh-live-data.ts",
     "data:geography": "tsx scripts/run-d1.ts scripts/migrate-canonical-geographies.ts",
     "data:candidate": "tsx scripts/run-d1.ts scripts/build-candidate-dataset.ts",
+    "data:sitemaps": "tsx scripts/run-d1.ts scripts/capture-sitemap.ts",
     "release:check": "tsx scripts/release-readiness.ts",
     "test:d1": "tsx --test scripts/tests/d1.test.ts",
     "check:data": "tsc -p tsconfig.data.json",
