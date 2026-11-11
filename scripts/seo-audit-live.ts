@@ -1,5 +1,6 @@
 import { GUIDES } from "../shared/guides";
 import { METHODOLOGY, SITE } from "./seo-editorial";
+import { setTimeout as delay } from "node:timers/promises";
 
 const locs = (xml: string) => [...xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/g)].map((match) => match[1].trim());
 const safeUrl = (url: string) => {
@@ -14,7 +15,16 @@ const attribute = (tag: string, name: string) =>
   decode(tag.match(new RegExp(`(?:^|\\s)${name}=(["'])(.*?)\\1`, "i"))?.[2] ?? "");
 
 async function get(url: string, accept: string) {
-  return fetch(url, { redirect: "manual", headers: { Accept: accept }, signal: AbortSignal.timeout(12_000) });
+  const request = () => fetch(url, {
+    redirect: "manual",
+    headers: { Accept: accept, "User-Agent": "RealtorsDashboard-SEOMonitor/1.0" },
+    signal: AbortSignal.timeout(12_000),
+  });
+  const response = await request().catch(() => undefined);
+  if (response && response.status < 500) return response;
+  await response?.body?.cancel();
+  await delay(2000);
+  return request();
 }
 
 export async function pageSeo(url: string) {
@@ -35,18 +45,21 @@ export async function pageSeo(url: string) {
 }
 
 export async function readSitemaps() {
-  const index = await get(SITE + "/sitemap.xml", "application/xml");
+  const index = await get(SITE + "/sitemap.xml", "application/xml").catch(() => {
+    throw new Error("Sitemap index connection failed after retry");
+  });
+  if (!index.ok) throw new Error(`Sitemap index returned HTTP ${index.status}${index.headers.get("cf-mitigated") === "challenge" ? " (Cloudflare challenge)" : ""}`);
   const children = index.ok ? locs(await index.text()) : [];
   if (!children.length || children.length > 50 || children.some((url) => !safeUrl(url) || !new URL(url).pathname.endsWith(".xml"))) {
-    throw new Error("Could not read a valid production sitemap index");
+    throw new Error("Sitemap index did not contain valid child XML URLs");
   }
   const urls = new Set<string>();
   const issues: string[] = [];
   for (const child of children) {
-    const response = await get(child, "application/xml");
-    const xml = response.ok ? await response.text() : "";
+    const response = await get(child, "application/xml").catch(() => undefined);
+    const xml = response?.ok ? await response.text() : "";
     if (!/<urlset\b/i.test(xml)) {
-      issues.push(`${new URL(child).pathname} returned HTTP ${response.status} or invalid XML`);
+      issues.push(`${new URL(child).pathname}: ${response ? `HTTP ${response.status} or invalid XML` : "connection failed"}`);
       continue;
     }
     for (const loc of locs(xml)) {
@@ -91,10 +104,12 @@ export function googlebotAllows(robots: string, path: string) {
 
 export async function auditSite(date: string) {
   const issues: string[] = [];
-  const sitemap = await readSitemaps();
+  const sitemap = await readSitemaps().catch((error: Error) => ({
+    urls: new Set<string>(), issues: [error.message], count: 0,
+  }));
   issues.push(...sitemap.issues);
-  const robots = await get(SITE + "/robots.txt", "text/plain");
-  const rules = robots.ok ? await robots.text() : "";
+  const robots = await get(SITE + "/robots.txt", "text/plain").catch(() => undefined);
+  const rules = robots?.ok ? await robots.text() : "";
   if (!rules.includes("Sitemap: " + SITE + "/sitemap.xml")) {
     issues.push("robots.txt is unavailable or lacks the production sitemap declaration");
   }
@@ -105,7 +120,7 @@ export async function auditSite(date: string) {
     (_, i) => entity[(sampleOffset + Math.floor(i * entity.length / 8)) % entity.length]);
   const editorial = all.filter((url) => /^\/(?:guides|tools|comparisons)(?:\/|$)/.test(new URL(url).pathname));
   const expected = new Map(GUIDES.map((guide) => [SITE + "/guides/" + guide.slug, guide]));
-  const targets = [...new Set([SITE + "/", METHODOLOGY.url, ...editorial, ...expected.keys(), ...sampled])];
+  const targets = [...new Set([SITE + "/", METHODOLOGY.url, SITE + "/guides", SITE + "/comparisons", ...editorial, ...expected.keys(), ...sampled])];
   const repair: string[] = [];
   const usableEditorial = new Set<string>();
   for (const url of targets) {
@@ -125,7 +140,7 @@ export async function auditSite(date: string) {
         page.status === 200 && !page.description && "missing description",
       ].filter(Boolean);
       if (problems.length) issues.push(`${path}: ${problems.join(", ")}`);
-      if (!problems.length) usableEditorial.add(url);
+      if (!problems.length && sitemap.urls.has(url)) usableEditorial.add(url);
       const guide = expected.get(url);
       if (!guide) continue;
       const missing = !sitemap.urls.has(url) && !sitemap.issues.length;
