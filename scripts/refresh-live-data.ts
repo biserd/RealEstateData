@@ -1,9 +1,9 @@
-import { d1BatchSize } from "../server/d1Writes";
-import { eq, gte, sql } from "drizzle-orm";
+import { d1BatchSize, d1InArray } from "../server/d1Writes";
+import { and, eq, gt, gte, or, sql } from "drizzle-orm";
 import { integer, sqliteTable, real, text } from "drizzle-orm/sqlite-core";
 import { timestamp } from "../shared/sqliteTypes";
 import { db } from "../server/db";
-import { properties, sales, sourceCatalog } from "../shared/schema";
+import { sales, sourceCatalog } from "../shared/schema";
 import { assertSourceMayPublish } from "../pipeline/contracts";
 import { sourceById } from "../pipeline/sourceCatalog";
 import {
@@ -21,6 +21,7 @@ const NYC_OPEN_DATA = "https://data.cityofnewyork.us/resource";
 const ROLLING_SALES_DATASET = "usep-8jbt";
 const CONDO_UNITS_DATASET = "eguu-7ie3";
 const PAGE_SIZE = 20_000;
+const D1_READ_PAGE = 5_000;
 const ROLLING_SALES_SOURCE = sourceById("nyc-rolling-sales");
 const CONDO_UNITS_SOURCE = sourceById("nyc-condo-units");
 
@@ -76,7 +77,8 @@ const versionedSales = sqliteTable("sales", {
 });
 
 const apply = process.argv.includes("--apply");
-const includeReference = process.argv.includes("--include-reference");
+const referenceOnly = process.argv.includes("--reference-only");
+const includeReference = referenceOnly || process.argv.includes("--include-reference");
 const daysArg = process.argv.find((arg) => arg.startsWith("--days="));
 const lookbackDays = Math.max(31, Number(daysArg?.split("=")[1] || 400));
 
@@ -118,9 +120,12 @@ function boroughName(code: string | null): string | null {
   return ({ "1": "Manhattan", "2": "Bronx", "3": "Brooklyn", "4": "Queens", "5": "Staten Island" } as Record<string, string>)[code || ""] ?? null;
 }
 
-async function syncCondoReference(): Promise<{ fetched: number; valid: number; written: number }> {
+async function syncCondoReference() {
   assertSourceMayPublish(CONDO_UNITS_SOURCE);
-  const records = await fetchSocrata(CONDO_UNITS_DATASET, new URLSearchParams({ "$order": "unit_bbl" }));
+  const records = await fetchSocrata(CONDO_UNITS_DATASET, new URLSearchParams({
+    "$select": "unit_bbl,condo_base_bbl,unit_boro,unit_designation,condo_number",
+    "$order": "unit_bbl,:id",
+  }));
   const validByUnitBbl = new Map<string, SocrataRecord>();
   for (const record of records) {
     const unitBbl = String(record.unit_bbl || "");
@@ -134,77 +139,123 @@ async function syncCondoReference(): Promise<{ fetched: number; valid: number; w
   }
   const valid = [...validByUnitBbl.values()];
   if (valid.length < 250_000) throw new Error(`Condo reference safety check failed: expected at least 250,000 valid units, received ${valid.length}`);
-  if (!apply) return { fetched: records.length, valid: valid.length, written: 0 };
-
-  const propertyRows = await db.select({
-    id: properties.id,
-    bbl: properties.bbl,
-    bblNormalized: properties.bblNormalized,
-    address: properties.address,
-    zipCode: properties.zipCode,
-    latitude: properties.latitude,
-    longitude: properties.longitude,
-  }).from(properties).where(eq(properties.state, "NY"));
-  const propertyByBbl = new Map<string, typeof propertyRows[number]>();
-  for (const property of propertyRows) {
-    const key = String(property.bblNormalized || property.bbl || "").replace(/\D/g, "").slice(0, 10);
-    if (key) propertyByBbl.set(key, property);
+  const changes: Array<typeof versionedCondoUnits.$inferInsert> = [];
+  let cursor = "";
+  let existingUnits = 0;
+  let baseConflicts = 0;
+  let changedDesignations = 0;
+  while (true) {
+    const rows = await db.select({
+      unitBbl: versionedCondoUnits.unitBbl,
+      baseBbl: versionedCondoUnits.baseBbl,
+      condoNumber: versionedCondoUnits.condoNumber,
+      unitDesignation: versionedCondoUnits.unitDesignation,
+      unitTypeHint: versionedCondoUnits.unitTypeHint,
+    }).from(versionedCondoUnits).where(gt(versionedCondoUnits.unitBbl, cursor))
+      .orderBy(versionedCondoUnits.unitBbl).limit(D1_READ_PAGE);
+    for (const row of rows) {
+      const record = validByUnitBbl.get(row.unitBbl);
+      if (!record) continue;
+      validByUnitBbl.delete(row.unitBbl);
+      existingUnits++;
+      if (row.baseBbl !== record.condo_base_bbl) {
+        baseConflicts++;
+        continue;
+      }
+      const condoNumber = record.condo_number || row.condoNumber;
+      const officialDesignation = normalizeUnitDesignation(record.unit_designation);
+      const designationChanged = officialDesignation !== null && officialDesignation !== normalizeUnitDesignation(row.unitDesignation);
+      const unitDesignation = designationChanged ? officialDesignation : row.unitDesignation;
+      if (designationChanged) changedDesignations++;
+      if (condoNumber !== row.condoNumber || designationChanged) {
+        changes.push({
+          unitBbl: row.unitBbl, baseBbl: row.baseBbl, condoNumber, unitDesignation,
+          unitTypeHint: designationChanged ? classifyUnitType(unitDesignation) : row.unitTypeHint,
+        });
+      }
+    }
+    if (rows.length < D1_READ_PAGE) break;
+    cursor = rows[rows.length - 1].unitBbl;
   }
 
-  let written = 0;
-  for (let i = 0; i < valid.length; i += d1BatchSize(versionedCondoUnits)) {
-    const values: Array<typeof versionedCondoUnits.$inferInsert> = valid.slice(i, i + d1BatchSize(versionedCondoUnits)).map((record) => {
+  const report = { fetched: records.length, valid: valid.length, existingUnits, newUnits: validByUnitBbl.size,
+    changedUnits: changes.length, changedDesignations, baseConflicts, written: 0 };
+  if (!apply) return report;
+
+  const pending = [...validByUnitBbl.values()];
+  const newUnits: Array<typeof versionedCondoUnits.$inferInsert> = [];
+  for (let index = 0; index < pending.length; index += 400) {
+    const group = pending.slice(index, index + 400);
+    const baseBbls = [...new Set(group.map((record) => String(record.condo_base_bbl)))];
+    const parentRows = await db.execute(sql`
+      SELECT id, COALESCE(NULLIF(bbl_normalized,''),bbl) AS bbl, address, zip_code, geography_id, latitude, longitude
+      FROM properties WHERE state = 'NY' AND (bbl IN (SELECT value FROM json_each(${JSON.stringify(baseBbls)}))
+        OR bbl_normalized IN (SELECT value FROM json_each(${JSON.stringify(baseBbls)})))
+      ORDER BY geography_id IS NOT NULL DESC, unit IS NULL DESC, id
+    `);
+    type Parent = { id: string; bbl: string; address: string; zip_code: string; geography_id: string | null; latitude: number | null; longitude: number | null };
+    const parents = new Map<string, Parent>();
+    for (const row of parentRows.rows as Parent[]) if (!parents.has(row.bbl)) parents.set(row.bbl, row);
+    for (const record of group) {
       const unitBbl = String(record.unit_bbl);
       const baseBbl = String(record.condo_base_bbl);
       const unitDesignation = normalizeUnitDesignation(record.unit_designation);
-      const building = propertyByBbl.get(baseBbl);
       const borough = boroughName(normalizeBoroughCode(record.unit_boro));
-      const buildingAddress = building?.address ?? null;
-      return {
-        unitBbl,
-        baseBbl,
-        condoNumber: record.condo_number || null,
-        unitDesignation,
-        unitTypeHint: classifyUnitType(unitDesignation),
-        buildingPropertyId: building?.id ?? null,
+      const parent = parents.get(baseBbl);
+      const buildingAddress = parent?.address ?? null;
+      newUnits.push({
+        unitBbl, baseBbl, unitDesignation, borough, condoNumber: record.condo_number || null,
+        unitTypeHint: classifyUnitType(unitDesignation), buildingPropertyId: parent?.id ?? null,
         buildingDisplayAddress: buildingAddress,
         unitDisplayAddress: buildingAddress && unitDesignation ? `${buildingAddress}, Unit ${unitDesignation}` : buildingAddress,
         slug: buildUnitSlug({ unitBbl, buildingAddress, unitDesignation, borough }),
-        borough,
-        zipCode: building?.zipCode ?? null,
-        geographyId: building?.zipCode ? `zip:NY:${building.zipCode}` : null,
-        latitude: building?.latitude ?? null,
-        longitude: building?.longitude ?? null,
-      };
-    });
+        zipCode: parent?.zip_code ?? null, geographyId: parent?.geography_id ?? null,
+        latitude: parent?.latitude ?? null, longitude: parent?.longitude ?? null,
+      });
+    }
+  }
 
-    if (values.length > 0) {
-      await db.insert(versionedCondoUnits).values(values).onConflictDoUpdate({
+  const values = [...changes, ...newUnits];
+  const size = d1BatchSize(versionedCondoUnits);
+  for (let index = 0; index < values.length; index += size * 20) {
+    const queries = [];
+    for (let offset = index; offset < Math.min(index + size * 20, values.length); offset += size) {
+      queries.push(db.insert(versionedCondoUnits).values(values.slice(offset, offset + size)).onConflictDoUpdate({
         target: versionedCondoUnits.unitBbl,
         set: {
-          baseBbl: sql`excluded.base_bbl`,
           condoNumber: sql`excluded.condo_number`,
           unitDesignation: sql`excluded.unit_designation`,
           unitTypeHint: sql`excluded.unit_type_hint`,
+          unitDisplayAddress: sql`CASE WHEN condo_units.building_display_address IS NOT NULL AND excluded.unit_designation IS NOT NULL
+            AND condo_units.unit_designation IS NOT excluded.unit_designation
+            THEN condo_units.building_display_address || ', Unit ' || excluded.unit_designation
+            ELSE condo_units.unit_display_address END`,
           updatedAt: new Date(),
         },
-      });
-      written += values.length;
+        where: sql`condo_units.base_bbl = excluded.base_bbl`,
+      }));
     }
+    await db.batch(queries as [typeof queries[number], ...typeof queries[number][]]);
   }
-  return { fetched: records.length, valid: valid.length, written };
+  return { ...report, written: values.length };
 }
 
-async function syncRollingSales(): Promise<{ fetched: number; valid: number; newRows: number; matchedUnits: number; matchedProperties: number }> {
+async function syncRollingSales() {
   assertSourceMayPublish(ROLLING_SALES_SOURCE);
   const since = new Date(Date.now() - lookbackDays * 86_400_000);
   const where = `sale_date >= '${since.toISOString().slice(0, 10)}T00:00:00.000'`;
-  const records = await fetchSocrata(ROLLING_SALES_DATASET, new URLSearchParams({ "$where": where, "$order": "sale_date,borough,block,lot" }));
-
-  const [unitRows, propertyRows, existingRows] = await Promise.all([
-    db.select({ unitBbl: versionedCondoUnits.unitBbl, baseBbl: versionedCondoUnits.baseBbl, geographyId: versionedCondoUnits.geographyId }).from(versionedCondoUnits),
-    db.select({ id: versionedProperties.id, bbl: versionedProperties.bbl, bblNormalized: versionedProperties.bblNormalized, geographyId: versionedProperties.geographyId }).from(versionedProperties).where(eq(versionedProperties.state, "NY")),
-    db.select({
+  const records = await fetchSocrata(ROLLING_SALES_DATASET, new URLSearchParams({
+    "$select": "sale_date,sale_price,borough,block,lot,address,apartment_number",
+    "$where": where, "$order": "sale_date,borough,block,lot,:id",
+  }));
+  const existing = new Set<string>();
+  const existingParcelTransfers = new Set<string>();
+  const parcelTransferKey = (bbl: string, date: Date, price: number) =>
+    [bbl, date.toISOString().slice(0, 10), price].join("|");
+  let cursor = "";
+  while (true) {
+    const rows = await db.select({
+      id: sales.id,
       saleDate: sales.saleDate,
       salePrice: sales.salePrice,
       rawBorough: sales.rawBorough,
@@ -212,24 +263,23 @@ async function syncRollingSales(): Promise<{ fetched: number; valid: number; new
       rawLot: sales.rawLot,
       rawAddress: sales.rawAddress,
       rawAptNumber: sales.rawAptNumber,
-    }).from(sales).where(gte(sales.saleDate, since)),
-  ]);
-
-  const unitByBbl = new Map(unitRows.map((unit) => [unit.unitBbl, unit]));
-  const propertyByBbl = new Map<string, { id: string; geographyId: string | null }>();
-  for (const property of propertyRows) {
-    const key = String(property.bblNormalized || property.bbl || "").replace(/\D/g, "").slice(0, 10);
-    if (key) propertyByBbl.set(key, { id: property.id, geographyId: property.geographyId });
+      unitBbl: sales.unitBbl,
+      baseBbl: sales.baseBbl,
+      rollingSourceRecordId: sql<string | null>`CASE WHEN sales.source_id = ${ROLLING_SALES_SOURCE.id} THEN sales.source_record_id END`,
+    }).from(sales).where(and(gt(sales.id, cursor), gte(sales.saleDate, since)))
+      .orderBy(sales.id).limit(D1_READ_PAGE);
+    for (const sale of rows) {
+      if (sale.rollingSourceRecordId) existing.add(sale.rollingSourceRecordId);
+      existing.add(saleFingerprint({
+        saleDate: sale.saleDate, salePrice: sale.salePrice, borough: sale.rawBorough,
+        block: sale.rawBlock, lot: sale.rawLot, address: sale.rawAddress, unit: sale.rawAptNumber,
+      }));
+      const bbl = buildNycBbl(sale.rawBorough, sale.rawBlock, sale.rawLot) || sale.unitBbl || sale.baseBbl;
+      if (bbl) existingParcelTransfers.add(parcelTransferKey(bbl, sale.saleDate, sale.salePrice));
+    }
+    if (rows.length < D1_READ_PAGE) break;
+    cursor = rows[rows.length - 1].id;
   }
-  const existing = new Set(existingRows.map((sale) => saleFingerprint({
-    saleDate: sale.saleDate,
-    salePrice: sale.salePrice,
-    borough: sale.rawBorough,
-    block: sale.rawBlock,
-    lot: sale.rawLot,
-    address: sale.rawAddress,
-    unit: sale.rawAptNumber,
-  })));
 
   const values: Array<typeof versionedSales.$inferInsert> = [];
   const packageSaleCounts = new Map<string, number>();
@@ -237,8 +287,11 @@ async function syncRollingSales(): Promise<{ fetched: number; valid: number; new
     const packageKey = [record.sale_date, parseMoney(record.sale_price), record.borough, record.address].join("|").toUpperCase();
     packageSaleCounts.set(packageKey, (packageSaleCounts.get(packageKey) || 0) + 1);
   }
-  let matchedUnits = 0;
-  let matchedProperties = 0;
+  const incoming: { record: SocrataRecord; salePrice: number; saleDate: Date; bbl: string; fingerprint: string }[] = [];
+  let possibleDuplicateTransfers = 0;
+  const newByBorough: Record<string, number> = {};
+  let earliestNewSale: string | null = null;
+  let latestNewSale: string | null = null;
   for (const record of records) {
     const salePrice = parseMoney(record.sale_price);
     const saleDate = record.sale_date ? new Date(record.sale_date) : null;
@@ -247,7 +300,45 @@ async function syncRollingSales(): Promise<{ fetched: number; valid: number; new
     const fingerprint = saleFingerprint({ saleDate, salePrice, borough: record.borough, block: record.block, lot: record.lot, address: record.address, unit: record.apartment_number });
     if (existing.has(fingerprint)) continue;
     existing.add(fingerprint);
+    if (existingParcelTransfers.has(parcelTransferKey(bbl, saleDate, salePrice))) {
+      possibleDuplicateTransfers++;
+      continue;
+    }
+    incoming.push({ record, salePrice, saleDate, bbl, fingerprint });
+    const borough = boroughName(bbl[0]) ?? bbl[0];
+    newByBorough[borough] = (newByBorough[borough] || 0) + 1;
+    const saleDay = saleDate.toISOString().slice(0, 10);
+    if (!earliestNewSale || saleDay < earliestNewSale) earliestNewSale = saleDay;
+    if (!latestNewSale || saleDay > latestNewSale) latestNewSale = saleDay;
+  }
 
+  const unitByBbl = new Map<string, { unitBbl: string; baseBbl: string; geographyId: string | null }>();
+  const bbls = [...new Set(incoming.map((sale) => sale.bbl))];
+  for (let offset = 0; offset < bbls.length; offset += 500) {
+    const unitRows = await db.select({ unitBbl: versionedCondoUnits.unitBbl, baseBbl: versionedCondoUnits.baseBbl, geographyId: versionedCondoUnits.geographyId })
+      .from(versionedCondoUnits).where(d1InArray(versionedCondoUnits.unitBbl, bbls.slice(offset, offset + 500)));
+    for (const unit of unitRows) unitByBbl.set(unit.unitBbl, unit);
+  }
+  const propertyByBbl = new Map<string, { id: string; geographyId: string | null }>();
+  const parentBbls = [...new Set([...bbls, ...Array.from(unitByBbl.values(), (unit) => unit.baseBbl)])];
+  for (let offset = 0; offset < parentBbls.length; offset += 500) {
+    const group = parentBbls.slice(offset, offset + 500);
+    const propertyRows = await db.select({ id: versionedProperties.id, bbl: versionedProperties.bbl, bblNormalized: versionedProperties.bblNormalized, geographyId: versionedProperties.geographyId })
+      .from(versionedProperties).where(and(eq(versionedProperties.state, "NY"), or(
+        d1InArray(versionedProperties.bbl, group), d1InArray(versionedProperties.bblNormalized, group),
+      ))).orderBy(versionedProperties.id);
+    for (const property of propertyRows) {
+      for (const key of [property.bblNormalized, property.bbl]) {
+        if (key && (!propertyByBbl.has(key) || (property.geographyId && !propertyByBbl.get(key)?.geographyId))) {
+          propertyByBbl.set(key, property);
+        }
+      }
+    }
+  }
+
+  let matchedUnits = 0;
+  let matchedProperties = 0;
+  for (const { record, salePrice, saleDate, bbl, fingerprint } of incoming) {
     const unit = unitByBbl.get(bbl);
     const property = propertyByBbl.get(bbl) ?? propertyByBbl.get(unit?.baseBbl || "") ?? null;
     const propertyId = property?.id ?? null;
@@ -277,13 +368,38 @@ async function syncRollingSales(): Promise<{ fetched: number; valid: number; new
   }
 
   let newRows = 0;
-  if (apply) {
+  let reconciledUnitSales = 0;
+  if (apply && values.length > 0) {
     const before = await db.select({ count: sql<number>`count(*)` }).from(versionedSales).where(eq(versionedSales.sourceId, ROLLING_SALES_SOURCE.id));
-    for (let i = 0; i < values.length; i += d1BatchSize(versionedSales)) {
-      await db.insert(versionedSales).values(values.slice(i, i + d1BatchSize(versionedSales))).onConflictDoNothing();
+    const size = d1BatchSize(versionedSales);
+    for (let index = 0; index < values.length; index += size * 20) {
+      const queries = [];
+      for (let offset = index; offset < Math.min(index + size * 20, values.length); offset += size) {
+        queries.push(db.insert(versionedSales).values(values.slice(offset, offset + size)).onConflictDoNothing());
+      }
+      await db.batch(queries as [typeof queries[number], ...typeof queries[number][]]);
     }
     const after = await db.select({ count: sql<number>`count(*)` }).from(versionedSales).where(eq(versionedSales.sourceId, ROLLING_SALES_SOURCE.id));
     newRows = Number(after[0]?.count || 0) - Number(before[0]?.count || 0);
+  }
+  if (apply) {
+    // An unresolved rolling sale stores its source parcel in base_bbl.
+    // Require the original borough, block and lot to corroborate the new exact unit match.
+    const reconciled = await db.execute(sql`
+      UPDATE sales AS s
+      SET unit_bbl = cu.unit_bbl, base_bbl = cu.base_bbl,
+          property_id = COALESCE(s.property_id, cu.building_property_id),
+          geography_id = COALESCE(s.geography_id, cu.geography_id),
+          match_method = 'nyc_rolling_unit_bbl', unresolved_reason = NULL
+      FROM condo_units cu
+      WHERE s.source_id = ${ROLLING_SALES_SOURCE.id} AND s.match_method = 'nyc_rolling_unresolved'
+        AND s.unit_bbl IS NULL AND s.base_bbl = cu.unit_bbl
+        AND cu.unit_bbl = printf('%d%05d%04d', CAST(s.raw_borough AS INTEGER), CAST(s.raw_block AS INTEGER), CAST(s.raw_lot AS INTEGER))
+      RETURNING id
+    `);
+    reconciledUnitSales = reconciled.rows.length;
+  }
+  if (apply && (newRows > 0 || reconciledUnitSales > 0)) {
     await db.execute(sql`
       UPDATE properties AS p SET
         last_sale_price = latest.sale_price,
@@ -297,10 +413,12 @@ async function syncRollingSales(): Promise<{ fetched: number; valid: number; new
         ) WHERE sale_rank=1
       ) latest
       WHERE p.id = latest.property_id
-        AND (p.last_sale_date IS NULL OR latest.sale_date >= p.last_sale_date)
+        AND (p.last_sale_date IS NULL OR latest.sale_date > p.last_sale_date
+          OR (latest.sale_date = p.last_sale_date AND p.last_sale_price IS NOT latest.sale_price))
     `);
   }
-  return { fetched: records.length, valid: values.length, newRows, matchedUnits, matchedProperties };
+  return { fetched: records.length, valid: values.length, possibleDuplicateTransfers, newRows, reconciledUnitSales, matchedUnits, matchedProperties,
+    newByBorough, earliestNewSale, latestNewSale };
 }
 
 async function main() {
@@ -311,7 +429,9 @@ async function main() {
   }
   console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", lookbackDays, includeReference }));
   if (apply) {
-    for (const source of [ROLLING_SALES_SOURCE, CONDO_UNITS_SOURCE]) {
+    const sources = referenceOnly ? [CONDO_UNITS_SOURCE] : includeReference
+      ? [ROLLING_SALES_SOURCE, CONDO_UNITS_SOURCE] : [ROLLING_SALES_SOURCE];
+    for (const source of sources) {
       await db.insert(sourceCatalog).values({
         id: source.id,
         owner: source.owner,
@@ -328,9 +448,10 @@ async function main() {
     }
   }
   const reference = includeReference ? await syncCondoReference() : null;
-  const rollingSales = await syncRollingSales();
+  if (reference) console.log(JSON.stringify({ reference }));
+  const rollingSales = referenceOnly ? null : await syncRollingSales();
   console.log(JSON.stringify({ reference, rollingSales }, null, 2));
-  if (!apply) console.log("Dry run only. Re-run with --apply after reviewing counts; add --include-reference for the monthly 307K-unit snapshot.");
+  if (!apply) console.log("Dry run only. Re-run with --apply after reviewing counts.");
 }
 
 await main().catch((error) => {

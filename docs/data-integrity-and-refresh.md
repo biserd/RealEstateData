@@ -42,6 +42,9 @@ npm run data:refresh -- --apply
 # Monthly official Digital Tax Map condo-unit snapshot plus sales refresh.
 npm run data:refresh -- --include-reference --apply
 
+# Apply the Digital Tax Map identity changes independently of the sales import.
+npm run data:refresh -- --reference-only --apply
+
 # Local pure regression tests.
 npm run test:regression
 
@@ -96,8 +99,9 @@ requests discovery; Google still decides whether and when each page is indexed.
 For each requested refresh: run `data:audit`, acquire the selected source
 partitions, build a candidate, review its quality and freshness report, and use
 the separate publication confirmation only after approval. After publication,
-run `regression:live`, purge sitemap caches, and compare counts and freshness to
-the previous successful release.
+update the version and verified counts in `server/publishedHomepageSnapshot.ts`,
+deploy the Worker to invalidate the public and sitemap caches, run
+`regression:live`, and compare freshness to the previous successful release.
 
 ## P3-P7 versioned pipeline
 

@@ -1,9 +1,8 @@
 import { d1BatchSize } from "../server/d1Writes";
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "../server/db";
 import {
   dataQualityResults,
-  comparableSets,
   marketSnapshots,
   publishedDatasetVersions,
   rankingSnapshots,
@@ -67,11 +66,23 @@ type RawProperty = {
 
 type MemberValue = { comparableSetId: string; saleId: string; weight: number; adjustment: number; inclusionReason: string };
 
+async function executeCandidateQuery(query: SQL) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await db.execute(query);
+    } catch (error) {
+      if (attempt >= 4 || !(error instanceof Error) || !/D1 DB is overloaded/i.test(error.message)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 2_000 * (attempt + 1)));
+    }
+  }
+}
+
 async function insertMembers(rows: MemberValue[]): Promise<number> {
+  const batchSize = 3_000;
   let batches = 0;
-  for (let index = 0; index < rows.length; index += 1_000) {
-    const payload = JSON.stringify(rows.slice(index, index + 1_000).map((row) => ({ id: crypto.randomUUID(), ...row })));
-    await db.execute(sql`
+  for (let index = 0; index < rows.length; index += batchSize) {
+    const payload = JSON.stringify(rows.slice(index, index + batchSize).map((row) => ({ id: crypto.randomUUID(), ...row })));
+    await executeCandidateQuery(sql`
       INSERT INTO comparable_members_v2 (id, comparable_set_id, sale_id, weight, adjustment, inclusion_reason)
       SELECT json_extract(value, '$.id'), json_extract(value, '$.comparableSetId'),
         json_extract(value, '$.saleId'), json_extract(value, '$.weight'),
@@ -80,15 +91,14 @@ async function insertMembers(rows: MemberValue[]): Promise<number> {
       ON CONFLICT(comparable_set_id, sale_id) DO NOTHING
     `);
     batches++;
-    if (batches % 25 === 0) console.log(JSON.stringify({ memberRowsProcessed: Math.min(index + 1_000, rows.length), totalMemberRows: rows.length }));
+    if (batches % 25 === 0) console.log(JSON.stringify({ memberRowsProcessed: Math.min(index + batchSize, rows.length), totalMemberRows: rows.length }));
     if (maxMemberBatches && batches >= maxMemberBatches) break;
   }
   return batches;
 }
 
 async function loadFacts(): Promise<{ sales: VerifiedSaleFact[]; properties: PublicPropertyFact[] }> {
-  const [salesResult, propertiesResult] = await Promise.all([
-    db.execute(sql`
+  const salesResult = await executeCandidateQuery(sql`
       SELECT sale.id, sale.geography_id, sale.property_id, sale.sale_price, sale.sale_date,
         property.sqft, property.property_type, property.beds, sale.arms_length,
         COALESCE(sale.package_sale, false) AS package_sale, sale.match_method, sale.source_id
@@ -101,13 +111,17 @@ async function loadFacts(): Promise<{ sales: VerifiedSaleFact[]; properties: Pub
         AND sale.sale_price BETWEEN 50000 AND 100000000
         AND sale.sale_date >= ${new Date(Date.UTC(periodEnd.getUTCFullYear() - 3, periodEnd.getUTCMonth(), periodEnd.getUTCDate()))}
         AND sale.match_method IS NOT NULL
-    `),
-    db.execute(sql`
+    `);
+  const propertyRows: RawProperty[] = [];
+  const pageSize = 5_000;
+  let cursor = "";
+  while (true) {
+    const result = await executeCandidateQuery(sql`
       SELECT property.id, property.geography_id, property.property_type, property.beds, property.sqft, property.year_built
-      FROM properties property
+      FROM properties property INDEXED BY sqlite_autoindex_properties_1
       LEFT JOIN data_quality_quarantine quarantine
         ON quarantine.source_table = 'properties' AND quarantine.source_id = property.id
-      WHERE property.geography_id IS NOT NULL
+      WHERE property.id > ${cursor} AND property.geography_id IS NOT NULL
         AND quarantine.source_id IS NULL
         AND NULLIF(TRIM(property.address), '') IS NOT NULL
         AND property.state IN ('NY','NJ','CT')
@@ -117,8 +131,13 @@ async function loadFacts(): Promise<{ sales: VerifiedSaleFact[]; properties: Pub
           SELECT 1 FROM entity_resolution_map map
           WHERE map.matched_property_id = property.id AND map.match_confidence >= 0.90
         ))
-    `),
-  ]);
+      ORDER BY property.id LIMIT ${pageSize}
+    `);
+    const rows = result.rows as RawProperty[];
+    propertyRows.push(...rows);
+    if (rows.length < pageSize) break;
+    cursor = rows[rows.length - 1].id;
+  }
   const sales = (salesResult.rows as RawSale[]).map((row) => ({
     id: row.id,
     geographyId: row.geography_id,
@@ -133,7 +152,7 @@ async function loadFacts(): Promise<{ sales: VerifiedSaleFact[]; properties: Pub
     identityResolved: Boolean(row.match_method),
     sourceId: row.source_id || source.id,
   }));
-  const properties = (propertiesResult.rows as RawProperty[]).map((row) => ({
+  const properties = propertyRows.map((row) => ({
     id: row.id,
     geographyId: row.geography_id,
     propertyType: row.property_type,
@@ -291,6 +310,7 @@ async function main() {
     counts: report.input,
     candidateVersionId: candidateId,
   });
+  console.log(JSON.stringify({ candidateId, runId, periodEnd: periodEnd.toISOString(), status: "computing" }));
   for (let index = 0; index < snapshots.length; index += d1BatchSize(marketSnapshots)) {
     await db.insert(marketSnapshots).values(snapshots.slice(index, index + d1BatchSize(marketSnapshots)).map((snapshot) => ({
       datasetVersionId: candidateId,
@@ -337,26 +357,24 @@ async function main() {
   const compPeriodStart = new Date(periodEnd);
   compPeriodStart.setUTCMonth(compPeriodStart.getUTCMonth() - 18);
   const compRows = compCandidates.map((candidate) => ({ candidate, comparableSetId: crypto.randomUUID() }));
-  const makeSetQuery = (rows: typeof compRows) => db.insert(comparableSets).values(rows.map(({ candidate, comparableSetId }) => ({
-    id: comparableSetId,
-    datasetVersionId: candidateId,
-    subjectType: "property",
-    subjectId: candidate.property.id,
-    ruleVersion: COMP_RULE_VERSION,
-    periodStart: compPeriodStart,
-    periodEnd,
-    confidence: candidate.members.length >= 8 ? "high" : candidate.members.length >= 5 ? "medium" : "low",
-    broadeningSteps: ["same_geography", "same_property_type", "bedroom_plus_or_minus_one", "size_plus_or_minus_35_percent", "18_month_window"],
-  })));
-  let setQueries: ReturnType<typeof makeSetQuery>[] = [];
-  for (let index = 0; index < compRows.length; index += d1BatchSize(comparableSets)) {
-    setQueries.push(makeSetQuery(compRows.slice(index, index + d1BatchSize(comparableSets))));
-    if (setQueries.length === 50) {
-      await db.batch(setQueries as [typeof setQueries[number], ...typeof setQueries[number][]]);
-      setQueries = [];
-    }
+  const broadeningSteps = JSON.stringify(["same_geography", "same_property_type", "bedroom_plus_or_minus_one", "size_plus_or_minus_35_percent", "18_month_window"]);
+  for (let index = 0; index < compRows.length; index += 1_000) {
+    const payload = JSON.stringify(compRows.slice(index, index + 1_000).map(({ candidate, comparableSetId }) => ({
+      id: comparableSetId,
+      subjectId: candidate.property.id,
+      confidence: candidate.members.length >= 8 ? "high" : candidate.members.length >= 5 ? "medium" : "low",
+    })));
+    await executeCandidateQuery(sql`
+      INSERT INTO comparable_sets_v2 (
+        id, dataset_version_id, subject_type, subject_id, rule_version, period_start, period_end, confidence, broadening_steps
+      )
+      SELECT json_extract(value, '$.id'), ${candidateId}, 'property', json_extract(value, '$.subjectId'),
+        ${COMP_RULE_VERSION}, ${compPeriodStart}, ${periodEnd}, json_extract(value, '$.confidence'), ${broadeningSteps}
+      FROM json_each(${payload})
+      WHERE true ON CONFLICT(id) DO NOTHING
+    `);
+    if ((index + 1_000) % 25_000 === 0) console.log(JSON.stringify({ compSetsProcessed: index + 1_000, totalCompSets: compRows.length }));
   }
-  if (setQueries.length) await db.batch(setQueries as [typeof setQueries[number], ...typeof setQueries[number][]]);
   const memberRows = compRows.flatMap(({ candidate, comparableSetId }) => candidate.members.map((member) => ({
     comparableSetId,
     saleId: member.saleId,
@@ -372,7 +390,7 @@ async function main() {
     await db.execute(sql`INSERT INTO dataset_publication_requests (candidate_id, environment) VALUES (${candidateId}, ${environment})`);
     await db.execute(sql`UPDATE refresh_runs SET status = 'published', published_version_id = ${candidateId} WHERE id = ${runId}`);
   }
-  console.log(JSON.stringify({ candidateId, runId, published: publish }, null, 2));
+  console.log(JSON.stringify({ candidateId, runId, published: publish, memberCount: memberRows.length }, null, 2));
 }
 
 await main().catch((error) => {

@@ -3,6 +3,7 @@ import { httpServerHandler } from "cloudflare:node";
 import { configureDatabase } from "./db";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
+import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
 import { UsageQuota, configureQuotaNamespace } from "./quota";
 import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueMessage } from "./dataPipelineWorkflow";
 
@@ -27,9 +28,9 @@ const { httpServer } = await createApp({ runtime: "cloudflare" });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });
-// Bump after a manual dataset publication so Worker Cache API entries for
-// sitemaps and public data cannot outlive the newly published snapshot.
-const PUBLIC_CACHE_REVISION = "2026-10-24-f02859ed-quality1";
+// A manual publication updates the homepage snapshot and invalidates the
+// public data and sitemap caches together.
+const PUBLIC_CACHE_REVISION = publishedHomepageSnapshot.datasetVersionId;
 
 function isBackendPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname === "/robots.txt" || pathname.startsWith("/sitemap");

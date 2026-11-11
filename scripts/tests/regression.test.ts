@@ -304,7 +304,7 @@ test("manual dataset publication cannot leave a day-old browser API response", (
     "../../client/src/pages/InvestmentCalculator.tsx",
     "../../client/src/pages/Tools.tsx",
   ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
-  assert.match(workerSource, /PUBLIC_CACHE_REVISION = "2026-10-24-f02859ed-quality1"/);
+  assert.match(workerSource, /PUBLIC_CACHE_REVISION = publishedHomepageSnapshot\.datasetVersionId/);
   assert.match(workerSource, /const payload = await response\.arrayBuffer\(\)/);
   assert.match(workerSource, /payload\.slice\(0\)/);
   assert.doesNotMatch(workerSource, /cache\.put\(key, cacheable\.clone\(\)\)/);
@@ -332,7 +332,7 @@ test("homepage statistics use published, precisely labeled counts behind the edg
   assert.match(storage, /async getHomepageStats\(\)/);
   assert.match(storage, /published\.id === publishedHomepageSnapshot\.datasetVersionId/);
   assert.match(storage, /snapshotStatus: "last_known"/);
-  assert.match(snapshot, /datasetVersionId: "f02859ed-2743-439d-afbb-bb7f8eb7429b"/);
+  assert.match(snapshot, /datasetVersionId: "[0-9a-f-]{36}"/);
   assert.match(storage, /const \[saleBackedUnits, .*\] = await Promise\.all\(\[/);
   assert.match(storage, /this\.getUnitCountForSitemapEligible\(\)/);
   assert.match(storage, /FROM current_market_snapshots/);
