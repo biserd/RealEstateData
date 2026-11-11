@@ -10,6 +10,7 @@
     "scripts/build-candidate-dataset.ts",
     "scripts/validate-d1-read-paths.ts",
     "scripts/d1-verify-import.ts",
+    "scripts/daily-seo.ts",
     "worker-configuration.d.ts"
   ],
   "compilerOptions": { "incremental": false }

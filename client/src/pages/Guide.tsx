@@ -164,6 +164,17 @@ export default function Guide() {
           ))}
         </div>
 
+        {guide.editorialSources?.length ? (
+          <section className="mt-10">
+            <h2 className="text-2xl font-bold tracking-tight mb-4">Additional references</h2>
+            <ul className="list-disc pl-5 space-y-2">
+              {guide.editorialSources.map((source) => (
+                <li key={source.url}><a className="underline" href={source.url}>{source.label}</a></li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {guide.faqs && guide.faqs.length > 0 && (
           <div className="mt-10">
             <h2 className="text-2xl font-bold tracking-tight mb-4">

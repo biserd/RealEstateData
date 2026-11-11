@@ -1,3 +1,24 @@
+import editorial from "./seo-editorial.json";
+
+export interface EditorialSource {
+  label: string;
+  url: string;
+}
+
+export interface SeoEdit {
+  kind: "title" | "refresh" | "comparison";
+  slug: string;
+  date: string;
+  title?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  keyword?: string;
+  intro?: string;
+  sections?: GuideSection[];
+  sources?: EditorialSource[];
+  relatedSlug?: string;
+}
+
 export interface GuideSection {
   heading: string;
   body: string;
@@ -25,6 +46,7 @@ export interface Guide {
   sections: GuideSection[];
   faqs?: GuideFaq[];
   relatedSlugs: string[];
+  editorialSources?: EditorialSource[];
 }
 
 const ALL_GUIDES: Guide[] = [
@@ -550,9 +572,57 @@ const QUARANTINED_GUIDE_SLUGS = new Set([
   "up-and-coming-zip-codes-nj-ct",
 ]);
 
-export const GUIDES: Guide[] = ALL_GUIDES.filter(
+export const BASE_GUIDES: Guide[] = ALL_GUIDES.filter(
   (guide) => !QUARANTINED_GUIDE_SLUGS.has(guide.slug),
 );
+
+const seoEdits = editorial as SeoEdit[];
+const escapeText = (value: string) =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function editorialSections(edit: SeoEdit): GuideSection[] {
+  return (edit.sections ?? []).map((section) => ({
+    heading: section.heading,
+    body: escapeText(section.body),
+  }));
+}
+
+export const GUIDES: Guide[] = [
+  ...BASE_GUIDES.map((guide) => {
+    const edits = seoEdits.filter((edit) => edit.slug === guide.slug);
+    const title = edits.findLast((edit) => edit.kind === "title");
+    const refresh = edits.findLast((edit) => edit.kind === "refresh");
+    const relatedComparisons = seoEdits
+      .filter((edit) => edit.kind === "comparison" && edit.relatedSlug === guide.slug)
+      .map((edit) => edit.slug);
+    return {
+      ...guide,
+      title: title?.title ?? guide.title,
+      metaTitle: title?.metaTitle ?? guide.metaTitle,
+      updatedDate: [guide.updatedDate, ...edits.map((edit) => edit.date)].sort().at(-1)!,
+      sections: [...guide.sections, ...(refresh ? editorialSections(refresh) : [])],
+      editorialSources: refresh?.sources,
+      relatedSlugs: [...guide.relatedSlugs, ...relatedComparisons],
+    };
+  }),
+  ...seoEdits.filter((edit) => edit.kind === "comparison").map((edit): Guide => ({
+    slug: edit.slug,
+    title: edit.title!,
+    metaTitle: edit.metaTitle!,
+    metaDescription: edit.metaDescription!,
+    keyword: edit.keyword!,
+    intro: edit.intro!,
+    intent: "commercial investigation",
+    category: "Comparisons",
+    productLink: { href: "/comparisons", label: "Explore research workflows" },
+    publishedDate: edit.date,
+    updatedDate: edit.date,
+    readingMinutes: 2,
+    sections: editorialSections(edit),
+    editorialSources: edit.sources,
+    relatedSlugs: [edit.relatedSlug!],
+  })),
+];
 
 export const GUIDES_BY_SLUG: Record<string, Guide> = Object.fromEntries(
   GUIDES.map((g) => [g.slug, g]),

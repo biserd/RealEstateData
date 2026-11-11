@@ -1417,6 +1417,11 @@ export async function getMetaForUrl(url: string): Promise<PageMeta | null> {
 }
 
 function buildGuideBodyHtml(guide: Guide): string {
+  const sourcesHtml = guide.editorialSources?.length
+    ? `<h2>Additional references</h2><ul>${guide.editorialSources.map(
+        (source) => `<li><a href="${escapeHtml(source.url)}">${escapeHtml(source.label)}</a></li>`,
+      ).join('')}</ul>`
+    : '';
   const sectionsHtml = guide.sections
     .map((s) => {
       const bullets =
@@ -1458,6 +1463,7 @@ function buildGuideBodyHtml(guide: Guide): string {
     ${faqsHtml}
     <p><a href="${guide.productLink.href}">${escapeHtml(guide.productLink.label)}</a></p>
     ${relatedHtml}
+    ${sourcesHtml}
     <h2>Sources, scope, and corrections</h2>
     <p>Current verified detail coverage is NYC recorded sales; live listings are not included. Sources: <a href="https://www.nyc.gov/site/finance/property/property-rolling-sales-update.page">NYC rolling sales</a>, <a href="https://a836-acris.nyc.gov/CP/">ACRIS</a>, and <a href="https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page">PLUTO</a>. This material is educational, not financial, legal, appraisal, or investment advice. <a href="mailto:hello@realtorsdashboard.com?subject=Data%20correction">Request a correction</a>.</p>
   `;
