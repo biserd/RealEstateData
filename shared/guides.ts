@@ -210,7 +210,7 @@ const ALL_GUIDES: Guide[] = [
     metaTitle:
       "NYC Condo Market 2026: Recorded-Sale Trends | RD",
     metaDescription:
-      "A 2026 view of the NYC condo market by borough and ZIP: median prices, $/sqft trends, sales velocity, and where buyers are finding the strongest opportunity-score inventory.",
+      "Learn how to research the 2026 NYC condo market using recorded sales, ZIP-level price benchmarks, and comparable transactions.",
     keyword: "NYC condo market 2026",
     intent: "Market research",
     category: "Market reports",

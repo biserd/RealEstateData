@@ -1,10 +1,12 @@
 # Daily SEO
 
-The workflow runs on main at 7:15 a.m. America/New_York and can be run from the Actions tab. It loads the three SEO skills from a pinned revision, reads the entire production sitemap inventory, and checks the editorial routes and eight rotating unit or property URLs. Reports and the public guide keyword map are retained in Actions for 30 days.
+The active schedule is **Realtors Dashboard Daily SEO** in the Codex desktop app. It runs in the existing workspace at 7:15 a.m. New York time, using the three installed SEO skills, the signed-in Search Console session when available, and the local GitHub and Wrangler logins. It records each run in its Codex chat and publishes verified edits through the existing Cloudflare Worker deployment.
 
-## Repository configuration
+## Optional GitHub-hosted workflow
 
-Set these under **Settings → Secrets and variables → Actions**. The scheduled audit continues when an integration is missing.
+The previous GitHub Actions schedule is disabled. This workflow remains available as a hosted alternative. Its runner uses a pinned revision of the three skills and retains its reports in Actions for 30 days. The settings below apply to the hosted runner. The Codex schedule uses existing local sessions and tools.
+
+If enabling the hosted workflow, set these under **Settings → Secrets and variables → Actions**. Its audit continues when an integration is missing.
 
 | Name | Type | Purpose |
 | --- | --- | --- |
