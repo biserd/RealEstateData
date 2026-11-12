@@ -215,44 +215,36 @@ const ALL_GUIDES: Guide[] = [
     intent: "Market research",
     category: "Market reports",
     productLink: {
-      href: "/market-intelligence",
-      label: "Open the Market Explorer",
+      href: "/tools/nyc-zip-market-snapshot",
+      label: "Check recorded sales by NYC ZIP code",
     },
     intro:
-      "The 2026 NYC condo market is not a single market - it is a stack of borough and ZIP-level markets moving at different speeds. This guide breaks down what the verified sales data is showing across Manhattan, Brooklyn, Queens, and the Bronx in 2026, where median prices and $/sqft are settling, and which ZIP groups are producing the most high-Opportunity-Score inventory.",
+      "To research 2026 NYC condo prices, start with recorded sales in the ZIP code, then compare recent sales of similar units in the building or nearby. The ZIP benchmark gives you local context. Unit-level records help you judge which sales are comparable.",
     publishedDate: "2026-04-12",
-    updatedDate: "2026-05-05",
-    readingMinutes: 10,
+    updatedDate: "2026-11-12",
+    readingMinutes: 3,
     sections: [
       {
-        heading: "How to read borough-level numbers in 2026",
-        body: "Borough averages hide everything that matters. A Manhattan median price tells you almost nothing about Inwood vs Tribeca. The right unit of analysis for condos in 2026 is ZIP, sub-neighborhood, or building - not borough. Use borough numbers for context only.",
+        heading: "Start with recorded NYC sales",
+        body: 'The <a href="https://www.nyc.gov/site/finance/property/property-rolling-sales-data.page">NYC Department of Finance rolling sales files</a> cover a trailing 12-month period and include property type, ZIP code, sale date, and sale price. Check the period before comparing two figures. A dashboard publication date tells you when its snapshot went live, while the source date tells you how far the underlying records extend.',
       },
       {
-        heading: "Manhattan: priced for selectivity",
-        body: 'Manhattan condo $/sqft remains the highest in the city, with sub-neighborhood spreads wider than they have been in years. The strongest opportunity-score inventory is concentrated in pockets where new supply caught up to demand and motivated sellers are taking visible markdowns. Use the <a href="/market-intelligence">Market Explorer</a> to compare ZIP-level $/sqft and stay anchored to verified ACRIS sales rather than asking-price medians.',
+        heading: "Compare ZIP benchmarks with the sample in view",
+        body: 'Try <a href="/tools/nyc-zip-market-snapshot?zip=10025">Manhattan ZIP 10025</a> and <a href="/tools/nyc-zip-market-snapshot?zip=11215">Brooklyn ZIP 11215</a>. Look at the median recorded price, the transaction count, and the middle half of recorded prices together. These ZIP summaries can include multiple property types. A gap between the medians can reflect a different mix of homes sold, so check the underlying transfers before drawing a conclusion about condos.',
       },
       {
-        heading: "Brooklyn: the broadest opportunity surface",
-        body: "Brooklyn has the largest spread between low-Opportunity-Score and high-Opportunity-Score inventory in 2026. That is a market structure clue. It means there are many condos priced near comp medians and a meaningful subset priced visibly below, often in newer buildings, transitional sub-neighborhoods, or specific lines within larger condo developments. Set screener filters by ZIP groups and let the score surface the candidates.",
+        heading: "Build a shortlist of comparable condo sales",
+        body: 'Start with recent sales in the same building. Look for similar unit size, layout, floor, and condition where those details are available. If the building has too few recent sales, expand to nearby comparable condo buildings and note what changed. The <a href="/guides/nyc-comparable-sales-investor-guide">NYC comparable sales guide</a> explains how to check the evidence behind each comp.',
       },
       {
-        heading: "Queens: rising inventory, tightening comps",
-        body: "Queens condo inventory has expanded notably and 12-month sales velocity has held up. That combination produces tighter comp pools, which raises the reliability of Opportunity Scores in the borough. ZIPs in Long Island City, Astoria, and Forest Hills produced the largest verified-sale comp pools in the platform during the last refresh window.",
-      },
-      {
-        heading: "Bronx and the boundary ZIPs",
-        body: "The Bronx and ZIPs along the Brooklyn-Queens boundary continue to produce the highest-volume of high-score multi-family and small condo opportunities. Comp pools are sometimes thinner here, so confidence bands matter more. Read the band, not just the score.",
-      },
-      {
-        heading: "What to do with this in your workflow",
-        body: 'Set borough-level expectations once at the start of the quarter. Make every actual decision at the ZIP, sub-neighborhood, or building level. Use saved screeners for the ZIPs you actually buy in, and revisit borough-level data only when you are deciding where to shift the screener focus. The <a href="/up-and-coming">Up and Coming ZIPs</a> page is built for exactly that quarterly recalibration.',
+        heading: "Check square footage and the type of price",
+        body: 'Calculate <a href="/guides/price-per-square-foot-nyc">price per square foot</a> only when you have comparable interior unit area for the sales you selected. A building’s gross area can include many units and common spaces. Keep the recorded sale price, the current asking price, and any model estimate labeled separately in your notes so you can see where each figure came from.',
       },
     ],
     relatedSlugs: [
-      "up-and-coming-zip-codes-nj-ct",
+      "nyc-comparable-sales-investor-guide",
       "price-per-square-foot-nyc",
-      "how-to-find-underpriced-condos-nyc",
+      "verified-sales-vs-estimates-investors",
     ],
   },
 
