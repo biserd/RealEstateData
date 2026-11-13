@@ -8,7 +8,7 @@ Realtors Dashboard publishes source-backed real-estate market information. Its d
 - [Data coverage](https://realtorsdashboard.com/methodology/data-coverage): Geographic and source coverage.
 - [Methodology](https://realtorsdashboard.com/methodology/opportunity-score): How opportunity scores are calculated.
 - [Free NYC data tools](https://realtorsdashboard.com/tools): ZIP-level market snapshots and benchmarks.
-- [Developers](https://realtorsdashboard.com/developers): Documented, API-key-protected partner data API.
+- [Developers](https://realtorsdashboard.com/developers): REST API documentation and MCP connection instructions for published NYC market data.
 - [OpenAPI document](https://realtorsdashboard.com/openapi.json): Machine-readable partner API specification.
 
 ## Discovery

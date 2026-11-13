@@ -12,6 +12,7 @@ import { Code, Key, Zap, Shield, Book, Copy, Check, ExternalLink } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
+import { developerDocs } from "@shared/developerDocs";
 
 const codeExamples = {
   curl: `curl -X GET "https://realtorsdashboard.com/api/external/properties?state=NY&limit=10" \\
@@ -87,19 +88,20 @@ export default function Developers() {
   const { user } = useAuth();
   return (
     <>
-      <SEO 
-        title="API Documentation - Developer Guide"
-        description="Complete API documentation with code examples in cURL, JavaScript, and Python. Build real estate applications with our property data API."
+      <SEO
+        title={developerDocs.title}
+        description={developerDocs.description}
+        canonicalUrl="https://realtorsdashboard.com/developers"
       />
       <PortalShell isLoggedIn={!!user}>
         <></>
         <div className="text-center mb-12">
           <Badge variant="outline" className="mb-4">Developer Documentation</Badge>
           <h1 className="text-4xl font-bold mb-4" data-testid="text-developers-title">
-            Realtors Dashboard API
+            {developerDocs.heading}
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Integrate real estate market intelligence directly into your applications
+            Access published NYC market data from your application or AI assistant.
           </p>
         </div>
 
@@ -107,7 +109,7 @@ export default function Developers() {
           <Card className="hover-elevate">
             <CardHeader>
               <Key className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>Easy Authentication</CardTitle>
+              <CardTitle>REST API Keys</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
@@ -141,13 +143,13 @@ export default function Developers() {
 
         <Card id="mcp" className="mb-12 scroll-mt-24">
           <CardHeader>
-            <CardTitle>Model Context Protocol (MCP)</CardTitle>
+            <h2 className="font-semibold leading-none tracking-tight">{developerDocs.mcpHeading}</h2>
             <CardDescription>Connect an MCP client to research published NYC recorded sales.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <CodeBlock language="text" code="https://realtorsdashboard.com/mcp" />
-            <p>Add the URL as a Streamable HTTP server. Clients can discover tools immediately. To run a tool, sign in with your Realtors Dashboard account and approve access.</p>
-            <p>Tools cover exact ZIP market snapshots, price per square foot benchmarks, and ZIP momentum rankings. Tool calls use your account’s daily search allowance.</p>
+            <CodeBlock language="text" code={developerDocs.mcpEndpoint} />
+            <p>{developerDocs.mcpUsage}</p>
+            <p>{developerDocs.mcpCoverage}</p>
             <a className="text-primary underline" href="/server.json">MCP server manifest</a>
           </CardContent>
         </Card>

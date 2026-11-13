@@ -2,6 +2,7 @@ import { percentile, roundedInteger } from "../shared/sqliteAnalytics";
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
+import { developerDocs } from '@shared/developerDocs';
 import { getCachedNarrative } from './narratives';
 import { isDatabaseBackedPagePath, isPrivatePagePath } from './entityPagePolicy';
 import { publicPropertyPageSql, publicUnitPageSql } from './publicPageEligibility';
@@ -350,12 +351,20 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     h1: 'Privacy Policy',
   },
   '/developers': {
-    title: 'Developer API - Realtors Dashboard',
-    description: 'Access real estate data programmatically with the Realtors Dashboard API. Properties, market stats, comps, and trending ZIP codes.',
+    title: developerDocs.title,
+    description: developerDocs.description,
     ogType: 'website',
     canonicalPath: '/developers',
-    h1: 'Developer API',
-    bodyHtml: '<p>RESTful JSON API with endpoints for properties, market statistics, comparable sales, and trending ZIP codes. Authenticated with x-api-key headers. 10 requests/second burst, 10,000 requests/day quota.</p>',
+    h1: developerDocs.heading,
+    bodyHtml: `
+      <h2>REST API</h2>
+      <p>Use an API key to access published properties, market statistics, comparable sales, and trending ZIP codes. <a href="/openapi.json">Read the OpenAPI specification</a>.</p>
+      <h2 id="mcp">${developerDocs.mcpHeading}</h2>
+      <p>${developerDocs.mcpUsage}</p>
+      <p><code>${developerDocs.mcpEndpoint}</code></p>
+      <p>${developerDocs.mcpCoverage}</p>
+      <p><a href="/server.json">Read the MCP server manifest</a>.</p>
+    `,
     jsonLd: DATASET_JSONLD,
   },
   '/api-access': {
