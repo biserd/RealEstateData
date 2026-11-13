@@ -187,7 +187,7 @@ test("free tool landing pages have indexable server metadata and sitemap entries
 });
 
 test("the published sitemap serves a unique canonical inventory without a database connection", async () => {
-  const { getSitemapXml, getPublishedPageFallback, publishedSitemap } = await import("../../server/publishedSitemaps");
+  const { getSitemapXml, getPublishedPageFallback, isRetiredPublishedPath, publishedSitemap } = await import("../../server/publishedSitemaps");
   const { publishedHomepageSnapshot } = await import("../../server/publishedHomepageSnapshot");
   const locs = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
   const index = getSitemapXml("/sitemap.xml")!;
@@ -208,6 +208,7 @@ test("the published sitemap serves a unique canonical inventory without a databa
       assert.equal(url.origin, "https://realtorsdashboard.com");
       assert.equal(url.href, page);
       assert.equal(url.hash, "");
+      assert.equal(isRetiredPublishedPath(url.pathname), false, page);
       assert.equal(listed.has(page), false, page);
       listed.add(page);
       if (/^\/(?:unit|properties|browse|neighborhood)\//.test(url.pathname)) {

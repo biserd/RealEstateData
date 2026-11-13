@@ -4,6 +4,15 @@ import { escapeSitemapXml, SITEMAP_ORIGIN, SITEMAP_PAGE_SIZE, type SitemapRecord
 import type { PublishedSaleLink, PublishedZipLink } from "../shared/publishedMarketLinks";
 
 export const publishedSitemap = snapshotData as SitemapSnapshot;
+// These retired slugs failed the public eligibility check for this
+// publication. Re-evaluate them against D1 after the next snapshot update.
+const retiredUnitsByPublication = new Map([
+  ["8841c249-c675-4ff8-8fb5-f8c0c8b9b59b", new Set([
+    "/unit/97-25-64th-avenue-unit-e05-queens-020901277",
+    "/unit/63-60-102-street-unit-c4-queens-021121022",
+    "/unit/65-50-austin-street-unit-7h-queens-031041256",
+  ])],
+]);
 const namespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
 const publishedDate = publishedSitemap.publishedAt.slice(0, 10);
 const crawlLinksUpdatedAt = "2026-11-13";
@@ -98,6 +107,10 @@ export function getSitemapXml(path: string): string | undefined {
   const content = xml("urlset", "url", section);
   sectionXml.set(path, content);
   return content;
+}
+
+export function isRetiredPublishedPath(path: string): boolean {
+  return !entriesByPath.has(path) && (retiredUnitsByPublication.get(publishedSitemap.datasetVersionId)?.has(path) ?? false);
 }
 
 export function getPublishedPageFallback(pathname: string, search: string): PageMeta | undefined {

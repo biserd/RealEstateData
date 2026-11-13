@@ -6,7 +6,7 @@ import { handleMcpRequest, isMcpPath } from "./mcp";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
 import {
-  getPublishedPageFallback, getSitemapXml, isSitemapPath, publishedCrawlLinks,
+  getPublishedPageFallback, getSitemapXml, isRetiredPublishedPath, isSitemapPath, publishedCrawlLinks,
   publishedSalesForZip, publishedSitemap, publishedZipLinks,
 } from "./publishedSitemaps";
 import type { PageMeta } from "./seoMetaTags";
@@ -309,6 +309,7 @@ function protectDocumentResponse(request: Request, response: Response, cacheCont
 
 async function resolveDocumentMeta(path: string, search: string, ctx: ExecutionContext) {
   const entityPage = seo.isDatabaseBackedPagePath(path);
+  if (isRetiredPublishedPath(path)) return { metadata: null, entityPage, published: false, fallback: false };
   const fallback = getPublishedPageFallback(path, search);
   // Cache only the metadata from the shared publication, with no account or
   // request-header data. Keep a short TTL so eligibility changes take effect.
