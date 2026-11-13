@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/LoadingState";
+import { PublishedZipSales } from "@/components/PublishedMarketLinks";
 import { throwIfResNotOk } from "@/lib/queryClient";
 
 interface NeighborhoodReport {
@@ -136,6 +137,7 @@ export default function NeighborhoodReport() {
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
   const geoType = params.get("geoType") || "zip";
+  const publishedZip = geoType === "zip" && geoId && /^[0-9]{5}$/.test(geoId) ? geoId : null;
   const [, navigate] = useLocation();
 
   const { data: priceTrends, isError: priceTrendsError, refetch: refetchPriceTrends } = useQuery<{
@@ -244,6 +246,7 @@ export default function NeighborhoodReport() {
               Back to Market Explorer
             </Button>
           </Link>
+          {publishedZip && <PublishedZipSales zip={publishedZip} />}
         </div>
       </AppLayout>
     );
@@ -695,6 +698,7 @@ export default function NeighborhoodReport() {
           </Card>
         )}
 
+        {publishedZip && <PublishedZipSales zip={publishedZip} />}
         <Card className="mb-8" data-testid="card-actions">
           <CardContent className="flex flex-wrap gap-3 p-4">
             {data.geoType === "zip" && (

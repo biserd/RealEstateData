@@ -218,7 +218,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     ogType: 'website',
     canonicalPath: '/market-intelligence',
     h1: 'Market Intelligence',
-    bodyHtml: '<p>Pre-computed NYC recorded-sales statistics with sample size, source period, publication date, and methodology version. Updates are manually validated and published.</p>',
+    bodyHtml: '<p>Pre-computed NYC recorded-sales statistics with sample size, source period, publication date, and methodology version. Updates are manually validated and published.</p><p><a href="/browse/ny">Browse published NYC ZIP reports and recorded sales</a>.</p>',
   },
   '/investment-opportunities': {
     title: 'Investment Opportunities - Realtors Dashboard',
@@ -511,7 +511,8 @@ export function getStaticSitemapEntries(): Array<{ path: string; lastmod: string
     .filter((path) => path !== '/api-access')
     .map((path) => {
       const guide = path.startsWith('/guides/') ? getGuide(path.slice('/guides/'.length)) : undefined;
-      return { path, lastmod: guide?.updatedDate || SEO_CONTENT_LAST_MODIFIED };
+      const revised = path === '/market-intelligence' ? '2026-11-13' : SEO_CONTENT_LAST_MODIFIED;
+      return { path, lastmod: guide?.updatedDate || revised };
     });
 }
 
@@ -537,14 +538,22 @@ const STATE_NAMES: Record<string, string> = {
 
 async function getUnitMeta(unitBbl: string): Promise<PageMeta | null> {
   try {
+    // Old address slugs can point to a still-published unit. The borough plus
+    // nine-digit suffix identifies the full BBL without a table scan.
+    const boroughDigits = new Map([
+      ['manhattan', '1'], ['bronx', '2'], ['brooklyn', '3'], ['queens', '4'], ['statenisland', '5'],
+    ]);
+    const legacy = /-(manhattan|bronx|brooklyn|queens|statenisland)-(\d{9})$/i.exec(unitBbl);
+    const resolvedBbl = legacy ? boroughDigits.get(legacy[1].toLowerCase()) + legacy[2] : unitBbl;
     const unitRes = await db.execute(sql`
       SELECT cu.unit_bbl, cu.base_bbl, cu.unit_designation, cu.unit_display_address,
              cu.building_display_address, cu.borough, cu.zip_code, cu.slug,
              cu.latitude, cu.longitude, cu.beds, cu.baths, cu.sqft, cu.unit_type_hint,
              (SELECT published_at FROM current_published_dataset ORDER BY published_at DESC NULLS LAST LIMIT 1) AS published_at
       FROM condo_units cu
-      WHERE (cu.unit_bbl = ${unitBbl} OR cu.slug = ${unitBbl})
+      WHERE (cu.unit_bbl = ${resolvedBbl} OR cu.slug = ${unitBbl})
         AND ${publicUnitPageSql('cu')}
+      ORDER BY (cu.slug = ${unitBbl}) DESC
       LIMIT 1
     `);
     if (unitRes.rows.length === 0) return null;

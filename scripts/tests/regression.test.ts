@@ -149,7 +149,7 @@ test("SEO routing, sitemaps, and social assets enforce the indexability contract
   assert.match(worker, /"retry-after": "120"/);
   assert.match(worker, /accept\.includes\("\*\/\*"\)/);
   assert.match(worker, /x-robots-tag/);
-  assert.match(worker, /seo\.injectMetaTags\(html, metadata, "https:\/\/realtorsdashboard\.com"\)/);
+  assert.match(worker, /seo\.injectMetaTags\(html, [\s\S]*?"https:\/\/realtorsdashboard\.com"\)/);
   assert.match(routes, /current_market_snapshots/);
   assert.match(routes, /User-agent: Googlebot\s+Allow: \//);
   assert.doesNotMatch(routes, /const baseUrl = `https:\/\/\$\{req\.get\("host"\)\}`/);
@@ -220,6 +220,35 @@ test("the published sitemap serves a unique canonical inventory without a databa
   assert.equal(listed.has("https://realtorsdashboard.com/login"), false);
   assert.equal(getSitemapXml("/sitemap-units-999.xml"), undefined);
   assert.equal(getPublishedPageFallback("/unit/unpublished-record", ""), undefined);
+});
+
+test("every published property and unit has a crawlable link from its ZIP report", async () => {
+  const { publishedCrawlLinks, publishedSalesForZip, publishedSitemap, publishedZipLinks } = await import("../../server/publishedSitemaps");
+  const directory = publishedCrawlLinks("/browse/ny");
+  const linkedSales = new Set<string>();
+  for (const { path } of publishedZipLinks) {
+    assert.ok(directory.includes(`href="${path}"`), path);
+    const zip = path.match(/^\/neighborhood\/(\d{5})\?geoType=zip$/)![1];
+    const report = publishedCrawlLinks(`/neighborhood/${zip}`);
+    const links = [...report.matchAll(/href="(\/(?:properties|unit)\/[^"]+)"/g)].map((match) => match[1]);
+    assert.deepEqual(links, publishedSalesForZip(zip).map((sale) => sale.path));
+    for (const link of links) {
+      assert.equal(linkedSales.has(link), false, link);
+      linkedSales.add(link);
+    }
+  }
+  assert.deepEqual(linkedSales, new Set([...publishedSitemap.properties, ...publishedSitemap.units].map(([path]) => path)));
+});
+
+test("HEAD preserves the document status without a response body", async () => {
+  const { generatedDocumentResponse } = await import("../../server/documentResponse");
+  const response = generatedDocumentResponse(
+    new Request("https://realtorsdashboard.com/unit/missing", { method: "HEAD" }),
+    "<h1>Page not found</h1>", 404, new Headers({ "x-robots-tag": "noindex" }),
+  );
+  assert.equal(response.status, 404);
+  assert.equal(response.body, null);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex");
 });
 
 test("public page predicates use one published, canonical, non-quarantined contract", () => {
@@ -390,7 +419,7 @@ test("HTML and public JSON have transport protections for zone-level rewriting",
   assert.match(workerSource, /public, max-age=60, stale-while-revalidate=300, no-transform/);
   assert.match(workerSource, /hostname === "realtorsdashboard\.com"/);
   assert.match(workerSource, /headers\.set\("alt-svc", "clear"\)/);
-  assert.match(workerSource, /entityPage \|\| servedPublishedFallback \? "no-store, no-transform"/);
+  assert.match(workerSource, /entityPage \|\| published \? "no-store, no-transform"/);
   assert.match(workerSource, /PUBLIC_SITE_ORIGINS/);
   assert.match(workerSource, /access-control-allow-origin/);
   assert.match(transportSource, /realtors-dashboard\.biser-d\.workers\.dev/);

@@ -15,6 +15,8 @@ export function generatedDocumentResponse(request: Request, html: string, status
   headers.delete("content-encoding");
   headers.set("vary", "Accept, Accept-Encoding");
 
+  if (request.method === "HEAD") return new Response(null, { status, headers });
+
   const acceptsGzip = (request.headers.get("accept-encoding") || "")
     .split(",")
     .some((item) => {

@@ -5,7 +5,11 @@ import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
 import { handleMcpRequest, isMcpPath } from "./mcp";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
-import { getPublishedPageFallback, getSitemapXml, isSitemapPath, publishedSitemap } from "./publishedSitemaps";
+import {
+  getPublishedPageFallback, getSitemapXml, isSitemapPath, publishedCrawlLinks,
+  publishedSalesForZip, publishedSitemap, publishedZipLinks,
+} from "./publishedSitemaps";
+import type { PageMeta } from "./seoMetaTags";
 import { UsageQuota, configureQuotaNamespace } from "./quota";
 import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueMessage } from "./dataPipelineWorkflow";
 
@@ -267,7 +271,7 @@ async function fetchBackendWithCache(
 }
 
 function isDocumentRequest(request: Request): boolean {
-  if (request.method !== "GET") return false;
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
   const accept = request.headers.get("accept") || "";
   if (accept.includes("text/html")) return true;
   // Several crawlers and command-line clients request pages with */* (or no
@@ -303,58 +307,81 @@ function protectDocumentResponse(request: Request, response: Response, cacheCont
   });
 }
 
-async function serveDocument(request: Request): Promise<Response> {
+async function resolveDocumentMeta(path: string, search: string, ctx: ExecutionContext) {
+  const entityPage = seo.isDatabaseBackedPagePath(path);
+  const fallback = getPublishedPageFallback(path, search);
+  // Cache only the metadata from the shared publication, with no account or
+  // request-header data. Keep a short TTL so eligibility changes take effect.
+  const key = fallback && new Request(new URL(
+    `/_rd-public-metadata/${publishedSitemap.datasetVersionId}/${encodeURIComponent(fallback.canonicalPath)}`,
+    "https://realtorsdashboard.com",
+  ));
+  const cache = (caches as unknown as { default: Cache }).default;
+  if (key) {
+    const hit = await cache.match(key).then((response) => response?.json<PageMeta>()).catch(() => undefined);
+    if (hit) return { metadata: hit, entityPage, published: true, fallback: false };
+  }
+  try {
+    const metadata = await seo.getMetaForUrl(path + search);
+    if (metadata && key && metadata.canonicalPath === fallback?.canonicalPath && !metadata.robots) {
+      ctx.waitUntil(cache.put(key, Response.json(metadata, {
+        headers: { "cache-control": "public, max-age=300" },
+      })).catch(() => {}));
+    }
+    return { metadata, entityPage, published: Boolean(key), fallback: false };
+  } catch (error) {
+    if (!fallback) throw error;
+    return { metadata: fallback, entityPage, published: true, fallback: true };
+  }
+}
+
+async function serveDocument(request: Request, ctx: ExecutionContext): Promise<Response> {
+  const head = request.method === "HEAD";
   const url = new URL(request.url);
   const pathname = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : url.pathname;
 
-  const assetResponse = await bindings.ASSETS.fetch(request);
-  if (!assetResponse.ok) {
-    return protectDocumentResponse(request, assetResponse, "public, max-age=0, must-revalidate");
-  }
-
   try {
-    const template = await assetResponse.clone().text();
+    const assetResponse = await bindings.ASSETS.fetch(head ? new Request(request, { method: "GET" }) : request);
+    if (!assetResponse.ok) {
+      const response = protectDocumentResponse(request, assetResponse, "public, max-age=0, must-revalidate");
+      if (!head) return response;
+      await response.body?.cancel();
+      return new Response(null, response);
+    }
+    const template = await assetResponse.text();
     // The homepage module is a useful preload only on the public landing URL.
     // Keep other routes from spending bandwidth on a page they will not show.
     const html = routeSpecificDocumentTemplate(template, pathname);
-    const entityPage = seo.isDatabaseBackedPagePath(pathname);
-    let metadata;
-    let servedPublishedFallback = false;
-    try {
-      metadata = entityPage
-        ? await seo.getDatabaseBackedMetaForUrl(`${pathname}${url.search}`)
-        : await seo.getMetaForUrl(`${pathname}${url.search}`);
-    } catch (error) {
-      if (!/overload|temporar|timeout|reset|internal error/i.test(String(error))) throw error;
-      metadata = getPublishedPageFallback(pathname, url.search);
-      if (!metadata) throw error;
-      servedPublishedFallback = true;
-    }
+    const { metadata, entityPage, published, fallback } = await resolveDocumentMeta(pathname, url.search, ctx);
     const headers = new Headers(assetResponse.headers);
     headers.set("content-type", "text/html; charset=utf-8");
     clearCachedHttp3Route(request, headers);
     if (!metadata) {
       headers.set("cache-control", "no-store, no-transform");
       headers.set("x-robots-tag", "noindex, follow, noarchive");
-      headers.set("vary", "Accept");
-      return new Response(html, { status: 404, headers });
+      return generatedDocumentResponse(request,
+        '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+        '<title>Page not found | Realtors Dashboard</title><main><h1>Page not found</h1>' +
+        '<p>This address has no published page.</p><p><a href="/browse/ny">Browse published NYC ZIP reports</a></p>' +
+        '<p><a href="/">Return to Realtors Dashboard</a></p></main></html>',
+        404, headers);
     }
 
     const canonicalPathname = metadata.canonicalPath.split("?")[0];
-    if (canonicalPathname !== url.pathname || url.hostname === "www.realtorsdashboard.com") {
+    const needsZipCanonical = metadata.canonicalPath.endsWith("?geoType=zip") && !url.searchParams.has("geoType");
+    if (canonicalPathname !== url.pathname || needsZipCanonical || url.hostname === "www.realtorsdashboard.com") {
       const canonicalUrl = new URL(metadata.canonicalPath, "https://realtorsdashboard.com");
       if (!metadata.canonicalPath.includes("?") && url.search) canonicalUrl.search = url.search;
       return Response.redirect(canonicalUrl.toString(), 301);
     }
 
-    // Speed Brain only prefetches cache-eligible pages. Entity documents run
-    // database-backed SEO resolution, so keep them out of the speculative
-    // cache path while retaining short caching for static marketing pages.
+    // Avoid speculative entity document fetches while retaining short caching
+    // for static marketing pages. Public metadata has its own internal cache.
     headers.set(
       "cache-control",
-      entityPage || servedPublishedFallback ? "no-store, no-transform" : "public, max-age=60, stale-while-revalidate=300, no-transform",
+      entityPage || published ? "no-store, no-transform" : "public, max-age=60, stale-while-revalidate=300, no-transform",
     );
-    if (servedPublishedFallback) headers.set("x-rd-entity-data", "published-snapshot");
+    if (fallback) headers.set("x-rd-entity-data", "published-snapshot");
     headers.set("vary", "Accept, Accept-Encoding");
     headers.set("x-content-type-options", "nosniff");
     headers.set("referrer-policy", "strict-origin-when-cross-origin");
@@ -362,13 +389,16 @@ async function serveDocument(request: Request): Promise<Response> {
     appendApiDiscoveryLinks(headers);
     return generatedDocumentResponse(
       request,
-      seo.injectMetaTags(html, metadata, "https://realtorsdashboard.com"),
+      seo.injectMetaTags(html, {
+        ...metadata,
+        bodyHtml: (metadata.bodyHtml ?? "") + publishedCrawlLinks(canonicalPathname),
+      }, "https://realtorsdashboard.com"),
       assetResponse.status,
       headers,
     );
   } catch (error) {
     console.error(JSON.stringify({ level: "error", source: "seo", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() }));
-    return new Response("Page temporarily unavailable. Please try again later.", {
+    return new Response(head ? null : "Page temporarily unavailable. Please try again later.", {
       status: 503,
       headers: {
         "content-type": "text/plain; charset=utf-8",
@@ -429,6 +459,17 @@ export default {
       }
       const rateLimited = await enforceBurstLimit(request, env, url.pathname);
       if (rateLimited) return rateLimited;
+      if (request.method === "GET" && url.pathname === "/api/browse/published-zips") {
+        return withPublicDataCors(Response.json(publishedZipLinks, {
+          headers: { "cache-control": "public, max-age=60, no-transform" },
+        }), corsOrigin);
+      }
+      const publishedSales = /^\/api\/browse\/published-sales\/([0-9]{5})$/.exec(url.pathname);
+      if (request.method === "GET" && publishedSales) {
+        return withPublicDataCors(Response.json(publishedSalesForZip(publishedSales[1]), {
+          headers: { "cache-control": "public, max-age=60, no-transform" },
+        }), corsOrigin);
+      }
       if (!databaseConfigured) {
         return Response.json(
           { message: "Database is not configured yet" },
@@ -451,7 +492,7 @@ export default {
       return withPublicDataCors(response, corsOrigin);
     }
 
-    if (isDocumentRequest(request)) return serveDocument(request);
+    if (isDocumentRequest(request)) return serveDocument(request, ctx);
     return bindings.ASSETS.fetch(request);
   },
   async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {

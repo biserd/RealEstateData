@@ -5,6 +5,7 @@ import { BreadcrumbsJsonLd } from "@/components/JsonLd";
 import { AppLayout } from "@/components/layouts";
 import { PropertyCard } from "@/components/PropertyCard";
 import { LoadingState } from "@/components/LoadingState";
+import { PublishedZipReports } from "@/components/PublishedMarketLinks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -136,6 +137,7 @@ export default function StateBrowse() {
             </div>
           )}
 
+          {stateCode === "NY" && <PublishedZipReports />}
           <h2 className="text-xl font-semibold mb-4">Cities in {stateName}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-10">
             {stats?.cities?.map(c => (
