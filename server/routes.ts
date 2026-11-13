@@ -557,6 +557,11 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      res.setHeader("Cache-Control", "private, no-store");
+      if (req.method === "HEAD") {
+        res.setHeader("X-RD-Account-Id", userId);
+        return res.status(204).end();
+      }
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });

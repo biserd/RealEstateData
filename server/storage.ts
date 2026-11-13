@@ -102,7 +102,7 @@ type VersionedMarketAggregate = MarketAggregate & {
   publishedDatasetVersionId: string;
 };
 
-async function publishedMarketAggregates(geoType: string, geoId: string): Promise<VersionedMarketAggregate[] | null> {
+export async function publishedMarketAggregates(geoType: string, geoId: string): Promise<VersionedMarketAggregate[] | null> {
   try {
     const published = await db.execute(sql`SELECT id FROM current_published_dataset LIMIT 1`);
     if (published.rows.length === 0) return null;
@@ -181,7 +181,7 @@ async function publishedMarketAggregates(geoType: string, geoId: string): Promis
   }
 }
 
-async function publishedUpAndComing(state: string | undefined, limit: number): Promise<UpAndComingZip[] | null> {
+export async function publishedUpAndComing(state: string | undefined, limit: number): Promise<UpAndComingZip[] | null> {
   try {
     const published = await db.execute(sql`SELECT id FROM current_published_dataset LIMIT 1`);
     if (published.rows.length === 0) return null;

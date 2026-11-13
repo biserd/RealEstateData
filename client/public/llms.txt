@@ -15,5 +15,6 @@ Realtors Dashboard publishes source-backed real-estate market information. Its d
 
 - [ARD manifest](https://realtorsdashboard.com/.well-known/ard.json): Discoverable description of the documented partner API.
 - [API catalog](https://realtorsdashboard.com/.well-known/api-catalog): RFC 9727 API linkset.
+- [MCP server manifest](https://realtorsdashboard.com/server.json): Read-only NYC market tools. Tool discovery is public. Running tools requires signing in and granting OAuth access.
 
 Public pages may be read and summarized subject to the site's published terms. This file does not grant training rights, bypass authentication, or authorize automated access to protected APIs.

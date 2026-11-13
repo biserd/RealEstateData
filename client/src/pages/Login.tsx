@@ -23,6 +23,13 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+function mcpReturnUrl(): URL | null {
+  const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+  if (!returnTo?.startsWith("/mcp/authorize?")) return null;
+  const target = new URL(returnTo, window.location.origin);
+  return target.origin === window.location.origin && target.pathname === "/mcp/authorize" ? target : null;
+}
+
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -50,6 +57,11 @@ export default function Login() {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
+      const target = mcpReturnUrl();
+      if (target) {
+        window.location.assign(target.href);
+        return;
+      }
       setLocation("/");
     },
     onError: (error: Error) => {

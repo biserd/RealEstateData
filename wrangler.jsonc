@@ -11,8 +11,11 @@
     }
   ],
   "workers_dev": true,
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "2c9b9a7e3bca4804a3767386898d3565" }
+  ],
   "compatibility_date": "2026-08-29",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
     "directory": "./dist/public",
     "binding": "ASSETS",

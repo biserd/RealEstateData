@@ -2,6 +2,7 @@ import { env as cloudflareEnv } from "cloudflare:workers";
 import { httpServerHandler } from "cloudflare:node";
 import { configureDatabase } from "./db";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
+import { handleMcpRequest, isMcpPath } from "./mcp";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
 import { getPublishedPageFallback, getSitemapXml, isSitemapPath, publishedSitemap } from "./publishedSitemaps";
@@ -381,6 +382,14 @@ async function serveDocument(request: Request): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    if (isMcpPath(url.pathname)) {
+      return handleMcpRequest(request, env, ctx, async (browserRequest) => {
+        const headers = new Headers();
+        const cookie = browserRequest.headers.get("Cookie");
+        if (cookie) headers.set("Cookie", cookie);
+        return fetchBackendWithCache(new Request(new URL("/api/auth/user", url), { method: "HEAD", headers }), env, ctx, "/api/auth/user");
+      });
+    }
     const corsOrigin = publicDataCorsOrigin(request, url.pathname);
 
     if (url.pathname === "/.well-known/api-catalog") return apiCatalogResponse(request);

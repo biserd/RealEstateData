@@ -132,17 +132,15 @@ async function sha256(value: string): Promise<string> {
 }
 
 export async function consumeQuota(options: {
-  req: Request;
   action: QuotaAction;
   tier: SubscriptionTier;
-  subjectId?: string;
   weight?: number;
-}): Promise<QuotaDecision | null> {
+} & ({ req: Request; subjectId?: string } | { req?: never; subjectId: string })): Promise<QuotaDecision | null> {
   if (!quotaNamespace) return null;
 
   const { req, action, tier } = options;
   const rule = RULES[action][tier];
-  const rawSubject = options.subjectId || `ip:${requestIp(req)}`;
+  const rawSubject = options.subjectId ?? `ip:${requestIp(req!)}`;
   const subjectHash = await sha256(rawSubject);
   const now = Date.now();
   const windowStart = Math.floor(now / rule.windowMs) * rule.windowMs;

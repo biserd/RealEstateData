@@ -139,6 +139,19 @@ export default function Developers() {
           </Card>
         </div>
 
+        <Card id="mcp" className="mb-12 scroll-mt-24">
+          <CardHeader>
+            <CardTitle>Model Context Protocol (MCP)</CardTitle>
+            <CardDescription>Connect an MCP client to research published NYC recorded sales.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <CodeBlock language="text" code="https://realtorsdashboard.com/mcp" />
+            <p>Add the URL as a Streamable HTTP server. Clients can discover tools immediately. To run a tool, sign in with your Realtors Dashboard account and approve access.</p>
+            <p>Tools cover exact ZIP market snapshots, price per square foot benchmarks, and ZIP momentum rankings. Tool calls use your account’s daily search allowance.</p>
+            <a className="text-primary underline" href="/server.json">MCP server manifest</a>
+          </CardContent>
+        </Card>
+
         <Tabs defaultValue="getting-started" className="space-y-8">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="getting-started" data-testid="tab-getting-started">Getting Started</TabsTrigger>

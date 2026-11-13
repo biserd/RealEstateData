@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.biserd/realtors-dashboard",
+  "title": "Realtors Dashboard",
+  "description": "Research NYC recorded sales with ZIP market snapshots, price benchmarks, and momentum rankings.",
+  "version": "1.0.0",
+  "websiteUrl": "https://realtorsdashboard.com/developers#mcp",
+  "repository": {
+    "url": "https://github.com/biserd/RealEstateData",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://realtorsdashboard.com/favicon.png",
+      "mimeType": "image/png",
+      "sizes": ["1024x1024"]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://realtorsdashboard.com/mcp"
+    }
+  ]
+}
