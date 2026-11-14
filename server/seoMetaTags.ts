@@ -180,6 +180,10 @@ const DEFAULT_META: PageMeta = {
 };
 
 export const SEO_CONTENT_LAST_MODIFIED = '2026-08-30';
+const STATIC_PAGE_CONTENT_DATES: Readonly<Record<string, string>> = {
+  '/developers': '2026-11-13',
+  '/market-intelligence': '2026-11-13',
+};
 
 const GUIDES_INDEX_JSONLD: Record<string, any> = {
   '@context': 'https://schema.org',
@@ -511,8 +515,7 @@ export function getStaticSitemapEntries(): Array<{ path: string; lastmod: string
     .filter((path) => path !== '/api-access')
     .map((path) => {
       const guide = path.startsWith('/guides/') ? getGuide(path.slice('/guides/'.length)) : undefined;
-      const revised = path === '/market-intelligence' ? '2026-11-13' : SEO_CONTENT_LAST_MODIFIED;
-      return { path, lastmod: guide?.updatedDate || revised };
+      return { path, lastmod: guide?.updatedDate ?? STATIC_PAGE_CONTENT_DATES[path] ?? SEO_CONTENT_LAST_MODIFIED };
     });
 }
 
