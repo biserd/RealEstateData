@@ -155,3 +155,43 @@ Active source adapters are fail-closed in `pipeline/sourceCatalog.ts`:
 - RESO/current listings: disabled until a licensed feed, credentials, coverage, display, and retention rules are supplied.
 
 The public `?envelope=1` market APIs expose requested/effective geography, exact/broadened/coverage-gap/stale-snapshot mode, records, sample coverage, source date, ingestion/publication dates, dataset version, and warnings. `/api/data/status` exposes the same release status for health and UI use.
+
+## Statewide Florida property sales
+
+The statewide directory is separate from the Alachua exact-day pilot. The
+[2026 Florida statewide parcel layer](https://geodata.floridagio.gov/) covers all
+67 counties. It publishes transfer month and year, so the directory keeps that
+precision and does not put these records into day-level comps or NYC rankings.
+The importer takes the latest qualifying transfer field supplied by the parcel
+roll. It keeps the public physical address and parcel identity, filters out
+out-of-range prices, missing addresses, multi-parcel transactions and conflicting
+duplicates, and does not fetch owners' names or mailing addresses.
+
+Manually acquire and prepare a candidate with Node 22 or later:
+
+```bash
+npm run data:florida -- --output=.cache/florida/statewide.sqlite --since=2025-01
+npm run data:florida:prepare -- .cache/florida/statewide.sqlite .cache/florida/statewide-d1.sql
+```
+
+The source's edit timestamp and requested start month identify a release. A rerun
+can resume unfinished counties for that same source revision. A run with
+`--county=miami-dade`, for example, can verify a single county. Preparing the D1
+import requires all 67 counties to have verified rows and matching totals.
+
+Stage the generated SQL in a separate Florida D1 database. It leaves the release
+inactive. Verify counts, test the site against the staged binding, and activate
+the exact staged ID only after the checks pass. The command below assumes
+`Florida-candidate` names the new database and `fdor-approved-id` is replaced
+with the checked ID from the preparation command.
+
+```bash
+npx wrangler d1 execute Florida-candidate --remote --file=.cache/florida/statewide-d1.sql
+npx wrangler d1 execute Florida-candidate --remote --command "SELECT count(*) AS counties, sum(records) AS records FROM florida_coverage GROUP BY release_id;"
+npx wrangler d1 execute Florida-candidate --remote --command "UPDATE florida_releases SET published_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = 'fdor-approved-id' AND (SELECT count(*) FROM florida_coverage WHERE release_id = florida_releases.id) = 67 AND (SELECT sum(records) FROM florida_coverage WHERE release_id = florida_releases.id) = (SELECT count(*) FROM florida_sales WHERE release_id = florida_releases.id);"
+```
+
+Bind the verified Florida database as `FL_SALES_DB`. After deploying, check
+`/florida`, the 67 county URLs, a ZIP/address search, and the Florida child
+sitemap linked from `/sitemap.xml`. Keep the prior database available so
+rolling back the Worker also restores its prior Florida snapshot.

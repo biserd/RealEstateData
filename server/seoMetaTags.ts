@@ -93,7 +93,7 @@ const FAQ_JSONLD: Record<string, any> = {
       name: 'Which areas do you cover?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Current verified public-record coverage is limited to the NYC datasets identified on each result page. Other regions remain unavailable until source rights and quality checks are approved.',
+        text: 'NYC coverage includes exact recorded sales and condo identities. The Florida property sales directory covers all 67 counties using sale months and prices from the state parcel roll.',
       },
     },
     {
@@ -183,6 +183,7 @@ export const SEO_CONTENT_LAST_MODIFIED = '2026-08-30';
 const STATIC_PAGE_CONTENT_DATES: Readonly<Record<string, string>> = {
   '/developers': '2026-11-13',
   '/market-intelligence': '2026-11-13',
+  '/methodology/data-coverage': '2026-11-15',
 };
 
 const GUIDES_INDEX_JSONLD: Record<string, any> = {
@@ -432,7 +433,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/methodology/data-coverage': {
     title: 'Data Coverage - States, Sources, and Refresh Cadence | Realtors Dashboard',
-    description: 'Current verified NYC recorded-sale coverage, official sources, manual publication workflow, freshness fields, and known limitations.',
+    description: 'Official sources and refresh dates for NYC recorded sales, Florida property sales by county, and published market data.',
     ogType: 'article',
     canonicalPath: '/methodology/data-coverage',
     h1: 'Data Coverage',
@@ -441,6 +442,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       <h2>Geographic coverage</h2>
       <ul>
         <li><strong>New York City:</strong> verified recorded sales and official condo-unit identities; only exact source-backed sale matches are indexable.</li>
+        <li><strong>Florida:</strong> <a href="/florida">past residential property sales in all 67 counties</a> from the Florida Department of Revenue parcel roll. Florida sale dates have month precision.</li>
         <li><strong>New Jersey and Connecticut:</strong> not part of the current verified public detail publication; validation remains pending.</li>
         <li><strong>Live listings:</strong> unavailable. Pages describe recorded transactions and published analytical snapshots.</li>
       </ul>

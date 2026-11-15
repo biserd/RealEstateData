@@ -8,6 +8,11 @@
       "database_name": "realtors-dashboard-production",
       "database_id": "9329644b-3c17-4ddd-82d7-e51f1a544768",
       "migrations_dir": "migrations/d1"
+    },
+    {
+      "binding": "FL_SALES_DB",
+      "database_name": "realtors-dashboard-florida-20261115",
+      "database_id": "c060da24-091a-4ea5-96c2-40983483cd2a"
     }
   ],
   "workers_dev": true,

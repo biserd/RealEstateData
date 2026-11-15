@@ -4,6 +4,7 @@ import { configureDatabase } from "./db";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
 import { handleMcpRequest, isMcpPath } from "./mcp";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
+import { floridaDocument, floridaSitemap, floridaSitemapPath, isFloridaDocument } from "./floridaDocuments";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
 import {
   getPublishedPageFallback, getSitemapXml, isRetiredPublishedPath, isSitemapPath, publishedCrawlLinks,
@@ -16,7 +17,7 @@ import { handleDataPipelineQueue, type DataPipelineBindings, type PipelineQueueM
 export { UsageQuota };
 export { DataRefreshWorkflow } from "./dataPipelineWorkflow";
 
-const bindings = cloudflareEnv as Env;
+const bindings = cloudflareEnv as Env & { FL_SALES_DB?: D1Database };
 configureQuotaNamespace(bindings.USAGE_QUOTA);
 const databaseConfigured = Boolean(bindings.DB);
 if (databaseConfigured) configureDatabase(bindings.DB);
@@ -422,16 +423,46 @@ export default {
       });
     }
     const corsOrigin = publicDataCorsOrigin(request, url.pathname);
+    const isRead = request.method === "GET" || request.method === "HEAD";
+    const floridaDb = bindings.FL_SALES_DB;
+
+    if (floridaDb && isRead && /^\/browse\/fl\/?$/i.test(url.pathname)) {
+      return Response.redirect("https://realtorsdashboard.com/florida" + url.search, 301);
+    }
+
+    if (isRead && isFloridaDocument(url.pathname)) {
+      const limiter = url.search ? env.SEARCH_RATE_LIMIT : env.PUBLIC_RATE_LIMIT;
+      const limited = await limiter.limit({ key: request.headers.get("cf-connecting-ip") || "unknown" });
+      if (!limited.success) return new Response(request.method === "HEAD" ? null : "Too many requests. Please try again shortly.", {
+        status: 429, headers: { "cache-control": "no-store", "retry-after": "60" },
+      });
+      return floridaDocument(request, floridaDb);
+    }
 
     if (url.pathname === "/.well-known/api-catalog") return apiCatalogResponse(request);
-    if (isSitemapPath(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
-      const xml = getSitemapXml(url.pathname);
+    if (isSitemapPath(url.pathname) && isRead) {
+      let xml = getSitemapXml(url.pathname);
+      if (floridaDb && url.pathname === "/sitemap.xml" && xml) {
+        // The binding is deployed only after the replacement Florida database
+        // is verified and activated. The main sitemap is independent of D1.
+        xml = xml.replace("</sitemapindex>",
+          "  <sitemap><loc>https://realtorsdashboard.com" + floridaSitemapPath + "</loc></sitemap>\n</sitemapindex>");
+      } else if (floridaDb && url.pathname === floridaSitemapPath) {
+        try {
+          xml = (await floridaSitemap(floridaDb)) ?? undefined;
+        } catch (error) {
+          console.error("Florida sitemap unavailable", error instanceof Error ? error.message : String(error));
+          return new Response(request.method === "HEAD" ? null : "Florida sitemap temporarily unavailable", {
+            status: 503, headers: { "cache-control": "no-store", "retry-after": "120" },
+          });
+        }
+      }
       if (!xml) return new Response("Sitemap not found", { status: 404 });
       return new Response(request.method === "HEAD" ? null : xml, {
         headers: {
           "content-type": "application/xml; charset=utf-8",
           "cache-control": "public, max-age=300, no-transform",
-          "x-rd-dataset-version": publishedSitemap.datasetVersionId,
+          ...(url.pathname !== floridaSitemapPath && { "x-rd-dataset-version": publishedSitemap.datasetVersionId }),
         },
       });
     }
