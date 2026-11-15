@@ -17,7 +17,7 @@
     "cf:types": "wrangler types",
     "check": "tsc",
     "db:push": "tsx scripts/run-d1.ts scripts/database-write-gate.ts && wrangler d1 migrations apply DB --remote --config wrangler.data.jsonc",
-    "test:regression": "tsx --test scripts/tests/regression.test.ts",
+    "test:regression": "tsx --test scripts/tests/regression.test.ts scripts/tests/texas-housing.test.ts",
     "regression:live": "tsx scripts/regression-live.ts",
     "data:audit": "tsx scripts/run-d1.ts scripts/data-quality-audit.ts",
     "data:safety": "tsx scripts/run-d1.ts scripts/database-safety-check.ts",

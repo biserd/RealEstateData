@@ -98,7 +98,7 @@ function html(request: Request, title: string, description: string, body: string
     "select{font:inherit;padding:.5rem .65rem;border:1px solid var(--line);border-radius:.35rem;background:var(--card);color:var(--ink)}" +
     "footer{border-block-start:1px solid var(--line);border-block-end:0}</style></head><body>" +
     '<header><nav aria-label="Main"><strong><a href="/">Realtors Dashboard</a></strong><a href="/browse/ny">New York</a>' +
-    '<a href="/florida">Florida</a><a href="/methodology/data-coverage">Data coverage</a></nav></header><main>' + breadcrumbNavigation + body +
+    '<a href="/florida">Florida</a><a href="/texas">Texas housing data</a><a href="/methodology/data-coverage">Data coverage</a></nav></header><main>' + breadcrumbNavigation + body +
     '</main><footer><p>Source <a href="' + floridaSource + '">Florida Geospatial Open Data Portal</a> and Florida Department of Revenue.</p></footer></body></html>',
     status, headers);
 }

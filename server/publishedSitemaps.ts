@@ -2,6 +2,7 @@ import snapshotData from "./publishedSitemapSnapshot.json";
 import { getStaticSitemapEntries, type PageMeta } from "./seoMetaTags";
 import { escapeSitemapXml, SITEMAP_ORIGIN, SITEMAP_PAGE_SIZE, type SitemapRecord, type SitemapSnapshot } from "./sitemapSnapshot";
 import type { PublishedSaleLink, PublishedZipLink } from "../shared/publishedMarketLinks";
+import { texasSitemapEntries, texasSitemapPath } from "./texasDocuments";
 
 export const publishedSitemap = snapshotData as SitemapSnapshot;
 // These retired slugs failed the public eligibility check for this
@@ -19,6 +20,7 @@ const crawlLinksUpdatedAt = "2026-11-13";
 type Entry = { path: string; lastmod: string };
 const sections = new Map<string, Entry[]>();
 sections.set("/sitemap-static.xml", getStaticSitemapEntries());
+sections.set(texasSitemapPath, texasSitemapEntries);
 const entriesByPath = new Map<string, SitemapRecord>();
 
 function addSection(path: string, records: SitemapRecord[]) {

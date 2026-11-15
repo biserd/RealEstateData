@@ -6,6 +6,7 @@ import { handleMcpRequest, isMcpPath } from "./mcp";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
 import { floridaDocument, floridaSitemap, floridaSitemapPath, isFloridaDocument } from "./floridaDocuments";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
+import { isTexasDocument, texasDocument, texasSitemapPath } from "./texasDocuments";
 import {
   getPublishedPageFallback, getSitemapXml, isRetiredPublishedPath, isSitemapPath, publishedCrawlLinks,
   publishedSalesForZip, publishedSitemap, publishedZipLinks,
@@ -430,13 +431,18 @@ export default {
       return Response.redirect("https://realtorsdashboard.com/florida" + url.search, 301);
     }
 
-    if (isRead && isFloridaDocument(url.pathname)) {
+    if (isRead && /^\/browse\/tx\/?$/i.test(url.pathname)) {
+      return Response.redirect("https://realtorsdashboard.com/texas" + url.search, 301);
+    }
+
+    const texasPath = isTexasDocument(url.pathname);
+    if (isRead && (texasPath || isFloridaDocument(url.pathname))) {
       const limiter = url.search ? env.SEARCH_RATE_LIMIT : env.PUBLIC_RATE_LIMIT;
       const limited = await limiter.limit({ key: request.headers.get("cf-connecting-ip") || "unknown" });
       if (!limited.success) return new Response(request.method === "HEAD" ? null : "Too many requests. Please try again shortly.", {
         status: 429, headers: { "cache-control": "no-store", "retry-after": "60" },
       });
-      return floridaDocument(request, floridaDb);
+      return texasPath ? texasDocument(request) : floridaDocument(request, floridaDb);
     }
 
     if (url.pathname === "/.well-known/api-catalog") return apiCatalogResponse(request);
@@ -462,7 +468,7 @@ export default {
         headers: {
           "content-type": "application/xml; charset=utf-8",
           "cache-control": "public, max-age=300, no-transform",
-          ...(url.pathname !== floridaSitemapPath && { "x-rd-dataset-version": publishedSitemap.datasetVersionId }),
+          ...(url.pathname !== floridaSitemapPath && url.pathname !== texasSitemapPath && { "x-rd-dataset-version": publishedSitemap.datasetVersionId }),
         },
       });
     }

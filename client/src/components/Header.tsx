@@ -147,6 +147,12 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                   </Button>
                 </Link>
               ))}
+              <Button asChild variant="ghost" className="w-full justify-start gap-3 h-10 text-sm">
+                <a href="/texas" data-testid="mobile-nav-browse-texas">
+                  <MapPin className="h-4 w-4" />
+                  Texas housing data
+                </a>
+              </Button>
             </nav>
             <div className="absolute bottom-0 left-0 right-0 border-t p-4">
               <div className="flex items-center justify-between">
@@ -230,6 +236,9 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                     Connecticut
                   </DropdownMenuItem>
                 </Link>
+                <DropdownMenuItem asChild className="cursor-pointer" data-testid="nav-browse-tx">
+                  <a href="/texas">Texas housing data</a>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </nav>

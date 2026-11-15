@@ -93,7 +93,7 @@ const FAQ_JSONLD: Record<string, any> = {
       name: 'Which areas do you cover?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'NYC coverage includes exact recorded sales and condo identities. The Florida property sales directory covers all 67 counties using sale months and prices from the state parcel roll.',
+        text: 'NYC coverage includes exact recorded sales and condo identities. The Florida property sales directory covers all 67 counties using sale months and prices from the state parcel roll. Texas coverage includes Census housing data and available FHFA trends for county-level research.',
       },
     },
     {
@@ -433,7 +433,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/methodology/data-coverage': {
     title: 'Data Coverage - States, Sources, and Refresh Cadence | Realtors Dashboard',
-    description: 'Official sources and refresh dates for NYC recorded sales, Florida property sales by county, and published market data.',
+    description: 'Official sources and refresh dates for NYC recorded sales, Florida property sales, and Texas county housing data.',
     ogType: 'article',
     canonicalPath: '/methodology/data-coverage',
     h1: 'Data Coverage',
@@ -443,6 +443,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       <ul>
         <li><strong>New York City:</strong> verified recorded sales and official condo-unit identities; only exact source-backed sale matches are indexable.</li>
         <li><strong>Florida:</strong> <a href="/florida">past residential property sales in all 67 counties</a> from the Florida Department of Revenue parcel roll. Florida sale dates have month precision.</li>
+        <li><strong>Texas:</strong> <a href="/texas">housing data for all 254 counties</a>, including Census estimates, available FHFA trends, and a directory of local appraisal records.</li>
         <li><strong>New Jersey and Connecticut:</strong> not part of the current verified public detail publication; validation remains pending.</li>
         <li><strong>Live listings:</strong> unavailable. Pages describe recorded transactions and published analytical snapshots.</li>
       </ul>

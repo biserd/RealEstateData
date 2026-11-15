@@ -211,3 +211,27 @@ Bind the verified Florida database as `FL_SALES_DB`. After deploying, check
 `/florida`, the 67 county URLs, a ZIP/address search, and the Florida child
 sitemap linked from `/sitemap.xml`. Keep the prior database available so
 rolling back the Worker also restores its prior Florida snapshot.
+
+## Texas county housing data
+
+The Texas directory covers Census housing estimates and available FHFA annual
+price trends for all 254 counties. It links to the Texas Comptroller's county
+appraisal directory for parcel and appraisal records. The Census median is an
+owner-reported estimate. The FHFA series measures price change for the mortgages
+in its sample. Individual Texas closing prices and active listings require
+a separate feed.
+
+Manually build a candidate with a fresh local cache directory and Python 3.10 or
+later. Set the ACS and adjacency vintages to available official releases and
+use the publication date for the deployment.
+
+```bash
+python scripts/build-texas-housing.py --cache .cache/texas-2026-11-15 --acs-year 2024 --adjacency-year 2026 --published-on 2026-11-15
+```
+
+Review the generated `server/texasHousingSnapshot.json`, including statewide
+and county estimates, FHFA revision date, and any counties with sparse data.
+Run `npx tsx --test scripts/tests/texas-housing.test.ts` before deploying.
+The Worker bundles the verified snapshot. The profile and sitemap share
+one eligibility check, so counties with insufficient market data stay available
+through the comparison directory and outside `/sitemap-texas.xml`.
