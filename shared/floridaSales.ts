@@ -27,3 +27,22 @@ export const floridaUses = {
 export const floridaSource = "https://geodata.floridagio.gov/";
 export const floridaParcelLayer = "https://services9.arcgis.com/Gh9awoU677aKree0/ArcGIS/rest/services/Florida_Statewide_Parcel_Centroid_Version/FeatureServer/0";
 export const floridaZip = /^(?:3[23]\d|34[1-9])\d{2}$/;
+export const floridaAdjacencySource = "https://www.census.gov/geographies/reference-files/2026/geo/county-adjacency.html";
+
+export type FloridaPriceStats = { records: number; p25: number; median: number; p75: number };
+export type FloridaPriceGroup = FloridaPriceStats & { key: string };
+export type FloridaMarketProfile = FloridaPriceStats & {
+  zipCount: number;
+  propertyTypes: FloridaPriceGroup[];
+  recentMonths: FloridaPriceGroup[];
+};
+export type FloridaCountyProfile = FloridaMarketProfile & {
+  topZips: FloridaPriceGroup[];
+  topCities: FloridaPriceGroup[];
+  neighbors: number[];
+};
+export type FloridaInsightsSnapshot = {
+  release: string;
+  statewide: FloridaMarketProfile;
+  counties: Record<string, FloridaCountyProfile>;
+};

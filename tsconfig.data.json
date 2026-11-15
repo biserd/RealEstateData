@@ -8,6 +8,7 @@
     "scripts/migrate-canonical-geographies.ts",
     "scripts/refresh-live-data.ts",
     "scripts/refresh-florida-sales.ts",
+    "scripts/build-florida-insights.ts",
     "scripts/prepare-florida-release.ts",
     "scripts/build-candidate-dataset.ts",
     "scripts/capture-sitemap.ts",

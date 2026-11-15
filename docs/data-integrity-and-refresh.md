@@ -179,6 +179,22 @@ can resume unfinished counties for that same source revision. A run with
 `--county=miami-dade`, for example, can verify a single county. Preparing the D1
 import requires all 67 counties to have verified rows and matching totals.
 
+Build the county profiles from the same verified candidate SQLite snapshot
+before committing and deploying its Worker. Download the official
+[Census county adjacency file](https://www2.census.gov/geo/docs/reference/county_adjacency/county_adjacency2026.txt)
+alongside the staged snapshot.
+
+\`\`\`bash
+npx tsx scripts/build-florida-insights.ts .cache/florida/statewide.sqlite .cache/florida/county-adjacency-2026.txt
+\`\`\`
+
+This updates \`server/floridaInsightsSnapshot.json\` with statewide and county
+price distributions, sale months, ZIPs, postal cities, property types, and
+links to neighboring Florida counties. Pages use these profiles only when
+their release ID, county counts, and most recent sale months match active D1
+coverage. The request path reads precomputed profiles rather than scanning
+Florida sales to recalculate statistics.
+
 Stage the generated SQL in a separate Florida D1 database. It leaves the release
 inactive. Verify counts, test the site against the staged binding, and activate
 the exact staged ID only after the checks pass. The command below assumes
