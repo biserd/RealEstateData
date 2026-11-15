@@ -4,6 +4,9 @@ import { getPublishedFreshness } from "./dataEnvelope";
 import { consumeQuota, type SubscriptionTier } from "./quota";
 import { publishedMarketAggregates, publishedUpAndComing } from "./storage";
 import manifest from "../server.json";
+import { datasetInputSchema, datasetOperationEntries } from "../shared/datasetOperations";
+import { runDatasetOperation } from "./datasetService";
+import { DatasetError } from "./datasetError";
 
 const validator = new CfWorkerJsonSchemaValidator();
 const annotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -39,7 +42,7 @@ function toolError(text: string) {
   return { content: [{ type: "text" as const, text }], isError: true };
 }
 
-export function createRealtorsMcp(account?: McpAccount) {
+export function createRealtorsMcp(account?: McpAccount, floridaDb?: D1Database) {
   return createMcpHandler(() => {
     const server = new McpServer({
       name: "realtors-dashboard",
@@ -49,7 +52,7 @@ export function createRealtorsMcp(account?: McpAccount) {
       icons: manifest.icons,
     }, {
       jsonSchemaValidator: validator,
-      instructions: "Use these tools for NYC recorded-sale research. Results use manually published data and never broaden an exact ZIP request. Sign in to run tools.",
+      instructions: "Use these tools to research published U.S. housing markets, Florida recorded sales and verified NYC records. Prices and sources are labeled per dataset. Sign in to run tools.",
     });
 
     async function run(read: () => Promise<Record<string, unknown>>) {
@@ -60,7 +63,8 @@ export function createRealtorsMcp(account?: McpAccount) {
         if (!quota.allowed) return toolError(`Daily search allowance used. Resets at ${new Date(quota.resetAt).toISOString()}.`);
         const data = await read();
         return { structuredContent: data, content: [{ type: "text" as const, text: JSON.stringify(data) }] };
-      } catch {
+      } catch (error) {
+        if (error instanceof DatasetError) return toolError(error.message);
         console.error("Realtors Dashboard MCP published data read failed");
         return toolError("Published data is temporarily unavailable. Try again shortly.");
       }
@@ -123,6 +127,13 @@ export function createRealtorsMcp(account?: McpAccount) {
         })),
       };
     }));
+    for (const [name, operation] of datasetOperationEntries) {
+      server.registerTool(name, {
+        title: operation.title, description: operation.description,
+        inputSchema: fromJsonSchema<Record<string, string | number | undefined>>(datasetInputSchema(operation), validator),
+        annotations,
+      }, input => run(() => runDatasetOperation(name, input, floridaDb)));
+    }
     return server;
   });
 }

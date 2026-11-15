@@ -2,18 +2,67 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Realtors Dashboard Partner Data API",
-    "version": "1.0.0",
-    "description": "Read-only access to the currently published real-estate dataset. Availability and coverage depend on the latest manually published snapshot. An account holder must create an API key in Settings; this API does not offer OAuth or autonomous agent registration."
+    "version": "1.1.0",
+    "description": "Read-only access to U.S. housing markets, Florida recorded-sale releases, and verified NYC property and market records. Use an active Pro API key in the x-api-key header."
   },
-  "servers": [{ "url": "https://realtorsdashboard.com" }],
-  "security": [{ "apiKey": [] }],
+  "servers": [
+    {
+      "url": "https://realtorsdashboard.com"
+    }
+  ],
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
   "components": {
     "securitySchemes": {
-      "apiKey": { "type": "apiKey", "in": "header", "name": "x-api-key" }
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
     },
     "responses": {
-      "Unauthorized": { "description": "Missing, invalid, or expired API key." },
-      "RateLimited": { "description": "Request quota or burst limit exceeded; retry according to the response headers." }
+      "Unauthorized": {
+        "description": "Missing, invalid, or expired API key."
+      },
+      "RateLimited": {
+        "description": "Request quota or burst limit exceeded; retry according to the response headers."
+      }
+    },
+    "schemas": {
+      "PublishedDatasetResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PublishedDatasetError": {
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "properties": {
+          "success": {
+            "const": false
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "paths": {
@@ -22,32 +71,126 @@
         "summary": "Search published properties",
         "description": "Returns currently eligible published records, not live listings. An exact-ZIP request may return no records when that ZIP has no eligible publication.",
         "parameters": [
-          { "name": "state", "in": "query", "schema": { "type": "string", "enum": ["NY", "NJ", "CT"] } },
-          { "name": "cities", "in": "query", "description": "Comma-separated city names.", "schema": { "type": "string" } },
-          { "name": "zipCodes", "in": "query", "description": "Comma-separated five-digit ZIP codes.", "schema": { "type": "string" } },
-          { "name": "propertyTypes", "in": "query", "description": "Comma-separated property types.", "schema": { "type": "string" } },
-          { "name": "opportunityScoreMin", "in": "query", "schema": { "type": "integer", "minimum": 0, "maximum": 100 } },
-          { "name": "priceMin", "in": "query", "schema": { "type": "integer", "minimum": 0 } },
-          { "name": "priceMax", "in": "query", "schema": { "type": "integer", "minimum": 0 } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } },
-          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } }
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NY",
+                "NJ",
+                "CT"
+              ]
+            }
+          },
+          {
+            "name": "cities",
+            "in": "query",
+            "description": "Comma-separated city names.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "zipCodes",
+            "in": "query",
+            "description": "Comma-separated five-digit ZIP codes.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "propertyTypes",
+            "in": "query",
+            "description": "Comma-separated property types.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "opportunityScoreMin",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "priceMin",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "priceMax",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Published properties matching the supplied filters." },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "429": { "$ref": "#/components/responses/RateLimited" }
+          "200": {
+            "description": "Published properties matching the supplied filters."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
         }
       }
     },
     "/api/external/properties/{id}": {
       "get": {
         "summary": "Get a published property by ID or slug",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "200": { "description": "Property details." },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "description": "Property not found." },
-          "429": { "$ref": "#/components/responses/RateLimited" }
+          "200": {
+            "description": "Property details."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Property not found."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
         }
       }
     },
@@ -55,38 +198,95 @@
       "get": {
         "summary": "Get published market aggregates for a geography",
         "parameters": [
-          { "name": "geoType", "in": "query", "required": true, "schema": { "type": "string" } },
-          { "name": "geoId", "in": "query", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "geoType",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "geoId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Market aggregates; may be empty when coverage is unavailable." },
-          "400": { "description": "Missing geography parameters." },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "429": { "$ref": "#/components/responses/RateLimited" }
+          "200": {
+            "description": "Market aggregates; may be empty when coverage is unavailable."
+          },
+          "400": {
+            "description": "Missing geography parameters."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
         }
       }
     },
     "/api/external/comps/{propertyId}": {
       "get": {
         "summary": "Get published comparable sales for a property",
-        "parameters": [{ "name": "propertyId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "200": { "description": "Comparable sales; may be empty when coverage is unavailable." },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "429": { "$ref": "#/components/responses/RateLimited" }
+          "200": {
+            "description": "Comparable sales; may be empty when coverage is unavailable."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
         }
       }
     },
     "/api/external/zip/{zipCode}": {
       "get": {
         "summary": "Get a published ZIP market summary",
-        "parameters": [{ "name": "zipCode", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[0-9]{5}$" } }],
+        "parameters": [
+          {
+            "name": "zipCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$"
+            }
+          }
+        ],
         "responses": {
-          "200": { "description": "ZIP-level market summary." },
-          "400": { "description": "Invalid ZIP code." },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "description": "No published ZIP market data." },
-          "429": { "$ref": "#/components/responses/RateLimited" }
+          "200": {
+            "description": "ZIP-level market summary."
+          },
+          "400": {
+            "description": "Invalid ZIP code."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No published ZIP market data."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
         }
       }
     },
@@ -94,13 +294,980 @@
       "get": {
         "summary": "Get published ZIP momentum rankings",
         "parameters": [
-          { "name": "state", "in": "query", "schema": { "type": "string", "enum": ["NY", "NJ", "CT"] } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 } }
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NY",
+                "NJ",
+                "CT"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Published ZIP rankings; may be empty when no ZIP is eligible." },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "429": { "$ref": "#/components/responses/RateLimited" }
+          "200": {
+            "description": "Published ZIP rankings; may be empty when no ZIP is eligible."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/api/external/datasets": {
+      "get": {
+        "operationId": "list_published_datasets",
+        "summary": "Published real estate datasets",
+        "description": "Discover published nationwide market data, Florida recorded sales, and the NYC property, sale and comparable data. Includes coverage, provenance and available operations.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/housing-markets": {
+      "get": {
+        "operationId": "search_housing_markets",
+        "summary": "Search U.S. housing markets",
+        "description": "Search the published 50-state and DC dataset by state, county, Census place, or ZIP. Filter or sort on asking price or Census owner-reported value. Use a geography level to enumerate its records.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Location, for example Springfield, MA or 02108",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "Two-letter USPS state or DC abbreviation",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2,
+              "pattern": "^[A-Za-z]{2}$"
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "description": "Geography",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "state",
+                "county",
+                "place",
+                "zip"
+              ]
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "description": "Price filter basis",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ask",
+                "value"
+              ]
+            }
+          },
+          {
+            "name": "min",
+            "in": "query",
+            "required": false,
+            "description": "Price in US dollars",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999999999
+            }
+          },
+          {
+            "name": "max",
+            "in": "query",
+            "required": false,
+            "description": "Price in US dollars",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999999999
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Ordering",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "relevance",
+                "value-asc",
+                "value-desc",
+                "ask-asc",
+                "ask-desc"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Result page, starting at 1",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum records to return",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/housing-markets/{level}/{id}": {
+      "get": {
+        "operationId": "get_housing_market",
+        "summary": "Get an exact U.S. housing market",
+        "description": "Get national or exact state, county, or ZIP pricing, housing stock, and available FHFA trend data. No broader substitute is returned.",
+        "parameters": [
+          {
+            "name": "level",
+            "in": "path",
+            "required": true,
+            "description": "Geography type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "national",
+                "state",
+                "county",
+                "zip"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "US for national, USPS abbreviation for state, five-digit FIPS for county, or five-digit ZIP",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/florida/counties": {
+      "get": {
+        "operationId": "list_florida_counties",
+        "summary": "Florida recorded-sale coverage",
+        "description": "List the active release, property counts and latest recorded-sale month for all 67 Florida counties.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/florida/profile": {
+      "get": {
+        "operationId": "get_florida_sales_profile",
+        "summary": "Florida recorded-sale market profile",
+        "description": "Get statewide or county sale price quartiles, property-type and month breakdowns, and the published county ZIP and city breakdowns. Price statistics require at least 10 records.",
+        "parameters": [
+          {
+            "name": "county",
+            "in": "query",
+            "required": false,
+            "description": "Florida county slug, for example miami-dade",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/florida/sales": {
+      "get": {
+        "operationId": "search_florida_recorded_sales",
+        "summary": "Search Florida recorded property sales",
+        "description": "Read an exact county's published residential sales. Filter by postal ZIP, city, address, property type, or month. Follow the next cursor with the same filters. Dates have month precision.",
+        "parameters": [
+          {
+            "name": "county",
+            "in": "query",
+            "required": true,
+            "description": "Florida county slug, for example miami-dade",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          {
+            "name": "zip",
+            "in": "query",
+            "required": false,
+            "description": "Five-digit ZIP code, including leading zeroes",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 5,
+              "pattern": "^[0-9]{5}$"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "description": "Exact postal city",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 46
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Address or city text",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Florida DOR property use code",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "001",
+                "002",
+                "003",
+                "004",
+                "005",
+                "006",
+                "007",
+                "008"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "Sale month as YYYY-MM",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 7,
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Sale month as YYYY-MM",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 7,
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Next cursor from the preceding page",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum records to return",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "409": {
+            "description": "The Florida dataset was refreshed. Start a new search."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/nyc/properties": {
+      "get": {
+        "operationId": "search_nyc_properties",
+        "summary": "Search published NYC properties and condo units",
+        "description": "Browse verified property or residential condo unit identities. Filter by exact NYC ZIP or an address fragment. Property prices are labeled separately from condo sales.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "description": "Record type (default property)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "property",
+                "unit"
+              ]
+            }
+          },
+          {
+            "name": "zip",
+            "in": "query",
+            "required": false,
+            "description": "Five-digit ZIP code, including leading zeroes",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 5,
+              "pattern": "^[0-9]{5}$"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Address fragment",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum records to return",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Number of records to skip",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/nyc/properties/{id}": {
+      "get": {
+        "operationId": "get_nyc_property",
+        "summary": "Get a published NYC property or condo unit",
+        "description": "Resolve a verified published NYC property ID, condo unit BBL, or condo unit page slug.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Exact published property ID, condo unit BBL, or condo unit slug",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/nyc/sales": {
+      "get": {
+        "operationId": "list_nyc_recorded_sales",
+        "summary": "List verified NYC recorded sales",
+        "description": "Read verified recorded sales for an exact NYC ZIP, published property ID, condo unit BBL, or building BBL. Provide exactly one location selector. Dates have day precision.",
+        "parameters": [
+          {
+            "name": "zip",
+            "in": "query",
+            "required": false,
+            "description": "Five-digit ZIP code, including leading zeroes",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 5,
+              "pattern": "^[0-9]{5}$"
+            }
+          },
+          {
+            "name": "propertyId",
+            "in": "query",
+            "required": false,
+            "description": "Exact published property ID, condo unit BBL, or condo unit slug",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            }
+          },
+          {
+            "name": "unitBbl",
+            "in": "query",
+            "required": false,
+            "description": "Exact ten-digit condo unit BBL",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10,
+              "pattern": "^[1-5][0-9]{9}$"
+            }
+          },
+          {
+            "name": "baseBbl",
+            "in": "query",
+            "required": false,
+            "description": "Exact ten-digit building BBL",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10,
+              "pattern": "^[1-5][0-9]{9}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum records to return",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Number of records to skip",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/nyc/properties/{id}/comps": {
+      "get": {
+        "operationId": "get_nyc_property_comps",
+        "summary": "Get published NYC comparable sales",
+        "description": "Read the current published comparable sale set for a verified NYC property or condo unit. Scores and adjusted amounts describe the comparable model.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Exact published property ID, condo unit BBL, or condo unit slug",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum records to return",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Number of records to skip",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/external/nyc/market-stats": {
+      "get": {
+        "operationId": "get_nyc_market_aggregates",
+        "summary": "Get exact NYC recorded-sale aggregates",
+        "description": "Read the active NYC market publication by exact ZIP or published geography ID, including date, sample count, price and trend. State statistics summarize published NYC ZIP benchmarks.",
+        "parameters": [
+          {
+            "name": "geoType",
+            "in": "query",
+            "required": true,
+            "description": "Publication geography type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "zip",
+                "state",
+                "municipality",
+                "neighborhood",
+                "county"
+              ]
+            }
+          },
+          {
+            "name": "geoId",
+            "in": "query",
+            "required": true,
+            "description": "ZIP, NY, or an exact published geography ID",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published dataset response with source and coverage metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incompatible parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedDatasetError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No eligible data matches this exact market or property."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "The selected publication is temporarily unavailable."
+          }
         }
       }
     }

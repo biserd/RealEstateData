@@ -54,6 +54,10 @@ test("agent discovery advertises only the existing API-key partner API", async (
     "https://realtorsdashboard.com/api/external/properties",
     "https://realtorsdashboard.com/api/external/market-stats",
     "https://realtorsdashboard.com/api/external/up-and-coming",
+    "https://realtorsdashboard.com/api/external/datasets",
+    "https://realtorsdashboard.com/api/external/housing-markets",
+    "https://realtorsdashboard.com/api/external/florida/sales",
+    "https://realtorsdashboard.com/api/external/nyc/sales",
   ]);
   assert.equal(catalog.linkset[1].anchor, items[0].href);
   const headResponse = apiCatalogResponse(new Request(catalogUrl, { method: "HEAD" }));

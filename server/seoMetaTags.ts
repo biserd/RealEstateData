@@ -363,7 +363,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     h1: developerDocs.heading,
     bodyHtml: `
       <h2>REST API</h2>
-      <p>Use an API key to access published properties, market statistics, comparable sales, and trending ZIP codes. <a href="/openapi.json">Read the OpenAPI specification</a>.</p>
+      <p>Use an API key to search all 50 states and Washington, DC, browse Florida recorded sales, and access verified NYC properties, comparable sales, and market statistics. <a href="/openapi.json">Read the OpenAPI specification</a>.</p>
       <h2 id="mcp">${developerDocs.mcpHeading}</h2>
       <p>${developerDocs.mcpUsage}</p>
       <p><code>${developerDocs.mcpEndpoint}</code></p>

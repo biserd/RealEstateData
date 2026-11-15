@@ -15,6 +15,7 @@ import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import { apiKeyService } from "./apiKeyService";
 import { externalApiMiddleware } from "./apiMiddleware";
+import { registerDatasetRoutes } from "./datasetRoutes";
 import { sendWelcomeEmail, sendNewUserNotificationToAdmin, sendActivationEmail, sendPasswordResetEmail } from "./emailService";
 import { getOrGenerateNarrative } from "./narratives";
 import { usageService, ActionType } from "./usageService";
@@ -277,7 +278,8 @@ function generateUnitSlug(unit: {
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
+  floridaDb?: D1Database
 ): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -3656,6 +3658,8 @@ Sitemap: ${baseUrl}/sitemap.xml
   // EXTERNAL API ROUTES (API key authenticated)
   // ============================================
 
+  registerDatasetRoutes(app, floridaDb);
+
   app.get("/api/external/properties", externalApiMiddleware, async (req: any, res: any) => {
     try {
       const filters: ScreenerFilters = {
@@ -3678,6 +3682,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       // propertyTypes filter or it includes Condo.
       const nycZipPrefixes = ["100", "101", "102", "103", "104", "110", "111", "112", "113", "114", "116"];
       const isNycZipOnly =
+        (!filters.state || filters.state === "NY") &&
         filters.zipCodes && filters.zipCodes.length > 0 &&
         (!filters.cities || filters.cities.length === 0) &&
         filters.zipCodes.every((z) => nycZipPrefixes.some((p) => z.startsWith(p))) &&

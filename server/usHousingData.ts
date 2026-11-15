@@ -21,6 +21,7 @@ export const housingSitemapPath = "/sitemap-housing-markets.xml";
 export const housingSources = {
   census: "https://www.census.gov/programs-surveys/acs/data/summary-file." + profiles.acsYear + ".html",
   inventory: "https://www.realtor.com/research/data/",
+  inventoryPeriod: profiles.inventoryMonth,
   prices: "https://www.fhfa.gov/data/hpi/datasets",
   adjacency: "https://www.census.gov/geographies/reference-files/" + profiles.adjacencyYear + "/geo/county-adjacency.html",
   zcta: "https://www.census.gov/programs-surveys/geography/guidance/geo-areas/zctas.html",

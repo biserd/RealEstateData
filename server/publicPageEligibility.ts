@@ -123,3 +123,18 @@ export function publicUnitPageSql(alias = "cu"): SQL {
     )
   `;
 }
+
+/** Partner sale rows follow the public provenance and quarantine rules. */
+export function publicRecordedSaleSql(alias: string, minimum: number): SQL {
+  const sale = tableAlias(alias);
+  return sql`
+    ${sale}.sale_price BETWEEN ${minimum} AND 100000000
+    AND ${sale}.sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-120 months') || '000Z')
+    AND (${sale}.source_id IS NOT NULL OR ${sale}.match_method IS NOT NULL OR ${sale}.raw_block IS NOT NULL OR ${sale}.raw_lot IS NOT NULL)
+    AND NOT EXISTS (
+      SELECT 1 FROM data_quality_quarantine partner_sale_quarantine
+      WHERE partner_sale_quarantine.source_table = 'sales' AND partner_sale_quarantine.source_id = ${sale}.id
+        AND partner_sale_quarantine.review_status IN ('pending', 'rejected')
+    )
+  `;
+}

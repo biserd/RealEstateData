@@ -21,7 +21,7 @@ export function log(message: string, source = "express") {
   }));
 }
 
-export async function createApp(options: { runtime: RuntimeMode }) {
+export async function createApp(options: { runtime: RuntimeMode; floridaDb?: D1Database }) {
   const app = express();
   const httpServer = createServer(app);
   app.disable("x-powered-by");
@@ -83,7 +83,7 @@ export async function createApp(options: { runtime: RuntimeMode }) {
     next();
   });
 
-  await registerRoutes(httpServer, app);
+  await registerRoutes(httpServer, app, options.floridaDb);
 
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     const status =

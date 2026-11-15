@@ -6,37 +6,22 @@ import {
 } from "./floridaInsights";
 import { escapeSitemapXml, SITEMAP_ORIGIN } from "./sitemapSnapshot";
 
-type ActiveRelease = { id: string; source_updated_at: string; start_month: string; published_at: string };
-type CountyCoverage = { county_code: number; records: number; latest_month: string };
-type SaleRow = { address: string; city: string; zip: string; property_use: keyof typeof floridaUses; sale_month: string; price: number };
+import { activeFloridaRelease, floridaCountyBySlug as countyBySlug, floridaCoverage, type ActiveFloridaRelease, type FloridaSaleRow } from "./floridaDataset";
 
 const escape = escapeSitemapXml;
-const countyBySlug = new Map(floridaCounties.map(county => [county.slug, county]));
 const pageSize = 50;
 const root = "/florida";
 const insightsPublishedOn = "2026-11-15";
 export const floridaSitemapPath = "/sitemap-florida.xml";
-
-async function activeRelease(db: D1Database) {
-  return db.prepare("SELECT id, source_updated_at, start_month, published_at FROM florida_releases WHERE published_at IS NOT NULL")
-    .first<ActiveRelease>();
-}
-
-async function coverage(db: D1Database, release: string) {
-  const rows = await db.prepare("SELECT county_code, records, latest_month FROM florida_coverage WHERE release_id = ?")
-    .bind(release).all<CountyCoverage>();
-  return new Map(rows.results.map(row => [row.county_code, row]));
-}
 
 export function isFloridaDocument(pathname: string): boolean {
   return pathname === root || pathname.startsWith(root + "/");
 }
 
 export async function floridaSitemap(db: D1Database) {
-  const release = await activeRelease(db);
+  const release = await activeFloridaRelease(db);
   if (!release) return null;
-  const areas = await coverage(db, release.id);
-  if (areas.size !== floridaCounties.length) throw new Error("Incomplete Florida sitemap inventory");
+  const areas = await floridaCoverage(db, release.id);
   const dataDate = release.published_at.slice(0, 10);
   const lastmod = getFloridaInsights(release.id, areas) && insightsPublishedOn > dataDate ? insightsPublishedOn : dataDate;
   const paths = [root, ...floridaCounties.map(county => root + "/" + county.slug)];
@@ -108,7 +93,7 @@ function html(request: Request, title: string, description: string, body: string
 const notFound = (request: Request) => html(request, "Florida page not found", "Find published Florida county sales.",
   '<h1>Florida page not found</h1><p><a href="/florida">Browse Florida counties</a></p>', 404, root, false);
 
-function sourceNote(release: ActiveRelease) {
+function sourceNote(release: ActiveFloridaRelease) {
   return '<p class="muted">Published ' + escape(release.published_at.slice(0, 10)) +
     ' from the Florida Department of Revenue parcel roll, updated ' + escape(release.source_updated_at.slice(0, 10)) +
     '. The snapshot includes properties whose most recent reported sale qualified and occurred since ' + escape(labelFloridaMonth(release.start_month)) +
@@ -127,10 +112,9 @@ export async function floridaDocument(request: Request, db: D1Database | undefin
   }
   if (!db) return notFound(request);
   try {
-    const release = await activeRelease(db);
+    const release = await activeFloridaRelease(db);
     if (!release) return notFound(request);
-    const areas = await coverage(db, release.id);
-    if (areas.size !== floridaCounties.length) throw new Error("Incomplete published Florida coverage");
+    const areas = await floridaCoverage(db, release.id);
     const insights = getFloridaInsights(release.id, areas);
     if (!county) {
       const total = [...areas.values()].reduce((sum, area) => sum + area.records, 0);
@@ -162,7 +146,7 @@ export async function floridaDocument(request: Request, db: D1Database | undefin
     if (use) { where.push("property_use = ?"); bindings.push(use); }
     const result = await db.prepare("SELECT address, city, zip, property_use, sale_month, price FROM florida_sales WHERE " +
       where.join(" AND ") + " ORDER BY sale_month DESC, parcel_id ASC LIMIT ? OFFSET ?")
-      .bind(...bindings, pageSize + 1, (page - 1) * pageSize).all<SaleRow>();
+      .bind(...bindings, pageSize + 1, (page - 1) * pageSize).all<Omit<FloridaSaleRow, "parcel_id">>();
     if (!result.results.length && (page > 1 || (!zip && !search && !city && !use))) return notFound(request);
     const rows = result.results.slice(0, pageSize).map(row => "<tr><td>" + escape(row.address) + "<br><small>" +
       escape(row.city + ", FL " + row.zip) + "</small></td><td>" + escape(floridaUses[row.property_use]) + "</td><td>" +

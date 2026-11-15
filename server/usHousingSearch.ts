@@ -8,6 +8,11 @@ import {
 const places = placeRows as unknown as Record<string, Place[]>;
 const zips = zipRows as unknown as Record<string, ZipArea>;
 export const pageSize = 40;
+export const housingLocalCoverage = {
+  censusPlaces: Object.values(places).reduce((total, entries) => total + entries.length, 0),
+  zipAndCensusAreas: Object.keys(zips).length,
+};
+export const zipHousingArea = (zip: string) => /^[0-9]{5}$/.test(zip) ? zips[zip] : undefined;
 const levels = ["state", "county", "place", "zip"] as const;
 type Level = typeof levels[number];
 type Sort = "relevance" | "value-asc" | "value-desc" | "ask-asc" | "ask-desc";
@@ -68,7 +73,7 @@ export function readHousingFilters(params: URLSearchParams): SearchFilters {
     min: amount(params.get("min")),
     max: amount(params.get("max")),
     sort: ["value-asc", "value-desc", "ask-asc", "ask-desc"].includes(sort) ? sort : "relevance",
-    page: /^[1-9]\d{0,3}$/.test(page) ? Number(page) : 1,
+    page: /^(?:[1-9]\d{0,3}|10000)$/.test(page) ? Number(page) : 1,
   };
 }
 
@@ -105,7 +110,7 @@ function comparePrice(left: SearchRow, right: SearchRow, sort: Sort) {
   return sort.endsWith("desc") ? b - a : a - b;
 }
 
-export function searchHousing(filters: SearchFilters) {
+export function searchHousing(filters: SearchFilters, limit = pageSize, clampPage = true) {
   const { name, state, exactState } = searchLocation(filters.q, filters.state);
   const selected = state ? states.filter(s => s.code === state) : states;
   const selectedCodes = new Set(selected.map(s => s.code));
@@ -159,11 +164,11 @@ export function searchHousing(filters: SearchFilters) {
   }
   matches.sort((a, b) => comparePrice(a.row, b.row, filters.sort) ||
     b.rank - a.rank || b.row.houses - a.row.houses || a.row.name.localeCompare(b.row.name));
-  const maxPage = Math.max(1, Math.ceil(matches.length / pageSize));
-  const page = Math.min(filters.page, maxPage);
+  const maxPage = Math.max(1, Math.ceil(matches.length / limit));
+  const page = clampPage ? Math.min(filters.page, maxPage) : filters.page;
   return {
     total: matches.length, page, maxPage, reversed,
-    rows: matches.slice((page - 1) * pageSize, page * pageSize).map(result => result.row),
+    rows: matches.slice((page - 1) * limit, page * limit).map(result => result.row),
   };
 }
 

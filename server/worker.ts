@@ -34,7 +34,7 @@ const [{ createApp }, { configureCloudflareEmail }, { configureWorkersAI, isWork
 configureCloudflareEmail(bindings.EMAIL);
 configureWorkersAI(bindings.AI);
 
-const { httpServer } = await createApp({ runtime: "cloudflare" });
+const { httpServer } = await createApp({ runtime: "cloudflare", floridaDb: bindings.FL_SALES_DB });
 const workerPort = 8787;
 httpServer.listen(workerPort);
 const expressHandler = httpServerHandler({ port: workerPort });

@@ -7,7 +7,7 @@ export const API_SPEC_LINK = `<${SPEC_PATH}>; rel="service-desc"; type="applicat
 export const ARD_LINK = `</.well-known/ard.json>; rel="ard"; type="application/json"`;
 export const AI_CATALOG_LINK = `</.well-known/ai-catalog.json>; rel="ai-catalog"; type="application/json"`;
 
-/** RFC 9727 catalog: only the existing, documented partner API is advertised. */
+/** RFC 9727 catalog for the documented partner API. */
 export function apiCatalog(): { linkset: Array<Record<string, unknown>> } {
   return {
     linkset: [
@@ -17,6 +17,10 @@ export function apiCatalog(): { linkset: Array<Record<string, unknown>> } {
           { href: `${SITE_ORIGIN}/api/external/properties` },
           { href: `${SITE_ORIGIN}/api/external/market-stats` },
           { href: `${SITE_ORIGIN}/api/external/up-and-coming` },
+          { href: `${SITE_ORIGIN}/api/external/datasets` },
+          { href: `${SITE_ORIGIN}/api/external/housing-markets` },
+          { href: `${SITE_ORIGIN}/api/external/florida/sales` },
+          { href: `${SITE_ORIGIN}/api/external/nyc/sales` },
         ],
       },
       {

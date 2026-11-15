@@ -62,7 +62,7 @@ import {
   type InsertBuilding,
 } from "@shared/schema";
 import { inferTriStateFromZip } from "@shared/triStateGeography";
-import { publicPropertyPageSql, publicUnitPageSql } from "./publicPageEligibility";
+import { publicPropertyPageSql, publicRecordedSaleSql, publicUnitPageSql } from "./publicPageEligibility";
 import type { HomepageStats } from "../shared/homepageStats";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
 
@@ -800,7 +800,8 @@ export class DatabaseStorage implements IStorage {
         JOIN condo_units cu ON cu.unit_bbl = s.unit_bbl
         WHERE cu.zip_code IN (${zipList})
           AND s.unit_bbl IS NOT NULL
-          AND s.sale_price >= 100000
+          AND ${publicUnitPageSql("cu")}
+          AND ${publicRecordedSaleSql("s", 100_000)}
           AND s.sale_date >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-36 months') || '000Z')
       ), latest_sale AS (
         SELECT unit_bbl, sale_price, sale_date FROM ranked_sales WHERE sale_rank = 1
@@ -842,7 +843,7 @@ export class DatabaseStorage implements IStorage {
       FROM latest_sale ls
       JOIN condo_units cu ON cu.unit_bbl = ls.unit_bbl
       LEFT JOIN properties p ON p.id = cu.building_property_id
-      ORDER BY ls.sale_date DESC, p.opportunity_score DESC NULLS LAST
+      ORDER BY ls.sale_date DESC, p.opportunity_score DESC NULLS LAST, cu.unit_bbl ASC
       LIMIT ${limit} OFFSET ${offset}
     `);
     const rows: any[] = result.rows || [];

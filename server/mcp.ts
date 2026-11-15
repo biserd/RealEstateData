@@ -41,7 +41,7 @@ function consentPage(details: ConsentDescription, handle: string, email: string)
 <p>${details.clientDomain ? `Client domain: <strong>${escape(details.clientDomain)}</strong>.` : "This client supplied its own name."}
 The connection returns to <strong>${escape(details.redirectHost)}</strong>.</p>
 ${details.redirectIsLoopback ? "<p>This sends access to an app on your computer. Continue only if you started the connection there.</p>" : ""}
-<p>Allow this client to read published NYC market data using your account’s search allowance.</p>
+<p>Allow this client to read published U.S. housing data, Florida recorded sales, and NYC property records using your account’s search allowance.</p>
 <form method="post" action="${authorizePath}">
   <input type="hidden" name="handle" value="${escape(handle)}">
   <button name="decision" value="approve">Allow access</button>
@@ -81,7 +81,7 @@ function makeOAuth(issuer: string) {
     requiredScopes: [scope],
     validateToken: (env) => (audience, token) => authorization.validateToken(audience, token, env),
     handler: {
-      async fetch(request, _env, ctx) {
+      async fetch(request, env, ctx) {
         if (!ctx.auth.scope.includes(scope)) return insufficientScope(ctx.auth, [scope]);
         const user = ctx.auth.userId && await storage.getUser(ctx.auth.userId);
         if (!user || (user.status && user.status !== "active")) {
@@ -90,7 +90,7 @@ function makeOAuth(issuer: string) {
         const tier = user.subscriptionStatus === "active" &&
           (user.subscriptionTier === "pro" || user.subscriptionTier === "premium")
           ? user.subscriptionTier : "free";
-        return createRealtorsMcp({ id: user.id, tier }).fetch(request);
+        return createRealtorsMcp({ id: user.id, tier }, (env as Env & { FL_SALES_DB?: D1Database }).FL_SALES_DB).fetch(request);
       },
     },
   });

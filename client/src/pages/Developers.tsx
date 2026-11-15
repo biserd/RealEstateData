@@ -101,7 +101,7 @@ export default function Developers() {
             {developerDocs.heading}
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Access published NYC market data from your application or AI assistant.
+            Access U.S. housing market data, Florida recorded sales, and verified NYC property data from your application or AI assistant.
           </p>
         </div>
 
@@ -144,7 +144,7 @@ export default function Developers() {
         <Card id="mcp" className="mb-12 scroll-mt-24">
           <CardHeader>
             <h2 className="font-semibold leading-none tracking-tight">{developerDocs.mcpHeading}</h2>
-            <CardDescription>Connect an MCP client to research published NYC recorded sales.</CardDescription>
+            <CardDescription>Connect an MCP client to research U.S. housing markets, Florida recorded sales, or NYC property records.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <CodeBlock language="text" code={developerDocs.mcpEndpoint} />
@@ -153,6 +153,17 @@ export default function Developers() {
             <a className="text-primary underline" href="/server.json">MCP server manifest</a>
           </CardContent>
         </Card>
+
+        <section className="space-y-3 mb-12" aria-labelledby="datasets">
+          <h2 id="datasets" className="text-2xl font-semibold">Published datasets</h2>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><code>/api/external/datasets</code> lists current sources, availability, and available operations.</li>
+            <li><code>/api/external/housing-markets</code> searches state, county, Census place, and ZIP profiles.</li>
+            <li><code>/api/external/florida/sales?county=miami-dade</code> pages through recorded sales with month precision.</li>
+            <li><code>/api/external/nyc/sales?zip=10021</code> returns eligible NYC sales with day precision.</li>
+          </ul>
+          <p>API requests use the <code>x-api-key</code> header. See the <a className="text-primary underline" href="/openapi.json">OpenAPI specification</a> for detail paths and filters.</p>
+        </section>
 
         <Tabs defaultValue="getting-started" className="space-y-8">
           <TabsList className="grid w-full grid-cols-4">

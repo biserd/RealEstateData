@@ -10,11 +10,11 @@
       "displayName": "Realtors Dashboard Partner Data API",
       "type": "application/json",
       "url": "https://realtorsdashboard.com/openapi.json",
-      "description": "OpenAPI specification for the API-key-protected published real-estate data API. Access requires an approved key; the API is not an autonomous agent or MCP server.",
+      "description": "OpenAPI specification for the API-key-protected U.S. housing markets, Florida recorded sales, and NYC property data API. Access requires an approved key; the API is not an autonomous agent or MCP server.",
       "tags": ["real estate", "recorded sales", "market data", "API"],
       "representativeQueries": [
         "How can I access Realtors Dashboard published property data through an API?",
-        "Is there an API for published New York City market statistics?"
+        "Can I look up a U.S. housing market or find recorded sales in Florida and New York City?"
       ]
     }
   ]
