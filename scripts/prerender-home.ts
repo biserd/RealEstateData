@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import React from "react";
 import { renderToPipeableStream } from "react-dom/server";
+import { homepageMarketCopy } from "../shared/homepageMarketCopy";
 
 const projectRoot = process.cwd();
 const templatePath = join(projectRoot, "dist", "public", "index.html");
@@ -44,8 +45,14 @@ const markup = await new Promise<string>((resolve, reject) => {
   });
 });
 
-if (!markup.includes('data-testid="text-hero-headline"') || !markup.includes("for Published NYC Sales Data")) {
+if (!markup.includes('data-testid="text-hero-headline"') || !homepageMarketCopy.headline.every(part => markup.includes(part))) {
   throw new Error("Homepage SSR did not include the expected LCP headline");
+}
+
+for (const { href } of [...homepageMarketCopy.markets, ...homepageMarketCopy.access]) {
+  if (!markup.includes('href="' + href + '"')) {
+    throw new Error("Homepage SSR is missing the published data link " + href);
+  }
 }
 
 const template = await readFile(templatePath, "utf8");

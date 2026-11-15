@@ -16,6 +16,7 @@ import { generateOpportunitySlug } from "@/lib/propertySlug";
 import { SUBSCRIPTION_PLANS } from "@shared/subscriptionPlans";
 import { useEffect, useRef, useState } from "react";
 import type { HomepageStats } from "@shared/homepageStats";
+import { homepageMarketCopy } from "@shared/homepageMarketCopy";
 
 function useNearViewport() {
   const ref = useRef<HTMLElement>(null);
@@ -183,7 +184,7 @@ export default function Landing() {
     {
       icon: <CheckCircle className="h-6 w-6" />,
       title: "Verified Sale Prices",
-      description: "Published NYC condo-unit pages require an exact recorded-sale match. Unmatched unit identities are not presented as sale-backed pages.",
+      description: "Review qualifying recorded sales in Florida and exact sale matches on eligible NYC property and condo pages.",
     },
     {
       icon: <Target className="h-6 w-6" />,
@@ -193,7 +194,7 @@ export default function Landing() {
     {
       icon: <BarChart3 className="h-6 w-6" />,
       title: "Market Intelligence",
-      description: "Published pricing bands (P25/P50/P75) where verified transaction samples pass coverage and freshness rules.",
+      description: "Compare nationwide housing estimates and asking prices. See recorded-sale pricing bands in covered markets.",
     },
     {
       icon: <TrendingUp className="h-6 w-6" />,
@@ -212,8 +213,8 @@ export default function Landing() {
     },
     {
       icon: <Code className="h-6 w-6" />,
-      title: "Developer API",
-      description: "RESTful API access for Pro subscribers to integrate property data into their own applications.",
+      title: "API and MCP access",
+      description: "Use the REST API in your product or connect a compatible AI assistant to the published datasets.",
     },
     {
       icon: <Zap className="h-6 w-6" />,
@@ -251,20 +252,14 @@ export default function Landing() {
     },
   ] : [];
 
-  const coverageAreas = [
-    { state: "New York", areas: "Verified NYC recorded sales and condo units" },
-    { state: "Publication", areas: "Manual refresh with quality gates" },
-    { state: "Next", areas: "NJ and CT remain pending validation" },
-  ];
-
   return (
     <>
       <SEO 
-        title="Realtors Dashboard - Real Estate Market Intelligence"
-        description="Source-backed NYC recorded-sales intelligence with explicit publication dates, reproducible comparisons, and transparent coverage limits."
+        title={homepageMarketCopy.title}
+        description={homepageMarketCopy.description}
       />
       <OrganizationJsonLd />
-      <WebSiteJsonLd searchUrlTemplate="https://realtorsdashboard.com/market-intelligence?q={search_term_string}" />
+      <WebSiteJsonLd searchUrlTemplate="https://realtorsdashboard.com/housing-markets/search?q={search_term_string}" />
       <div className="min-h-screen bg-background">
         <MarketingHeader />
 
@@ -274,20 +269,21 @@ export default function Landing() {
           <div className="relative mx-auto max-w-7xl px-4 py-24 md:px-6 md:py-32">
             <div className="mx-auto max-w-3xl text-center">
               <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl" data-testid="text-hero-headline">
-                Transparent Opportunity Scoring{" "}
-                <span className="text-primary">for Published NYC Sales Data</span>
+                {homepageMarketCopy.headline[0]}{" "}
+                <span className="text-primary">{homepageMarketCopy.headline[1]}</span>
               </h1>
-              <p className="mb-4 text-lg text-muted-foreground md:text-xl" data-testid="text-hero-subhead">
-                Every public detail page is tied to canonical geography, source-backed recorded sales, and the current manually validated publication. Live listings are not included.
-              </p>
-              <p className="mb-8 text-base text-foreground/80 font-medium" data-testid="text-hero-audience">
-                Opportunity intelligence for investors, agents, analysts, and PropTech teams.
+              <p className="mb-8 text-lg text-muted-foreground md:text-xl" data-testid="text-hero-subhead">
+                {homepageMarketCopy.intro}
               </p>
               
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-3">
-                <Button 
-                  size="lg" 
-                  className="h-14 px-8 text-lg" 
+              <div className="mb-3 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <Button asChild size="lg" className="h-14 px-6 text-base">
+                  <a href="/housing-markets">Explore U.S. housing markets <ArrowRight className="ml-2 h-5 w-5" /></a>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-14 px-6 text-base"
                   data-testid="button-hero-get-pro"
                   onClick={handleGetPro}
                   disabled={guestCheckoutMutation.isPending}
@@ -295,38 +291,56 @@ export default function Landing() {
                   {guestCheckoutMutation.isPending ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : null}
-                  Start 14-Day Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  Start 14-Day Pro Trial
                 </Button>
-                <Link href="/investment-opportunities">
-                  <Button size="lg" variant="outline" className="h-14 px-8 text-lg" data-testid="button-hero-see-screener">
-                    <Target className="mr-2 h-5 w-5" />
-                    See Opportunity Screener
-                  </Button>
-                </Link>
               </div>
               <p className="mb-3 text-sm text-muted-foreground" data-testid="text-hero-trial">
                 Free for 14 days, then ${proMonthlyAmount}/mo · No charge during trial · Cancel anytime
               </p>
-              <p className="mx-auto mb-8 max-w-3xl text-sm font-medium text-foreground/80" data-testid="text-hero-credibility">
-                Official NYC condo-unit identities · Published detail pages require recorded-sale matches · Transparent Opportunity Score · 14-day free trial, no charge today
-              </p>
-
-              <SmartAddressSearch 
-                className="mx-auto mb-8 max-w-xl"
-                placeholder="Search by address, ZIP, or city..."
-              />
-
-              <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
-                {coverageAreas.map((area) => (
-                  <div key={area.state} className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <span>
-                      <strong>{area.state}:</strong> {area.areas}
-                    </span>
-                  </div>
-                ))}
+              <div className="mx-auto mt-6 max-w-xl">
+                <p className="mb-2 text-sm font-semibold">Search NYC properties and condo units</p>
+                <SmartAddressSearch placeholder="Enter a NYC address or ZIP code" />
               </div>
+
+              <nav className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm" aria-label="Published market data">
+                {homepageMarketCopy.markets.map((area) => (
+                  <a key={area.id} className="font-medium text-primary underline underline-offset-4" href={area.href}>{area.label}</a>
+                ))}
+              </nav>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t bg-background py-12" aria-labelledby="market-coverage">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="mb-8 text-center">
+              <h2 id="market-coverage" className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">What you can research</h2>
+              <p className="text-muted-foreground">Choose a market to see the available data, measures, and reporting periods.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {homepageMarketCopy.markets.map((area) => (
+                <div key={area.id} className="rounded-lg border bg-card p-5" data-testid={"coverage-row-" + area.id}>
+                  <h3 className="font-semibold"><a className="text-primary underline underline-offset-4" href={area.href}>{area.label}</a></h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{area.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t bg-muted/30 py-12" aria-labelledby="data-access">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <h2 id="data-access" className="text-2xl font-bold tracking-tight md:text-3xl">Use our real estate data in your own workflow</h2>
+            <p className="mt-2 max-w-3xl text-muted-foreground">
+              Access U.S. housing market data, Florida recorded sales, and verified New York City records.
+            </p>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {homepageMarketCopy.access.map(({ href, title, description }) => (
+                <div key={href} className="rounded-lg border bg-card p-4">
+                  <h3 className="font-semibold"><a className="text-primary underline underline-offset-4" href={href}>{title}</a></h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -334,7 +348,7 @@ export default function Landing() {
         <section ref={statsSection.ref} className="border-y bg-muted/30 py-12">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-4 text-center">
-              <h2 className="text-lg font-semibold text-muted-foreground">Our Database</h2>
+              <h2 className="text-lg font-semibold text-muted-foreground">NYC recorded-sales publication</h2>
               {homepageStats && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {homepageStats.snapshotStatus === "last_known" ? "Last verified market snapshot published " : "Current market snapshot published "}
@@ -344,7 +358,7 @@ export default function Landing() {
             </div>
             {statsError && !homepageStats ? (
               <div className="rounded-lg border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
-                Published counts are temporarily unavailable. We do not display estimated totals.
+                NYC publication counts are temporarily unavailable.
                 <Button variant="outline" size="sm" className="ml-3" onClick={() => void refetchStats()}>Retry</Button>
               </div>
             ) : statsLoading ? (
@@ -388,7 +402,7 @@ export default function Landing() {
             )}
             {homepageStats && (
               <p className="mt-5 text-center text-xs text-muted-foreground">
-                Sale-backed units and properties pass public-page checks. Recorded-sale rows also include transactions not yet matched to a public property or unit.
+                These counts describe the NYC publication. Recorded-sale rows include transactions awaiting a match to a public property or unit.
               </p>
             )}
           </div>
@@ -425,8 +439,8 @@ export default function Landing() {
                       <BarChart3 className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="font-semibold">Market Explorer</p>
-                      <p className="text-sm text-muted-foreground">Pricing by ZIP & city</p>
+                      <p className="font-semibold">NYC Market Explorer</p>
+                      <p className="text-sm text-muted-foreground">Recorded pricing by ZIP and city</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -452,7 +466,7 @@ export default function Landing() {
                     </div>
                     <div>
                       <p className="font-semibold">Up and Coming</p>
-                      <p className="text-sm text-muted-foreground">Trending ZIP codes</p>
+                      <p className="text-sm text-muted-foreground">NYC ZIP momentum</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -483,7 +497,7 @@ export default function Landing() {
                     <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
                     <Flame className="h-4 w-4 relative" />
                   </span>
-                  Published Opportunity Candidates
+                  NYC Opportunity Candidates
                 </h2>
                 <p className="text-muted-foreground flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5">
@@ -741,103 +755,24 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="border-t bg-muted/30 py-20">
-          <div className="mx-auto max-w-7xl px-4 md:px-6">
-            <div className="grid items-center gap-12 lg:grid-cols-2">
-              <div>
-                <h2 className="mb-6 text-3xl font-bold tracking-tight md:text-4xl">
-                  Understand Market Pricing at a Glance
-                </h2>
-                <p className="mb-6 text-lg text-muted-foreground">
-                  See exactly where a property stands relative to the market. Our pricing bands 
-                  show you the 25th, 50th, and 75th percentile prices for any segment.
-                </p>
-                <ul className="space-y-4">
-                  {[
-                    "Filter by property type, beds, baths, year built, and size",
-                    "Compare pricing across neighborhoods and ZIPs",
-                    "Track 3, 6, and 12-month trends",
-                    "Export market reports for clients",
-                  ].map((item) => (
-                    <li key={item} className="flex items-center gap-3">
-                      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <TrendingUp className="h-3 w-3" />
-                      </div>
-                      <span className="text-muted-foreground">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-xl border bg-card p-6 shadow-lg">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Median Price</p>
-                    <p className="text-3xl font-bold">$685,000</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">$/sqft</p>
-                    <p className="text-3xl font-bold">$425</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">P25</span>
-                    <span className="font-medium">$520K</span>
-                  </div>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-gradient-to-r from-emerald-200 via-amber-200 to-red-200 dark:from-emerald-900/50 dark:via-amber-900/50 dark:to-red-900/50" />
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">3BR SFH • 1990-2009</span>
-                    <span className="font-medium">P75: $875K</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t bg-background py-16">
-          <div className="mx-auto max-w-7xl px-4 md:px-6">
-            <div className="mb-10 text-center">
-              <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">Current Publication Coverage</h2>
-              <p className="text-muted-foreground">Verified detail pages are currently limited to published NYC recorded-sale data.</p>
-            </div>
-            <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
-              <div className="contents">
-                {coverageAreas.map((area) => (
-                  <div key={area.state} className="flex items-start gap-3" data-testid={`coverage-row-${area.state.toLowerCase().replace(/\s+/g, "-")}`}>
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <MapPin className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">{area.state}</p>
-                      <p className="text-sm text-muted-foreground">{area.areas}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section className="border-t bg-muted/30 py-12">
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mx-auto mb-10 max-w-3xl text-center" data-testid="data-sources-proof">
               <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">
-                Built on the data investors already try to piece together manually
+                See the source behind each number
               </h2>
               <p className="text-muted-foreground">
-                Realtors Dashboard combines official NYC recorded sales, parcel and condo-unit identities, and reproducible market snapshots. Each publication passes source, geography, price, and completeness checks before it becomes public.
+                Home values, asking prices, recorded sale prices, and price-index changes have different sources and reporting periods. Open a market report to see when each figure was published.
               </p>
             </div>
             <p className="mb-6 text-center text-sm font-medium uppercase tracking-wide text-muted-foreground">Powered by data from</p>
             <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-muted-foreground">
               {[
-                "NYC Open Data",
-                "PLUTO",
-                "NYC Rolling Sales",
-                "ACRIS",
-                "Canonical Geography",
-                "Published Market Snapshots",
+                "U.S. Census Bureau",
+                "Federal Housing Finance Agency",
+                "Realtor.com Economic Research",
+                "Florida Department of Revenue",
+                "NYC Department of Finance",
               ].map((src) => (
                 <div key={src} className="flex items-center gap-2 text-sm font-medium" data-testid={`source-${src.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
                   <Database className="h-4 w-4" />
@@ -852,21 +787,21 @@ export default function Landing() {
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-12 text-center">
               <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">How to use the published data</h2>
-              <p className="text-muted-foreground">Repeatable workflows, without unverifiable performance claims.</p>
+              <p className="text-muted-foreground">Start with market context, then check the recorded sales behind a property decision.</p>
             </div>
             <div className="grid gap-6 md:grid-cols-3">
               {[
                 {
                   type: "Screen",
-                  quote: "Use deterministic filters and the Opportunity Score to create a research shortlist from the current published dataset.",
+                  quote: "Compare locations using published rents, home values, asking prices, and price changes from their stated periods.",
                   name: "Step 1",
-                  role: "Candidate discovery",
-                  location: "NYC publication",
-                  metric: "Recorded-sales candidates",
+                  role: "Market comparison",
+                  location: "U.S. housing markets",
+                  metric: "Published values and asking prices",
                 },
                 {
                   type: "Verify",
-                  quote: "Open the source-backed sale history and comparable records. Check dates, price ranges, geography, and sample depth before relying on a score.",
+                  quote: "Check Florida recorded sales or NYC property and condo histories. Review the sale date or month, geography, and sample before drawing a conclusion.",
                   name: "Step 2",
                   role: "Evidence review",
                   location: "Source-backed records",
@@ -874,11 +809,11 @@ export default function Landing() {
                 },
                 {
                   type: "Underwrite",
-                  quote: "Treat estimates and scores as research inputs—not appraisals, offers, or investment advice—and confirm material facts independently.",
+                  quote: "Include the geography, date, and source in your brief so another team member can reproduce your research.",
                   name: "Step 3",
-                  role: "Independent diligence",
-                  location: "User-validated decision",
-                  metric: "No live-listing claim",
+                  role: "Research handoff",
+                  location: "Reports and deal notes",
+                  metric: "Source and reporting period",
                 },
               ].map((t) => (
                 <Card
@@ -904,27 +839,6 @@ export default function Landing() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t bg-muted/30 py-12" aria-labelledby="data-access">
-          <div className="mx-auto max-w-7xl px-4 md:px-6">
-            <h2 id="data-access" className="text-2xl font-bold tracking-tight md:text-3xl">Use our real estate data in your own workflow</h2>
-            <p className="mt-2 max-w-3xl text-muted-foreground">
-              Access U.S. housing market data, Florida recorded sales, and verified New York City records.
-            </p>
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {[
-                { href: "/real-estate-api", title: "Real Estate API", description: "Build market comparisons and recorded-sale lookups into your application." },
-                { href: "/real-estate-mcp", title: "Real Estate MCP", description: "Give an AI assistant access to published data with sources and reporting periods." },
-                { href: "/business", title: "For Business", description: "See how brokerages and proptech teams can use the data in reports and products." },
-              ].map(({ href, title, description }) => (
-                <div key={href} className="rounded-lg border bg-card p-4">
-                  <h3 className="font-semibold"><a className="text-primary underline underline-offset-4" href={href}>{title}</a></h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-                </div>
               ))}
             </div>
           </div>

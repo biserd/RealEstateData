@@ -3,6 +3,7 @@ import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
 import { developerDocs } from '@shared/developerDocs';
+import { homepageMarketCopy } from '@shared/homepageMarketCopy';
 import { marketingPages, marketingUpdatedOn, type MarketingPage } from './dataMarketingContent';
 import { getCachedNarrative } from './narratives';
 import { isDatabaseBackedPagePath, isPrivatePagePath } from './entityPagePolicy';
@@ -32,7 +33,7 @@ const SOFTWARE_APPLICATION_JSONLD: Record<string, any> = {
   operatingSystem: 'Web',
   url: SITE_URL,
   description:
-    'Source-backed real estate market intelligence with verified recorded sales, reproducible comps, and explicit coverage and freshness.',
+    homepageMarketCopy.description,
   offers: [
     { '@type': 'Offer', name: 'Free', price: 0, priceCurrency: 'USD' },
     { '@type': 'Offer', name: 'Pro', price: 59, priceCurrency: 'USD' },
@@ -153,35 +154,31 @@ const DATASET_JSONLD: Record<string, any> = {
 };
 
 const HOMEPAGE_BODY_HTML = `
-  <p><strong>Source-backed NYC recorded-sales intelligence.</strong> Public pages are limited to canonical geographies and records that pass the current published dataset's provenance, completeness, price, and quarantine checks.</p>
-  <p>The platform does not represent live listings. New source data is imported, audited, and published manually so a partial refresh cannot silently change public market results.</p>
-  <h2>Research the current publication</h2>
+  <p>${homepageMarketCopy.intro}</p>
+  <h2>What you can research</h2>
   <ul>
-    <li><a href="/tools">Free NYC data tools</a> turn exact published ZIP snapshots into focused market answers without maps or misleading geographic fallbacks.</li>
-    <li><a href="/market-intelligence">Market Intelligence</a> shows recorded-price statistics, sample sizes, publication freshness, and explicit fallback scope.</li>
-    <li><a href="/investment-opportunities">Opportunity Candidates</a> applies deterministic scoring to source-backed published records.</li>
-    <li><a href="/up-and-coming">Published ZIP rankings</a> use price trend, transaction velocity, liquidity, and comparable-sale depth.</li>
-    <li><a href="/calculator">The Investment Calculator</a> lets users test their own assumptions independently of the data publication.</li>
+    ${homepageMarketCopy.markets.map(area => `<li><a href="${area.href}">${area.label}</a>. ${area.detail}</li>`).join('')}
   </ul>
-  <h2>Sources and limitations</h2>
-  <p>Primary sources include NYC rolling sales, ACRIS recorded transactions, PLUTO, and official condo-unit identity data. Recorded sales, estimates, and scores are labeled separately. NJ and CT detail pages remain unpublished until their source adapters and identity checks pass the same quality contract.</p>
-  <p>Every market result should show its source-through date, publication date, methodology version, record count, and limitations. Read <a href="/methodology/data-coverage">data coverage</a> and <a href="/methodology/verified-vs-estimates">verified sales versus estimates</a>.</p>
-  <h2>Use the data responsibly</h2>
-  <p>Scores and estimates are research inputs, not appraisals, offers, or financial advice. Verify material facts with the official record and qualified professionals. To report an issue, <a href="/contact">contact the data editorial team</a>.</p>
+  <p><a href="/methodology/data-coverage">Check sources and coverage</a> or <a href="/investment-opportunities">explore NYC opportunity candidates</a>.</p>
+  <h2>Use the data in your own workflow</h2>
+  <ul>
+    ${homepageMarketCopy.access.map(option => `<li><a href="${option.href}">${option.title}</a>. ${option.description}</li>`).join('')}
+  </ul>
 `;
 
 const DEFAULT_META: PageMeta = {
-  title: 'Realtors Dashboard - Real Estate Market Intelligence',
-  description: 'Source-backed property and market intelligence with verified recorded sales, reproducible comps, and visible coverage and freshness.',
+  title: homepageMarketCopy.title,
+  description: homepageMarketCopy.description,
   ogType: 'website',
   canonicalPath: '/',
-  h1: 'Transparent Opportunity Scoring for Published NYC Sales Data',
+  h1: homepageMarketCopy.headline.join(' '),
   bodyHtml: HOMEPAGE_BODY_HTML,
   jsonLd: SOFTWARE_APPLICATION_JSONLD,
 };
 
 export const SEO_CONTENT_LAST_MODIFIED = '2026-08-30';
 const STATIC_PAGE_CONTENT_DATES: Readonly<Record<string, string>> = {
+  '/': '2026-11-15',
   '/developers': marketingUpdatedOn,
   ...Object.fromEntries(marketingPages.map(page => [page.path, marketingUpdatedOn])),
   '/market-intelligence': '2026-11-13',

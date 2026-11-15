@@ -171,7 +171,7 @@ export function Footer() {
             &copy; {currentYear} Realtors Dashboard. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Verified detail coverage: NYC recorded sales • No live listings</span>
+            <span>Recorded-sale coverage in Florida and NYC</span>
             <span className="hidden md:inline">|</span>
             <span className="hidden md:inline">Updates are manually validated and published</span>
           </div>
