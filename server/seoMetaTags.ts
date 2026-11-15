@@ -3,6 +3,7 @@ import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
 import { developerDocs } from '@shared/developerDocs';
+import { marketingPages, marketingUpdatedOn, type MarketingPage } from './dataMarketingContent';
 import { getCachedNarrative } from './narratives';
 import { isDatabaseBackedPagePath, isPrivatePagePath } from './entityPagePolicy';
 import { publicPropertyPageSql, publicUnitPageSql } from './publicPageEligibility';
@@ -181,7 +182,8 @@ const DEFAULT_META: PageMeta = {
 
 export const SEO_CONTENT_LAST_MODIFIED = '2026-08-30';
 const STATIC_PAGE_CONTENT_DATES: Readonly<Record<string, string>> = {
-  '/developers': '2026-11-13',
+  '/developers': marketingUpdatedOn,
+  ...Object.fromEntries(marketingPages.map(page => [page.path, marketingUpdatedOn])),
   '/market-intelligence': '2026-11-13',
   '/methodology/data-coverage': '2026-11-15',
 };
@@ -198,7 +200,31 @@ const GUIDES_INDEX_JSONLD: Record<string, any> = {
   })),
 };
 
+export function dataMarketingMeta(page: MarketingPage): PageMeta {
+  const breadcrumbs = [{ name: 'Home', path: '/' }];
+  if (page.path.startsWith('/business/')) breadcrumbs.push({ name: 'For Business', path: '/business' });
+  breadcrumbs.push({ name: page.name, path: page.path });
+  return {
+    title: page.title,
+    description: page.description,
+    canonicalPath: page.path,
+    ogType: 'website',
+    h1: page.heading,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: breadcrumbs.map(({ name, path }, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name,
+        item: SITE_URL + path,
+      })),
+    },
+  };
+}
+
 const STATIC_PAGES: Record<string, PageMeta> = {
+  ...Object.fromEntries(marketingPages.map(page => [page.path, dataMarketingMeta(page)])),
   '/guides': {
     title: 'Guides - Realtors Dashboard',
     description:
@@ -369,6 +395,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
       <p><code>${developerDocs.mcpEndpoint}</code></p>
       <p>${developerDocs.mcpCoverage}</p>
       <p><a href="/server.json">Read the MCP server manifest</a>.</p>
+      <p>Explore the <a href="/real-estate-api">real estate API</a>, <a href="/real-estate-mcp">MCP access</a>, or <a href="/business">business use cases</a>.</p>
     `,
     jsonLd: DATASET_JSONLD,
   },

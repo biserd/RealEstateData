@@ -31,7 +31,7 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
     { href: "/methodology/opportunity-score", label: "Methodology" },
     { href: "/guides", label: "Guides" },
     { href: "/pricing", label: "Pricing" },
-    { href: "/developers", label: "API" },
+    { href: "/real-estate-api", label: "API" },
     { href: "/about", label: "About" },
   ];
 
@@ -63,7 +63,11 @@ export function MarketingHeader({ showLogin = true }: MarketingHeaderProps) {
             </span>
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
-            {navLinks.map((link) => (
+            {navLinks.map((link) => link.href === "/real-estate-api" ? (
+              <Button key={link.href} asChild variant="ghost" size="sm">
+                <a href={link.href} data-testid="nav-api">{link.label}</a>
+              </Button>
+            ) : (
               <Link key={link.href} href={link.href}>
                 <Button
                   variant={location === link.href ? "secondary" : "ghost"}

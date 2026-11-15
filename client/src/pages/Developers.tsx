@@ -156,6 +156,11 @@ export default function Developers() {
 
         <section className="space-y-3 mb-12" aria-labelledby="datasets">
           <h2 id="datasets" className="text-2xl font-semibold">Published datasets</h2>
+          <p>
+            Explore the <a className="text-primary underline" href="/real-estate-api">API overview</a>,{" "}
+            <a className="text-primary underline" href="/real-estate-mcp">MCP setup</a>, or{" "}
+            <a className="text-primary underline" href="/business">business workflows</a>.
+          </p>
           <ul className="list-disc pl-5 space-y-1">
             <li><code>/api/external/datasets</code> lists current sources, availability, and available operations.</li>
             <li><code>/api/external/housing-markets</code> searches state, county, Census place, and ZIP profiles.</li>

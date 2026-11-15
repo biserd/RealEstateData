@@ -909,6 +909,27 @@ export default function Landing() {
           </div>
         </section>
 
+        <section className="border-t bg-muted/30 py-12" aria-labelledby="data-access">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <h2 id="data-access" className="text-2xl font-bold tracking-tight md:text-3xl">Use our real estate data in your own workflow</h2>
+            <p className="mt-2 max-w-3xl text-muted-foreground">
+              Access U.S. housing market data, Florida recorded sales, and verified New York City records.
+            </p>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {[
+                { href: "/real-estate-api", title: "Real Estate API", description: "Build market comparisons and recorded-sale lookups into your application." },
+                { href: "/real-estate-mcp", title: "Real Estate MCP", description: "Give an AI assistant access to published data with sources and reporting periods." },
+                { href: "/business", title: "For Business", description: "See how brokerages and proptech teams can use the data in reports and products." },
+              ].map(({ href, title, description }) => (
+                <div key={href} className="rounded-lg border bg-card p-4">
+                  <h3 className="font-semibold"><a className="text-primary underline underline-offset-4" href={href}>{title}</a></h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="border-t py-16">
           <div className="mx-auto max-w-3xl px-4 text-center md:px-6" data-testid="conversion-reassurance">
             <h2 className="mb-3 text-2xl font-bold tracking-tight md:text-3xl">

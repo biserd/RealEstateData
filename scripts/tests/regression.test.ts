@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "../../server/apiDiscovery";
+import { dataMarketingHtml, findDataMarketingPage } from "../../server/dataMarketingDocument";
+import { marketingPages } from "../../server/dataMarketingContent";
+import { dataMarketingMeta, getStaticSitemapEntries, injectMetaTags } from "../../server/seoMetaTags";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "../../server/documentResponse";
 import { canonicalRedirectTarget, isDatabaseBackedPagePath, isPrivatePagePath } from "../../server/entityPagePolicy";
 import { inferTriStateFromZip, normalizeZipCode } from "../../shared/triStateGeography";
@@ -588,4 +591,42 @@ test("atomic publication migration requires validation and preserves the prior v
   assert.match(migration, /critical quality failures block publication/);
   assert.match(migration, /SET status = 'retired'/);
   assert.doesNotMatch(migration, /TRUNCATE/i);
+});
+
+test("marketing pages advertise working data interfaces and are canonical sitemap entries", async () => {
+  const paths = ["/real-estate-api", "/real-estate-mcp", "/business", "/business/brokerages", "/business/proptech"];
+  assert.deepEqual(marketingPages.map(page => page.path), paths);
+  const locs = getStaticSitemapEntries().map(entry => entry.path);
+  const titles = new Set(), descriptions = new Set();
+  for (const path of paths) {
+    const page = findDataMarketingPage(path)!;
+    assert.equal(locs.filter(url => url === path).length, 1, path);
+    assert.equal(findDataMarketingPage(path.toUpperCase() + "/"), page);
+    const meta = dataMarketingMeta(page);
+    const html = injectMetaTags(dataMarketingHtml(page), meta, "https://realtorsdashboard.com");
+    assert.equal((html.match(/<h1(?:>|\s)/g) || []).length, 1, path);
+    assert.ok(html.includes('<link rel="canonical" href="https://realtorsdashboard.com' + path + '"'), path);
+    assert.ok(html.includes('"@type":"BreadcrumbList"'), path);
+    assert.ok(html.includes('href="/contact"'), path);
+    assert.ok(html.includes('href="/methodology/data-coverage"'), path);
+    for (const relate of page.related) {
+      assert.ok(paths.includes(relate), relate);
+      assert.ok(html.includes('href="' + relate + '"'), relate);
+    }
+    for (const cta of [page.primary, page.secondary]) {
+      if (cta.href.startsWith("#")) assert.ok(html.includes('id="' + cta.href.slice(1) + '"'), path + cta.href);
+    }
+    assert.doesNotMatch(html, /<script[^>]*\bsrc=/i);
+    titles.add(meta.title);
+    descriptions.add(meta.description);
+  }
+  assert.equal(titles.size, paths.length);
+  assert.equal(descriptions.size, paths.length);
+  const api = dataMarketingHtml(findDataMarketingPage("/real-estate-api")!);
+  const mcp = dataMarketingHtml(findDataMarketingPage("/real-estate-mcp")!);
+  assert.match(api, /\/api\/external\/housing-markets\/county\/48201/);
+  assert.match(api, /x-api-key/);
+  assert.match(mcp, /get_housing_market/);
+  assert.match(mcp, /https:\/\/realtorsdashboard\.com\/mcp/);
+  assert.equal(findDataMarketingPage("/business/unknown"), undefined);
 });

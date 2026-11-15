@@ -13,7 +13,6 @@ export function Footer() {
     { href: "/calculator", label: "Investment Calculator" },
     { href: "/saved-properties", label: "Watchlists" },
     { href: "/pricing", label: "Pricing" },
-    { href: "/developers", label: "Developer API" },
   ];
 
   const companyLinks = [
@@ -83,12 +82,15 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
+              <li><a className="text-sm text-muted-foreground hover:text-foreground" href="/real-estate-api">Real Estate API</a></li>
+              <li><a className="text-sm text-muted-foreground hover:text-foreground" href="/real-estate-mcp">Real Estate MCP</a></li>
             </ul>
           </div>
 
           <div>
             <h3 className="font-semibold mb-4">Company</h3>
             <ul className="space-y-3">
+              <li><a className="text-sm text-muted-foreground hover:text-foreground" href="/business">For Business</a></li>
               {companyLinks.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href}>

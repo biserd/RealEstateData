@@ -4,6 +4,7 @@ import { configureDatabase } from "./db";
 import { apiCatalogResponse, appendApiDiscoveryLinks } from "./apiDiscovery";
 import { handleMcpRequest, isMcpPath } from "./mcp";
 import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./documentResponse";
+import { dataMarketingHtml, findDataMarketingPage } from "./dataMarketingDocument";
 import { floridaDocument, floridaSitemap, floridaSitemapPath, isFloridaDocument } from "./floridaDocuments";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
 import { isTexasDocument, texasDocument, texasSitemapPath } from "./texasDocuments";
@@ -427,6 +428,27 @@ export default {
     }
     const corsOrigin = publicDataCorsOrigin(request, url.pathname);
     const isRead = request.method === "GET" || request.method === "HEAD";
+    const marketing = isRead && findDataMarketingPage(url.pathname);
+    if (marketing) {
+      const canonical = new URL(marketing.path, "https://realtorsdashboard.com");
+      if (url.pathname !== marketing.path || url.hostname === "www.realtorsdashboard.com") {
+        canonical.search = url.search;
+        return Response.redirect(canonical.href, 301);
+      }
+      const headers = new Headers({
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "public, max-age=300, no-transform",
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "strict-origin-when-cross-origin",
+      });
+      clearCachedHttp3Route(request, headers);
+      appendApiDiscoveryLinks(headers, true);
+      const html = request.method === "HEAD" ? "" : seo.injectMetaTags(
+        dataMarketingHtml(marketing), seo.dataMarketingMeta(marketing), canonical.origin,
+      );
+      return generatedDocumentResponse(request, html, 200, headers);
+    }
+
     const floridaDb = bindings.FL_SALES_DB;
 
     if (floridaDb && isRead && /^\/browse\/fl\/?$/i.test(url.pathname)) {
