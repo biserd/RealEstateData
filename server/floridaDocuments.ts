@@ -62,6 +62,8 @@ function html(request: Request, title: string, description: string, body: string
   if (!indexable) headers.set("x-robots-tag", "noindex, follow");
   if (status === 503) headers.set("retry-after", "120");
   const trail = status === 200 ? breadcrumbs(canonical) : [];
+  const countySlug = canonical.slice(root.length + 1);
+  const marketPath = "/housing-markets/florida" + (countyBySlug.has(countySlug) ? "/" + countySlug : "");
   const breadcrumbNavigation = trail.length ? '<nav class="crumbs" aria-label="Breadcrumb"><ol>' +
     trail.map((item, index) => index === trail.length - 1
       ? '<li aria-current="page">' + escape(item.name) + '</li>'
@@ -98,7 +100,7 @@ function html(request: Request, title: string, description: string, body: string
     "select{font:inherit;padding:.5rem .65rem;border:1px solid var(--line);border-radius:.35rem;background:var(--card);color:var(--ink)}" +
     "footer{border-block-start:1px solid var(--line);border-block-end:0}</style></head><body>" +
     '<header><nav aria-label="Main"><strong><a href="/">Realtors Dashboard</a></strong><a href="/browse/ny">New York</a>' +
-    '<a href="/florida">Florida</a><a href="/texas">Texas housing data</a><a href="/methodology/data-coverage">Data coverage</a></nav></header><main>' + breadcrumbNavigation + body +
+    '<a href="/florida">Florida</a><a href="' + marketPath + '">Florida housing market data</a><a href="/housing-markets">U.S. housing markets</a><a href="/methodology/data-coverage">Data coverage</a></nav></header><main>' + breadcrumbNavigation + body +
     '</main><footer><p>Source <a href="' + floridaSource + '">Florida Geospatial Open Data Portal</a> and Florida Department of Revenue.</p></footer></body></html>',
     status, headers);
 }

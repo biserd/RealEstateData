@@ -148,6 +148,9 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                 </Link>
               ))}
               <Button asChild variant="ghost" className="w-full justify-start gap-3 h-10 text-sm">
+                <a href="/housing-markets"><MapPin className="h-4 w-4" />U.S. housing markets</a>
+              </Button>
+              <Button asChild variant="ghost" className="w-full justify-start gap-3 h-10 text-sm">
                 <a href="/texas" data-testid="mobile-nav-browse-texas">
                   <MapPin className="h-4 w-4" />
                   Texas housing data
@@ -236,6 +239,9 @@ export function Header({ onMenuClick, showSearch = true }: HeaderProps) {
                     Connecticut
                   </DropdownMenuItem>
                 </Link>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <a href="/housing-markets">U.S. housing markets</a>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer" data-testid="nav-browse-tx">
                   <a href="/texas">Texas housing data</a>
                 </DropdownMenuItem>

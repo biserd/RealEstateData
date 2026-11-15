@@ -145,6 +145,7 @@ export function Footer() {
             <ul className="space-y-3">
               <li><a className="text-sm text-muted-foreground hover:text-foreground" href="/florida">Florida Property Sales</a></li>
               <li><a className="text-sm text-muted-foreground hover:text-foreground" href="/texas">Texas Housing Data</a></li>
+              <li><a className="text-sm text-muted-foreground hover:text-foreground" href="/housing-markets">U.S. Housing Markets</a></li>
               {browseLinks.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href}>

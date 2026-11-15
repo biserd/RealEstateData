@@ -7,6 +7,8 @@ import { generatedDocumentResponse, routeSpecificDocumentTemplate } from "./docu
 import { floridaDocument, floridaSitemap, floridaSitemapPath, isFloridaDocument } from "./floridaDocuments";
 import { publishedHomepageSnapshot } from "./publishedHomepageSnapshot";
 import { isTexasDocument, texasDocument, texasSitemapPath } from "./texasDocuments";
+import { housingBrowseRedirect, housingDocument, isHousingDocument } from "./usHousingDocuments";
+import { housingSearchPath, housingSitemapPath } from "./usHousingData";
 import {
   getPublishedPageFallback, getSitemapXml, isRetiredPublishedPath, isSitemapPath, publishedCrawlLinks,
   publishedSalesForZip, publishedSitemap, publishedZipLinks,
@@ -435,13 +437,19 @@ export default {
       return Response.redirect("https://realtorsdashboard.com/texas" + url.search, 301);
     }
 
+    const browseAlias = isRead && housingBrowseRedirect(url.pathname);
+    if (browseAlias) return Response.redirect("https://realtorsdashboard.com" + browseAlias + url.search, 301);
+
     const texasPath = isTexasDocument(url.pathname);
-    if (isRead && (texasPath || isFloridaDocument(url.pathname))) {
-      const limiter = url.search ? env.SEARCH_RATE_LIMIT : env.PUBLIC_RATE_LIMIT;
+    const housingPath = isHousingDocument(url.pathname);
+    if (isRead && (texasPath || housingPath || isFloridaDocument(url.pathname))) {
+      const limiter = url.search || url.pathname.toLowerCase().replace(/\/+$/, "") === housingSearchPath
+        ? env.SEARCH_RATE_LIMIT : env.PUBLIC_RATE_LIMIT;
       const limited = await limiter.limit({ key: request.headers.get("cf-connecting-ip") || "unknown" });
       if (!limited.success) return new Response(request.method === "HEAD" ? null : "Too many requests. Please try again shortly.", {
         status: 429, headers: { "cache-control": "no-store", "retry-after": "60" },
       });
+      if (housingPath) return housingDocument(request);
       return texasPath ? texasDocument(request) : floridaDocument(request, floridaDb);
     }
 
@@ -468,7 +476,7 @@ export default {
         headers: {
           "content-type": "application/xml; charset=utf-8",
           "cache-control": "public, max-age=300, no-transform",
-          ...(url.pathname !== floridaSitemapPath && url.pathname !== texasSitemapPath && { "x-rd-dataset-version": publishedSitemap.datasetVersionId }),
+          ...(![floridaSitemapPath, texasSitemapPath, housingSitemapPath].includes(url.pathname) && { "x-rd-dataset-version": publishedSitemap.datasetVersionId }),
         },
       });
     }

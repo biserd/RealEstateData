@@ -1,5 +1,7 @@
 import snapshot from "./texasHousingSnapshot.json";
 import { generatedDocumentResponse } from "./documentResponse";
+import { countiesByState, fhfaQuarter, housingRoot, housingSearchPath, inventoryMonth, publishedOn, states, statesByCode, statePath } from "./usHousingData";
+import { housingInventorySection } from "./usHousingDocuments";
 import { escapeSitemapXml as escape, SITEMAP_ORIGIN } from "./sitemapSnapshot";
 
 type Estimate = [value: number | null, margin: number | null];
@@ -24,6 +26,9 @@ const root = "/texas";
 export const texasSitemapPath = "/sitemap-texas.xml";
 const counties: County[] = snapshot.counties as County[];
 const state: HousingArea = snapshot.state as HousingArea;
+const texas = statesByCode.get("TX")!;
+const markets = new Map(countiesByState.get(texas.fips)!.map(county => [county.slug, county]));
+const nearbyStates = states.filter(state => state.code !== "TX" && state.division === texas.division);
 const bySlug = new Map(counties.map(county => [county.slug, county]));
 const byFips = new Map(counties.map(county => [county.fips, county]));
 const census = "https://www.census.gov/programs-surveys/acs/data/summary-file." + snapshot.acsYear + ".html";
@@ -58,7 +63,7 @@ const countyPath = (county: County) => root + "/" + county.slug;
 const countyLink = (county: County) => '<a href="' + countyPath(county) + '">' + escape(county.name) + " County</a>";
 const publicPaths = [root, ...counties.filter(hasMarketProfile).map(countyPath)];
 
-export const texasSitemapEntries = publicPaths.map(path => ({ path, lastmod: snapshot.publishedOn }));
+export const texasSitemapEntries = publicPaths.map(path => ({ path, lastmod: publishedOn > snapshot.publishedOn ? publishedOn : snapshot.publishedOn }));
 
 function estimateText(estimate: Estimate, showMargin = false) {
   if (!supportedEstimate(estimate)) return "Insufficient data";
@@ -127,16 +132,18 @@ function priceHistory(area: HousingArea, county?: County) {
 }
 
 function comparisonRow(county: County) {
+  const listing = markets.get(county.slug)?.listing;
   return [
     countyLink(county),
     estimateText(county.homeValue),
     estimateText(county.rent),
+    listing ? dollars.format(listing[0]) : "Unavailable",
     number.format(county.housingUnits[0]!),
     trendFor(county, trendYear),
   ];
 }
 
-const comparisonColumns = ["County", "Median home value", "Median gross rent", "Housing units", "FHFA change, " + trendYear];
+const comparisonColumns = ["County", "Median home value", "Median gross rent", "Median asking price, " + inventoryMonth, "Housing units", "FHFA change, " + trendYear];
 
 function methodology() {
   return '<section aria-labelledby="sources"><h2 id="sources">Sources and definitions</h2>' +
@@ -153,11 +160,18 @@ function methodology() {
 function statewide() {
   return "<p>Compare housing values, rents, the mix of homes and annual house price trends across all 254 Texas counties. " +
     "Open a county to compare nearby markets and find the appraisal district for a specific property.</p>" +
-    facts(state) + '<p class="jump"><a href="#counties">Compare counties</a><a href="#housing-stock">Housing stock</a>' +
+    facts(state) + '<p><a href="' + housingSearchPath + '?state=TX">Search Texas by county, city, ZIP or price</a> · ' +
+    '<a href="' + housingRoot + '#states">Compare all states and DC</a> · '
+    + '<a href="/housing-markets/texas/cities">Texas cities and Census places</a> · '
+    + '<a href="/housing-markets/texas/zip-codes">Texas ZIP housing data</a></p>' +
+    housingInventorySection(texas.listing) + "<p>FHFA’s purchase-only index for " + fhfaQuarter +
+    " shows a year-over-year change of " + signed.format(texas.hpi[1] / 100) + ".</p>" + '<p class="jump"><a href="#counties">Compare counties</a><a href="#housing-stock">Housing stock</a>' +
     '<a href="#price-history">Price history</a><a href="#sources">Sources</a></p>' + housingStock(state) + priceHistory(state) +
     '<section aria-labelledby="counties"><h2 id="counties">Compare Texas counties</h2>' +
     "<p>Housing figures come from the " + acsPeriod + " Census estimates. Find your county alphabetically below.</p>" +
-    table("Texas county housing comparison", comparisonColumns, counties.map(comparisonRow)) + "</section>" + methodology();
+    table("Texas county housing comparison", comparisonColumns, counties.map(comparisonRow)) + "</section>" +
+    "<section><h2>Compare nearby states</h2><ul>" + nearbyStates.map(state =>
+      '<li><a href="' + statePath(state) + '">' + escape(state.name) + "</a></li>").join("") + "</ul></section>" + methodology();
 }
 
 function countyProfile(county: County) {
@@ -167,7 +181,7 @@ function countyProfile(county: County) {
     '<a href="#property-records">Look up a specific property</a> through the county appraisal district.</p>' + facts(county) +
     '<p class="jump"><a href="#housing-stock">Housing stock</a><a href="#price-history">Price history</a>' +
     '<a href="#nearby">Nearby counties</a><a href="#sources">Sources</a></p>' +
-    housingStock(county) + priceHistory(county, county) +
+    housingInventorySection(markets.get(county.slug)?.listing ?? null) + housingStock(county) + priceHistory(county, county) +
     '<section aria-labelledby="nearby"><h2 id="nearby">Compare neighboring Texas counties</h2>' +
     table("Neighboring county housing comparison", comparisonColumns, [county, ...adjacent].map(comparisonRow)) +
     '<p><a href="/texas#counties">Compare all 254 Texas counties</a></p></section>' +
@@ -228,7 +242,7 @@ function html(request: Request, county: County | undefined, status: number) {
     "<title>" + escape(title) + ' | Realtors Dashboard</title><meta name="description" content="' + escape(description) + '">' +
     '<link rel="canonical" href="' + canonical + '">' + schema + "<style>" + css + "</style></head><body>" +
     '<header><nav aria-label="Main"><strong><a href="/">Realtors Dashboard</a></strong><a href="/browse/ny">New York</a>' +
-    '<a href="/florida">Florida property sales</a><a href="/texas">Texas housing data</a><a href="/methodology/data-coverage">Data coverage</a></nav></header>' +
+    '<a href="/housing-markets">U.S. housing markets</a><a href="/florida">Florida property sales</a><a href="/texas">Texas housing data</a><a href="/methodology/data-coverage">Data coverage</a></nav></header>' +
     "<main>" + breadcrumbs + "<h1>" + escape(title) + "</h1>" + content + "</main>" +
     '<footer><p><a href="/texas#counties">Texas county comparison</a></p></footer></body></html>', status, headers);
 }

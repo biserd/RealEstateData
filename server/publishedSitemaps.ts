@@ -3,6 +3,8 @@ import { getStaticSitemapEntries, type PageMeta } from "./seoMetaTags";
 import { escapeSitemapXml, SITEMAP_ORIGIN, SITEMAP_PAGE_SIZE, type SitemapRecord, type SitemapSnapshot } from "./sitemapSnapshot";
 import type { PublishedSaleLink, PublishedZipLink } from "../shared/publishedMarketLinks";
 import { texasSitemapEntries, texasSitemapPath } from "./texasDocuments";
+import { housingSitemapEntries, housingSitemapPath } from "./usHousingData";
+import { localHousingSitemapEntries } from "./usHousingSearch";
 
 export const publishedSitemap = snapshotData as SitemapSnapshot;
 // These retired slugs failed the public eligibility check for this
@@ -21,6 +23,7 @@ type Entry = { path: string; lastmod: string };
 const sections = new Map<string, Entry[]>();
 sections.set("/sitemap-static.xml", getStaticSitemapEntries());
 sections.set(texasSitemapPath, texasSitemapEntries);
+sections.set(housingSitemapPath, [...housingSitemapEntries, ...localHousingSitemapEntries]);
 const entriesByPath = new Map<string, SitemapRecord>();
 
 function addSection(path: string, records: SitemapRecord[]) {

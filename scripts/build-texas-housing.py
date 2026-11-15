@@ -1,16 +1,13 @@
 """Build the manually published Texas housing snapshot from official public data."""
 import argparse
 import csv
-from datetime import date, datetime
+from datetime import date
 from html.parser import HTMLParser
 import json
-import math
 from pathlib import Path
 import re
-from shutil import copyfileobj
-from urllib.request import Request, urlopen
-from xml.etree import ElementTree
-from zipfile import ZipFile
+
+from housing_source_files import read_acs, read_fhfa_annual, stage_file
 
 
 STATE = "48"
@@ -23,7 +20,6 @@ ACS_TABLES = {
     "b25064": (1,),
     "b25077": (1,),
 }
-NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 
 class AppraisalDirectory(HTMLParser):
@@ -51,97 +47,18 @@ class AppraisalDirectory(HTMLParser):
             self.path = None
 
 
-def download(path, url):
-    if path.exists():
-        return
-    print(f"Downloading {url}", flush=True)
-    temporary = path.with_suffix(path.suffix + ".part")
-    with urlopen(Request(url, headers={"User-Agent": "Realtors Dashboard data publisher"}), timeout=120) as source:
-        with temporary.open("wb") as output:
-            copyfileobj(source, output)
-    temporary.replace(path)
-
-
-def acs(path, table, columns):
-    def estimate(value):
-        return int(value) if re.fullmatch(r"[0-9]+", value) else None
-
-    value_columns = [(f"{table.upper()}_E{n:03d}", f"{table.upper()}_M{n:03d}") for n in columns]
-    geography = {"0400000US48": STATE, **{f"0500000US{fips}": fips for fips in COUNTY_FIPS}}
-    with path.open(encoding="utf-8-sig", newline="") as source:
-        rows = csv.reader(source, delimiter="|")
-        header = next(rows)
-        indexes = [(header.index(point), header.index(margin)) for point, margin in value_columns]
-        result = {}
-        for row in rows:
-            fips = geography.get(row[0])
-            if fips:
-                if fips in result:
-                    raise ValueError(f"{table} has duplicate FIPS {fips}")
-                result[fips] = [[estimate(row[point]), estimate(row[margin])] for point, margin in indexes]
-    if result.keys() != set(geography.values()):
-        raise ValueError(f"{table} is missing Texas geographies")
-    return result
-
-
-def read_hpi(path, state_file=False):
-    expected_header = ["State", "Abbreviation", "FIPS"] if state_file else ["State", "County", "FIPS code"]
-    trends = {}
-    with ZipFile(path) as book:
-        strings = [
-            "".join(node.text or "" for node in entry.iter(NS + "t"))
-            for entry in ElementTree.fromstring(book.read("xl/sharedStrings.xml"))
-        ]
-        revision = None
-        header_validated = False
-        with book.open("xl/worksheets/sheet1.xml") as sheet:
-            for _, row in ElementTree.iterparse(sheet, events=["end"]):
-                if row.tag != NS + "row":
-                    continue
-                cells = {}
-                for cell in row:
-                    value = cell.findtext(NS + "v")
-                    if value is not None:
-                        column = cell.attrib["r"].rstrip("0123456789")
-                        cells[column] = strings[int(value)] if cell.get("t") == "s" else value
-                row.clear()
-                if cells.get("A", "").startswith("Last updated: "):
-                    revision = datetime.strptime(cells["A"].removeprefix("Last updated: ").rstrip(". "), "%B %d, %Y").date()
-                if cells.get("D") == "Year":
-                    header_validated = [cells.get(c) for c in "ABCDE"] == [*expected_header, "Year", "Annual Change (%)"]
-                    if not header_validated:
-                        raise ValueError(f"Unexpected FHFA column names in {path}")
-                if not header_validated:
-                    continue
-                fips = cells.get("C")
-                texas = fips == STATE and cells.get("B") == "TX" if state_file else fips in COUNTY_FIPS and cells.get("A") == "TX"
-                change = cells.get("E")
-                if texas and change not in (None, ".", ""):
-                    value = float(change)
-                    if not math.isfinite(value):
-                        raise ValueError(f"Invalid FHFA change for {fips}")
-                    year = int(cells["D"])
-                    annual = trends.setdefault(fips, {})
-                    if year in annual:
-                        raise ValueError(f"Duplicate FHFA year for {fips}")
-                    annual[year] = round(value, 2)
-    if revision is None or not header_validated or not trends:
-        raise ValueError(f"Missing FHFA metadata or data in {path}")
-    return revision, trends
-
-
 def build(args):
     cache = args.cache
     cache.mkdir(parents=True, exist_ok=True)
     year = args.acs_year
     census = f"https://www2.census.gov/programs-surveys/acs/summary_file/{year}/table-based-SF/data/5YRData"
     for table in ACS_TABLES:
-        download(cache / f"{year}-{table}.dat", f"{census}/acsdt5y{year}-{table}.dat")
-    download(cache / "state.xlsx", "https://www.fhfa.gov/hpi/download/annual/hpi_at_state.xlsx")
-    download(cache / "county.xlsx", "https://www.fhfa.gov/hpi/download/annual/hpi_at_county.xlsx")
-    download(cache / "directory.html", DIRECTORY)
+        stage_file(cache / f"{year}-{table}.dat", f"{census}/acsdt5y{year}-{table}.dat")
+    stage_file(cache / "state.xlsx", "https://www.fhfa.gov/hpi/download/annual/hpi_at_state.xlsx")
+    stage_file(cache / "county.xlsx", "https://www.fhfa.gov/hpi/download/annual/hpi_at_county.xlsx")
+    stage_file(cache / "directory.html", DIRECTORY)
     adjacency_year = args.adjacency_year
-    download(cache / "adjacency.txt", f"https://www2.census.gov/geo/docs/reference/county_adjacency/county_adjacency{adjacency_year}.txt")
+    stage_file(cache / "adjacency.txt", f"https://www2.census.gov/geo/docs/reference/county_adjacency/county_adjacency{adjacency_year}.txt")
 
     names = {}
     neighbors = {fips: set() for fips in COUNTY_FIPS}
@@ -164,9 +81,15 @@ def build(args):
     if len(directory.counties) != len(COUNTY_FIPS):
         raise ValueError("Incomplete Texas Comptroller appraisal district directory")
 
-    tables = {table: acs(cache / f"{year}-{table}.dat", table, cols) for table, cols in ACS_TABLES.items()}
-    state_revision, state_hpi = read_hpi(cache / "state.xlsx", state_file=True)
-    county_revision, county_hpi = read_hpi(cache / "county.xlsx")
+    geography = {"0400000US48": STATE, **{f"0500000US{fips}": fips for fips in COUNTY_FIPS}}
+    tables = {
+        table: {geography[key]: values for key, values in read_acs(
+            cache / f"{year}-{table}.dat", table, cols, set(geography)
+        ).items()}
+        for table, cols in ACS_TABLES.items()
+    }
+    state_revision, state_hpi = read_fhfa_annual(cache / "state.xlsx", {STATE}, state_file=True)
+    county_revision, county_hpi = read_fhfa_annual(cache / "county.xlsx", COUNTY_FIPS)
     if state_revision != county_revision or args.published_on < state_revision:
         raise ValueError("FHFA sources and publication dates disagree")
     trends = {**state_hpi, **county_hpi}

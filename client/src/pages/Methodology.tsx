@@ -247,7 +247,7 @@ export default function Methodology() {
             <p>Current verified detail coverage uses NYC recorded-sale and property-identity sources. Updates are manually triggered, quality-gated, and atomically published.</p>
             {topic === "data-coverage" && <>
               <p>The <a className="underline" href="/florida">Florida property sales directory</a> covers all 67 counties. It reports the sale month and price from the state parcel roll.</p>
-              <p>The <a className="underline" href="/texas">Texas housing directory</a> covers all 254 counties with Census housing estimates, available FHFA price trends, and links to official property records.</p>
+              <p>The <a className="underline" href="/housing-markets">U.S. housing markets directory</a> covers all 50 states and Washington, DC, with Census estimates, FHFA price trends and published asking-price snapshots where supported.</p>
             </>}
             <p><a className="underline" href="https://www.nyc.gov/site/finance/property/property-rolling-sales-update.page" target="_blank" rel="noreferrer">NYC rolling sales</a>{" · "}<a className="underline" href="https://a836-acris.nyc.gov/CP/" target="_blank" rel="noreferrer">ACRIS</a>{" · "}<a className="underline" href="https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page" target="_blank" rel="noreferrer">PLUTO</a></p>
             <p>Scores and estimates are research inputs, not appraisals or investment advice. <a className="underline" href="mailto:hello@realtorsdashboard.com?subject=Methodology%20correction">Report a correction</a>.</p>

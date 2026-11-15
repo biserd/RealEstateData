@@ -235,3 +235,36 @@ Run `npx tsx --test scripts/tests/texas-housing.test.ts` before deploying.
 The Worker bundles the verified snapshot. The profile and sitemap share
 one eligibility check, so counties with insufficient market data stay available
 through the comparison directory and outside `/sitemap-texas.xml`.
+
+## Nationwide housing markets
+
+The nationwide directory covers all 50 states and Washington, DC. The public
+snapshot joins Census American Community Survey 5-year estimates, FHFA
+state and county house price indexes, and monthly MLS aggregate statistics from
+Realtor.com® Economic Research. The directory labels the source period and
+distinguishes owner-reported values, asking prices, and price-index movements.
+NYC and Florida retain their separate recorded-sale pages. The Texas hub and
+county profiles keep their existing canonical URLs.
+
+Generate a manual candidate with Python 3.10 or later and a fresh source cache.
+Check the current Census release, the quarter on the FHFA state summary table,
+and the month of the three matching Realtor.com research files before running.
+
+```bash
+python scripts/build-us-housing.py --cache .cache/us-housing-2026-11-15 --acs-year 2024 --adjacency-year 2026 --inventory-month 2026-10 --fhfa-period 2026Q2 --published-on 2026-11-15
+```
+
+Review state and county counts, the verified period of each source, ACS margins
+of error, and the count of publisher-flagged or thin listing samples. County
+data joins by exact FIPS. ZIP/Census area search uses the Census relationship
+file and keeps borough, county and state identities from source geography.
+Connecticut Census planning regions do not inherit estimates from historical
+county FIPS. Check representative searches, canonicals and sitemap URLs.
+Deploy a new Worker only after the regression and build checks pass.
+
+Three read-only JSON snapshots are bundled with the Worker. It serves the
+profiles, search results and sitemap without querying a database or a source API.
+Search result pages and county pages that lack adequate pricing evidence are
+outside the sitemap. States with enough supported Census places or ZIP areas
+also link to crawlable comparison directories for those figures. Search results
+link to the matching state and supported county profiles.
