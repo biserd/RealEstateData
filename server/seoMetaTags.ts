@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
 import { developerDocs } from '@shared/developerDocs';
 import { homepageMarketCopy } from '@shared/homepageMarketCopy';
+import { aboutCoverageMeta, coverageFaqMeta, coverageQuestions } from '@shared/publicCoverageCopy';
 import { marketingPages, marketingUpdatedOn, type MarketingPage } from './dataMarketingContent';
 import { getCachedNarrative } from './narratives';
 import { isDatabaseBackedPagePath, isPrivatePagePath } from './entityPagePolicy';
@@ -82,30 +83,11 @@ const FAQ_JSONLD: Record<string, any> = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
   mainEntity: [
-    {
+    ...coverageQuestions.map(({ question, answer }) => ({
       '@type': 'Question',
-      name: 'What is Realtors Dashboard?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Realtors Dashboard is a source-backed NYC recorded-sales research platform. It publishes reproducible market snapshots, comparable-sale context, and deterministic opportunity scores with explicit coverage and freshness.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Which areas do you cover?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'NYC coverage includes exact recorded sales and condo identities. The Florida property sales directory covers all 67 counties using sale months and prices from the state parcel roll. The U.S. housing directory covers all 50 states and Washington, DC, with Census estimates, FHFA trends and monthly asking-price statistics where available.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'How accurate is your data?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Published records come from the approved sources identified on each result page. The current productionized source catalog is limited to NYC public-record datasets, with freshness and coverage reported explicitly.',
-      },
-    },
+      name: question,
+      acceptedAnswer: { '@type': 'Answer', text: answer },
+    })),
     {
       '@type': 'Question',
       name: 'What is the Opportunity Score?',
@@ -179,6 +161,8 @@ const DEFAULT_META: PageMeta = {
 export const SEO_CONTENT_LAST_MODIFIED = '2026-08-30';
 const STATIC_PAGE_CONTENT_DATES: Readonly<Record<string, string>> = {
   '/': '2026-11-15',
+  '/about': '2026-11-16',
+  '/faq': '2026-11-16',
   '/developers': marketingUpdatedOn,
   ...Object.fromEntries(marketingPages.map(page => [page.path, marketingUpdatedOn])),
   '/market-intelligence': '2026-11-13',
@@ -333,23 +317,29 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     jsonLd: PRODUCT_PRICING_JSONLD,
   },
   '/about': {
-    title: 'About - Realtors Dashboard',
-    description: 'Learn about Realtors Dashboard, a real estate intelligence platform providing transparent, data-backed insights for buyers, investors, and agents.',
+    ...aboutCoverageMeta,
     ogType: 'website',
     canonicalPath: '/about',
-    h1: 'About Realtors Dashboard',
-    bodyHtml: '<p>Realtors Dashboard is an independent NYC recorded-sales research platform. It turns named public records and manually published analytical snapshots into transparent, reproducible research while labeling estimates and coverage limits.</p>',
+    bodyHtml: `
+      <p>${escapeHtml(homepageMarketCopy.intro)}</p>
+      <h2>What each dataset covers</h2>
+      <ul>${homepageMarketCopy.markets.map(({ href, label, detail }) =>
+        `<li><a href="${href}">${escapeHtml(label)}</a>. ${escapeHtml(detail)}</li>`
+      ).join('')}</ul>
+      <p>See the <a href="/methodology/data-coverage">data coverage and refresh policy</a> for source periods and publication checks.</p>
+    `,
   },
   '/faq': {
-    title: 'FAQ - Realtors Dashboard',
-    description: 'Frequently asked questions about Realtors Dashboard, our data sources, scoring methodology, and subscription plans.',
+    ...coverageFaqMeta,
     ogType: 'website',
     canonicalPath: '/faq',
-    h1: 'Frequently Asked Questions',
     bodyHtml: `
       <p>Common questions about Realtors Dashboard, our data sources, the Opportunity Score, AI features, pricing, and billing. Browse the answers below or <a href="/contact">contact us</a>.</p>
       <h2>Coverage and data</h2>
-      <p>Current verified detail coverage is NYC recorded sales and exact matched condo units. Data comes from named official sources and changes only after a manual refresh passes quality gates and is published. NJ and CT remain pending validation. <a href="/methodology/data-coverage">See the full coverage page</a>.</p>
+      ${coverageQuestions.map(({ question, answer }) =>
+        `<h3>${escapeHtml(question)}</h3><p>${escapeHtml(answer)}</p>`
+      ).join('')}
+      <p>See the <a href="/methodology/data-coverage">data sources and refresh policy</a> for details by dataset.</p>
       <h2>Opportunity Score</h2>
       <p>The Opportunity Score is a 0-100 rating that estimates how underpriced a property is relative to verified comparable sales. <a href="/methodology/opportunity-score">Read how it is computed</a>.</p>
       <h2>Pricing</h2>

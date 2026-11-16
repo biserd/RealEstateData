@@ -12,21 +12,11 @@ import { Link } from "wouter";
 import { HelpCircle, Mail } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { FAQJsonLd } from "@/components/JsonLd";
+import { coverageFaqMeta, coverageQuestions } from "@shared/publicCoverageCopy";
 
 export default function FAQ() {
   const generalFAQs = [
-    {
-      question: "What is Realtors Dashboard?",
-      answer: "Realtors Dashboard is a source-backed NYC recorded-sales research platform. It publishes reproducible market snapshots, comparable-sale context, and deterministic opportunity scores with explicit coverage and freshness."
-    },
-    {
-      question: "Which areas do you cover?",
-      answer: "Verified parcel and unit detail currently focuses on NYC. Non-NYC New York, New Jersey, and Connecticut publish only when their source, identity, freshness, and quality gates pass. Every market response identifies its effective geography and dataset date."
-    },
-    {
-      question: "How accurate is your data?",
-      answer: "Current public detail data comes from named official NYC sources, including PLUTO, Department of Finance rolling sales, ACRIS transactions, and condo-unit identity records. A record is public only after source, geography, price, completeness, and quarantine checks pass."
-    },
+    ...coverageQuestions,
     {
       question: "How often is the data updated?",
       answer: "Updates are manually triggered. New source data is imported into a candidate dataset, audited, and then atomically published. Failed quality gates leave the previous publication active. Each data page shows its effective period and publication freshness."
@@ -76,18 +66,20 @@ export default function FAQ() {
   return (
     <MarketingLayout showBackButton={false}>
       <SEO
-        title="Frequently Asked Questions - Realtors Dashboard"
-        description="Answers to common questions about Realtors Dashboard, our real estate data sources, AI features, pricing, billing, and more."
+        title={coverageFaqMeta.title}
+        description={coverageFaqMeta.description}
         canonicalUrl="https://realtorsdashboard.com/faq"
       />
       <FAQJsonLd items={allFAQs} />
       <div className="mx-auto max-w-4xl px-4 py-12 md:px-6">
         <div className="mb-12">
           <h1 className="text-3xl font-bold tracking-tight mb-4 md:text-4xl">
-            Frequently Asked Questions
+            {coverageFaqMeta.h1}
           </h1>
           <p className="text-lg text-muted-foreground">
-            Find answers to common questions about Realtors Dashboard, our features, and pricing.
+            Find answers about data coverage, features, and pricing. See the{" "}
+            <Link href="/methodology/data-coverage" className="text-primary underline underline-offset-4">data sources and refresh policy</Link>
+            {" "}for details by dataset.
           </p>
         </div>
 

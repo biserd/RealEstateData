@@ -2,6 +2,8 @@ import { Target, BarChart3, Users, Shield, MapPin, TrendingUp, Zap } from "lucid
 import { Card, CardContent } from "@/components/ui/card";
 import { MarketingLayout } from "@/components/layouts";
 import { SEO } from "@/components/SEO";
+import { homepageMarketCopy } from "@shared/homepageMarketCopy";
+import { aboutCoverageMeta } from "@shared/publicCoverageCopy";
 
 export default function About() {
   const values = [
@@ -27,26 +29,20 @@ export default function About() {
     },
   ];
 
-  const coverage = [
-    { state: "New York City", description: "Active official rolling-sales and condominium-identity sources" },
-    { state: "Non-NYC NY & New Jersey", description: "Source adapters remain disabled until access, identity, and rights validation passes" },
-    { state: "Connecticut", description: "Municipality-level coverage remains disabled until cadence and quality are measured" },
-  ];
-
   return (
     <MarketingLayout>
       <SEO
-        title="About Realtors Dashboard - Real Estate Intelligence Platform"
-        description="Learn about Realtors Dashboard's source-backed data, transparent scoring, freshness rules, and published coverage."
+        title={aboutCoverageMeta.title}
+        description={aboutCoverageMeta.description}
         canonicalUrl="https://realtorsdashboard.com/about"
       />
       <section className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
         <div className="max-w-3xl">
           <h1 className="text-3xl font-bold tracking-tight mb-4 md:text-4xl">
-            About Realtors Dashboard
+            {aboutCoverageMeta.h1}
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            We publish source-backed NYC recorded-sales research with clear coverage, freshness, scoring rules, and limitations. Optional AI summaries never replace the underlying record.
+            {homepageMarketCopy.intro}
           </p>
         </div>
       </section>
@@ -97,17 +93,19 @@ export default function About() {
         <div className="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
           <h2 className="text-2xl font-bold tracking-tight mb-8">Coverage Area</h2>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            Verified detail coverage is currently limited to published NYC recorded-sale data. Other regions remain unavailable unless their source, identity, rights, freshness, and quality checks pass.
+            Coverage varies by dataset. The market directory shows local housing statistics, and the sales pages show recorded transactions.
           </p>
           <div className="grid gap-6 md:grid-cols-3">
-            {coverage.map((item) => (
-              <Card key={item.state}>
+            {homepageMarketCopy.markets.map((item) => (
+              <Card key={item.id}>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-2 mb-2">
                     <MapPin className="h-5 w-5 text-primary" />
-                    <h3 className="font-semibold">{item.state}</h3>
+                    <h3 className="font-semibold">
+                      <a href={item.href} className="text-primary underline underline-offset-4">{item.label}</a>
+                    </h3>
                   </div>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
+                  <p className="text-sm text-muted-foreground">{item.detail}</p>
                 </CardContent>
               </Card>
             ))}
@@ -124,19 +122,19 @@ export default function About() {
           <ul className="space-y-3 text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-primary font-bold">•</span>
-              <span><strong>NYC Open Data:</strong> PLUTO property records, rolling sales, ACRIS transactions, and HPD violations</span>
+              <span><strong>U.S. housing markets:</strong> Census estimates, FHFA price indexes, and Realtor.com Economic Research asking-price statistics</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary font-bold">•</span>
-              <span><strong>NYC Department of Finance:</strong> Rolling sales and ACRIS recorded transactions</span>
+              <span><strong>Florida Department of Revenue:</strong> Qualifying residential sales from the state parcel roll</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-primary font-bold">•</span>
-              <span><strong>NYC Department of City Planning:</strong> PLUTO parcel attributes and canonical property context</span>
+              <span><strong>NYC:</strong> Department of Finance rolling sales and ACRIS records, plus Department of City Planning parcel data</span>
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed mt-4">
-            Data changes only after a manually triggered candidate import passes source, geography, price, duplication, freshness, and completeness checks. Failed runs leave the prior publication active.
+            See the <a href="/methodology/data-coverage" className="text-primary underline underline-offset-4">data coverage and refresh policy</a> for source periods and publication checks.
           </p>
         </div>
       </section>
