@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SEO } from "@/components/SEO";
 import { BreadcrumbsJsonLd } from "@/components/JsonLd";
+import { homepageMarketCopy } from "@shared/homepageMarketCopy";
+import { dataCoverage, opportunityScoreDescription } from "@shared/publicCoverageCopy";
 import {
   ArrowRight,
   CheckCircle2,
@@ -38,8 +40,7 @@ const TOPICS: Record<TopicKey, TopicContent> = {
     title: "Opportunity Score Explained",
     metaTitle:
       "Opportunity Score Explained - How We Rate Properties | Realtors Dashboard",
-    metaDescription:
-      "Inside our 0-100 Opportunity Score: the inputs, weights, comp methodology, and confidence bands we use to flag underpriced properties in NY, NJ, and CT.",
+    metaDescription: opportunityScoreDescription,
     intro:
       "The Opportunity Score is a 0-100 rating that estimates how underpriced a property is relative to verified comparable sales and current market context. It is built from public records and verified transactions only - never from listing-derived estimates alone.",
     sections: [
@@ -84,44 +85,7 @@ const TOPICS: Record<TopicKey, TopicContent> = {
     ],
   },
   "data-coverage": {
-    title: "Data Coverage",
-    metaTitle:
-      "Data Coverage - States, Sources, and Refresh Cadence | Realtors Dashboard",
-    metaDescription:
-      "What we cover, where the data comes from, and how often it refreshes. Verified NYC condo sales and units, plus Tri-State market aggregates.",
-    intro:
-      "Realtors Dashboard combines verified public records, official open-data feeds, and reference market data to build a transparent view of every covered property. Here is what is in the platform today and how we keep it current.",
-    sections: [
-      {
-        heading: "Geographic coverage",
-        body: "Verified parcel and unit detail pages currently focus on NYC. Non-NYC New York, New Jersey, and Connecticut are not treated as current coverage until each official adapter passes access, rights, identity, freshness, and quality review.",
-        bullets: [
-          "New York City: 300K+ official condo-unit identities from NYC Open Data; only units with an exact recorded-sale match are published as detail pages.",
-          "Non-NYC New York: NYS SalesWeb is cataloged but disabled until automated access and redistribution review is complete; this includes ZIP 10977.",
-          "New Jersey: MOD-IV/SR1A is cataloged but disabled until file shape, cadence, parcel identity, and redistribution checks pass.",
-          "Connecticut: OPM/municipal data is cataloged but disabled until municipality-level coverage and cadence are measured.",
-          "Live listings: unavailable until a licensed MLS/vendor feed and its display/retention rules are supplied.",
-        ],
-      },
-      {
-        heading: "Source data",
-        body: "We only ingest sources we can attribute. Every detail page links the underlying data so users can verify it themselves.",
-        bullets: [
-          "NYC Open Data: PLUTO, rolling sales, ACRIS recorded transactions, and condo declarations.",
-          "NYS SalesWeb, NJ MOD-IV/SR1A, and Connecticut OPM/municipal resources: planned, fail-closed adapters pending source validation.",
-          "FRED MORTGAGE30US: live 30-year mortgage rate series used by the investment calculator.",
-          "NYC Geoclient API: address normalization and geocoding for NYC parcels.",
-        ],
-      },
-      {
-        heading: "Refresh cadence",
-        body: "Every source carries its own watermark, expected publication lag, raw checksum, ingestion time, and dataset version. A candidate release must pass geography, duplicate, sample-size, volume, and freshness gates before one atomic publication pointer moves. Failed runs leave the prior dataset active.",
-      },
-      {
-        heading: "What we do not include",
-        body: "We do not publish off-market private listings, MLS-only fields under license restriction, or unverified user-submitted data. Listing-derived AVM estimates are kept separate from verified sale prices on every page so the difference is always visible.",
-      },
-    ],
+    ...dataCoverage,
     ctaLabel: "Browse the developer API",
     ctaHref: "/developers",
     related: [
@@ -211,6 +175,7 @@ export default function Methodology() {
         title={content.metaTitle}
         description={content.metaDescription}
         canonicalUrl={canonical}
+        ogType="article"
       />
       <BreadcrumbsJsonLd
         items={[
@@ -238,17 +203,24 @@ export default function Methodology() {
             {content.title}
           </h1>
           <p className="text-lg text-muted-foreground">{content.intro}</p>
-          <p className="mt-4 text-sm text-muted-foreground">By the Realtors Dashboard Data Editorial Team · Last reviewed 2026-08-30 · Methodology text-first-market-v1.1.0</p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            By the Realtors Dashboard Data Editorial Team · Last reviewed {topic === "data-coverage" ? dataCoverage.reviewedOn : "2026-08-30"}
+            {topic !== "data-coverage" && " · Methodology text-first-market-v1.1.0"}
+          </p>
         </div>
 
         <Card className="mt-8">
           <CardHeader><CardTitle>Official sources and corrections</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <p>Current verified detail coverage uses NYC recorded-sale and property-identity sources. Updates are manually triggered, quality-gated, and atomically published.</p>
-            {topic === "data-coverage" && <>
-              <p>The <a className="underline" href="/florida">Florida property sales directory</a> covers all 67 counties. It reports the sale month and price from the state parcel roll.</p>
-              <p>The <a className="underline" href="/housing-markets">U.S. housing markets directory</a> covers all 50 states and Washington, DC, with Census estimates, FHFA price trends and published asking-price snapshots where supported.</p>
-            </>}
+            {topic === "data-coverage" ? (
+              <ul className="space-y-2">
+                {homepageMarketCopy.markets.map(({ href, label }) => (
+                  <li key={href}><a className="underline" href={href}>{label}</a></li>
+                ))}
+              </ul>
+            ) : (
+              <p>Current verified detail coverage uses NYC recorded-sale and property-identity sources. Updates are manually triggered, quality-gated, and atomically published.</p>
+            )}
             <p><a className="underline" href="https://www.nyc.gov/site/finance/property/property-rolling-sales-update.page" target="_blank" rel="noreferrer">NYC rolling sales</a>{" · "}<a className="underline" href="https://a836-acris.nyc.gov/CP/" target="_blank" rel="noreferrer">ACRIS</a>{" · "}<a className="underline" href="https://www.nyc.gov/site/planning/data-maps/open-data/dwn-pluto-mappluto.page" target="_blank" rel="noreferrer">PLUTO</a></p>
             <p>Scores and estimates are research inputs, not appraisals or investment advice. <a className="underline" href="mailto:hello@realtorsdashboard.com?subject=Methodology%20correction">Report a correction</a>.</p>
           </CardContent>

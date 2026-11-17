@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 import { GUIDES, getGuide, type Guide } from '@shared/guides';
 import { developerDocs } from '@shared/developerDocs';
 import { homepageMarketCopy } from '@shared/homepageMarketCopy';
-import { aboutCoverageMeta, coverageFaqMeta, coverageQuestions } from '@shared/publicCoverageCopy';
+import { aboutCoverageMeta, coverageFaqMeta, coverageQuestions, dataCoverage, opportunityScoreDescription } from '@shared/publicCoverageCopy';
 import { marketingPages, marketingUpdatedOn, type MarketingPage } from './dataMarketingContent';
 import { getCachedNarrative } from './narratives';
 import { isDatabaseBackedPagePath, isPrivatePagePath } from './entityPagePolicy';
@@ -166,7 +166,7 @@ const STATIC_PAGE_CONTENT_DATES: Readonly<Record<string, string>> = {
   '/developers': marketingUpdatedOn,
   ...Object.fromEntries(marketingPages.map(page => [page.path, marketingUpdatedOn])),
   '/market-intelligence': '2026-11-13',
-  '/methodology/data-coverage': '2026-11-15',
+  '/methodology/data-coverage': dataCoverage.reviewedOn,
 };
 
 const GUIDES_INDEX_JSONLD: Record<string, any> = {
@@ -418,7 +418,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
   },
   '/methodology/opportunity-score': {
     title: 'Opportunity Score Explained - How We Rate Properties | Realtors Dashboard',
-    description: 'How the deterministic 0-100 Opportunity Score uses recorded sales, comparable-property fit, recency, trends, and confidence.',
+    description: opportunityScoreDescription,
     ogType: 'article',
     canonicalPath: '/methodology/opportunity-score',
     h1: 'Opportunity Score Explained',
@@ -446,37 +446,32 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     },
   },
   '/methodology/data-coverage': {
-    title: 'Data Coverage - States, Sources, and Refresh Cadence | Realtors Dashboard',
-    description: 'Official sources and refresh dates for nationwide housing data, NYC recorded sales, and Florida property sales.',
+    title: dataCoverage.metaTitle,
+    description: dataCoverage.metaDescription,
     ogType: 'article',
     canonicalPath: '/methodology/data-coverage',
-    h1: 'Data Coverage',
+    h1: dataCoverage.title,
     bodyHtml: `
-      <p>Realtors Dashboard publishes a manually validated snapshot of official NYC property identities and recorded-sale data. Public pages are created only when identity, canonical geography, price, source, and completeness gates pass.</p>
-      <h2>Geographic coverage</h2>
-      <ul>
-        <li><strong>New York City:</strong> verified recorded sales and official condo-unit identities; only exact source-backed sale matches are indexable.</li>
-        <li><strong>Florida:</strong> <a href="/florida">past residential property sales in all 67 counties</a> from the Florida Department of Revenue parcel roll. Florida sale dates have month precision.</li>
-        <li><strong>United States:</strong> <a href="/housing-markets">housing market data for all 50 states and Washington, DC</a>, including Census estimates, FHFA price changes and Realtor.com® Economic Research asking prices where supported.</li>
-        <li><strong>New Jersey and Connecticut:</strong> not part of the current verified public detail publication; validation remains pending.</li>
-        <li><strong>Live listings:</strong> unavailable. Pages describe recorded transactions and published analytical snapshots.</li>
-      </ul>
-      <h2>Source data</h2>
-      <ul>
-        <li>NYC Open Data: PLUTO, rolling sales, ACRIS recorded transactions, condo declarations.</li>
-        <li>NYC Department of Finance rolling sales and ACRIS recorded transactions.</li>
-        <li>NYC Department of City Planning PLUTO and official condo-unit identity records.</li>
-        <li>Canonical geography and quarantine tables produced by the publication quality pipeline.</li>
-      </ul>
-      <h2>Refresh policy</h2>
-      <p>Refreshes are manually triggered. Candidate data is audited before publication; failed quality gates leave the prior published snapshot in place. Market pages expose their source period and publication date.</p>
+      <p>${escapeHtml(dataCoverage.intro)}</p>
+      <p>Last reviewed <time datetime="${dataCoverage.reviewedOn}">${dataCoverage.reviewedOn}</time></p>
+      <h2>Explore the datasets</h2>
+      <ul>${homepageMarketCopy.markets.map(({ href, label }) =>
+        `<li><a href="${href}">${escapeHtml(label)}</a></li>`
+      ).join('')}</ul>
+      ${dataCoverage.sections.map(({ heading, body, bullets }) => `
+        <h2>${escapeHtml(heading)}</h2>
+        <p>${escapeHtml(body)}</p>
+        ${bullets ? `<ul>${bullets.map(bullet => `<li>${escapeHtml(bullet)}</li>`).join('')}</ul>` : ''}
+      `).join('')}
+      <p><a href="/developers">Explore API and MCP access</a></p>
       <p>Related: <a href="/methodology/opportunity-score">Opportunity Score Explained</a>, <a href="/methodology/verified-vs-estimates">Verified Sales vs Estimates</a>.</p>
     `,
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'TechArticle',
-      headline: 'Data Coverage',
-      description: 'Geographic coverage, source datasets, and refresh cadence for the Realtors Dashboard real estate platform.',
+      headline: dataCoverage.title,
+      description: dataCoverage.metaDescription,
+      dateModified: dataCoverage.reviewedOn,
       author: { '@type': 'Organization', name: SITE_NAME },
       publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
       url: `${SITE_URL}/methodology/data-coverage`,
